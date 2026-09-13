@@ -104,5 +104,7 @@
     "You cannot remove the administrator role from your own account.": "You cannot remove the administrator role from your own account.",
     "You cannot delete your own account.": "You cannot delete your own account.",
     "User :name was deleted.": "User :name was deleted.",
-    "Are you sure you want to delete user :name?": "Are you sure you want to delete user :name?"
+    "Are you sure you want to delete user :name?": "Are you sure you want to delete user :name?",
+    "Opening hours": "Opening hours",
+    "View all museum hours": "View all branch hours"
 }

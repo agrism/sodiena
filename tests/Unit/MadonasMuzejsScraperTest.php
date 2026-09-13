@@ -65,4 +65,27 @@ class MadonasMuzejsScraperTest extends TestCase
         $this->assertEquals('https://www.madonasmuzejs.lv/lv/aktualitātes/tev-nebūs-samierināt-monstrus', $event->source_url);
         $this->assertEquals('madonasmuzejs.lv', $event->origin_host);
     }
+
+    public function test_resolve_opening_hours_per_branch(): void
+    {
+        $scraper = new MadonasMuzejsScraper();
+
+        $izstazuZales = $scraper->resolveOpeningHours('Madonas muzeja Izstāžu zāles');
+        $this->assertArrayHasKey('Otrdiena', $izstazuZales);
+        $this->assertArrayHasKey('Trešdiena', $izstazuZales);
+        $this->assertEquals('10:00 – 18:00', $izstazuZales['Trešdiena']);
+        $this->assertEquals('Slēgts', $izstazuZales['Pirmdiena']);
+
+        $krajums = $scraper->resolveOpeningHours('Muzeja krājums');
+        $this->assertArrayHasKey('Pirmdiena – Piektdiena', $krajums);
+        $this->assertEquals('08:00 – 17:00', $krajums['Pirmdiena – Piektdiena']);
+
+        $sarkani = $scraper->resolveOpeningHours('Etnogrāfijas krātuve Sarkaņos');
+        $this->assertArrayHasKey('Otrdiena – Piektdiena', $sarkani);
+        $this->assertStringContainsString('26579716', $sarkani['Sestdiena, Svētdiena']);
+
+        $mednis = $scraper->resolveOpeningHours('Haralda Medņa Dziesmusvētku skola');
+        $this->assertArrayHasKey('Trešdiena – Piektdiena', $mednis);
+        $this->assertStringContainsString('28080668', $mednis['Otrdiena, Svētdiena']);
+    }
 }

@@ -104,5 +104,7 @@
     "You cannot remove the administrator role from your own account.": "Вы не можете снять роль администратора со своего аккаунта.",
     "You cannot delete your own account.": "Вы не можете удалить свой аккаунт.",
     "User :name was deleted.": "Пользователь :name удален.",
-    "Are you sure you want to delete user :name?": "Вы уверены, что хотите удалить пользователя :name?"
+    "Are you sure you want to delete user :name?": "Вы уверены, что хотите удалить пользователя :name?",
+    "Opening hours": "Время работы",
+    "View all museum hours": "Посмотреть время работы всех филиалов"
 }

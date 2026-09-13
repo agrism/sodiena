@@ -95,6 +95,16 @@ class MadonasMuzejsScraper extends BaseScraper
                 // Location resolution
                 $venueInfo = $this->resolveLocation($title . ' ' . $fullDescription);
 
+                // Opening hours for branch
+                $openingHours = $this->resolveOpeningHours($venueInfo['name']);
+                if (!str_contains(mb_strtolower($fullDescription), 'darba laiks')) {
+                    $hoursBlock = "\n\nDarba laiks:";
+                    foreach ($openingHours as $day => $time) {
+                        $hoursBlock .= "\n• {$day}: {$time}";
+                    }
+                    $fullDescription .= $hoursBlock;
+                }
+
                 // Categories & entertainment type
                 $categories = $this->resolveCategories($title . ' ' . $fullDescription);
                 $entertainmentType = $this->resolveEntertainmentType($title . ' ' . $fullDescription);
@@ -126,6 +136,8 @@ class MadonasMuzejsScraper extends BaseScraper
                     locale: 'lv',
                     rawData: [
                         'pub_date' => $pubDateStr,
+                        'opening_hours' => $openingHours,
+                        'opening_hours_source' => 'https://www.madonasmuzejs.lv/lv/darba-laiks',
                     ]
                 );
 
@@ -416,5 +428,45 @@ class MadonasMuzejsScraper extends BaseScraper
         }
 
         return 'exhibition';
+    }
+
+    public function resolveOpeningHours(string $venueName): array
+    {
+        $lower = mb_strtolower($venueName);
+
+        if (str_contains($lower, 'dziesmusvētku') || str_contains($lower, 'medņa') || str_contains($lower, 'praulien')) {
+            return [
+                'Trešdiena – Piektdiena' => '10:00 – 17:00',
+                'Sestdiena' => '10:00 – 16:00',
+                'Otrdiena, Svētdiena' => 'Pēc pieteikuma (+371 28080668)',
+                'Pirmdiena' => 'Slēgts',
+            ];
+        }
+
+        if (str_contains($lower, 'sarkaņ') || str_contains($lower, 'sarkani')) {
+            return [
+                'Otrdiena – Piektdiena' => '10:00 – 17:00',
+                'Sestdiena, Svētdiena' => 'Pēc pieteikuma (+371 26579716)',
+                'Pirmdiena' => 'Slēgts',
+            ];
+        }
+
+        if (str_contains($lower, 'krājum') && !str_contains($lower, 'izstāžu')) {
+            return [
+                'Pirmdiena – Piektdiena' => '08:00 – 17:00',
+                'Sestdiena, Svētdiena' => 'Slēgts',
+            ];
+        }
+
+        // Madonas muzeja Izstāžu zāles (Skolas iela 10a) & galvenā ēka
+        return [
+            'Otrdiena' => '10:00 – 17:00',
+            'Trešdiena' => '10:00 – 18:00',
+            'Ceturtdiena' => '10:00 – 17:00',
+            'Piektdiena' => '10:00 – 17:00',
+            'Sestdiena' => '10:00 – 16:00',
+            'Svētdiena' => '10:00 – 16:00',
+            'Pirmdiena' => 'Slēgts',
+        ];
     }
 }

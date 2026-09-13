@@ -104,5 +104,7 @@
     "You cannot remove the administrator role from your own account.": "Jūs nevarat noņemt administratora lomu no sava konta.",
     "You cannot delete your own account.": "Jūs nevarat izdzēst savu kontu.",
     "User :name was deleted.": "Lietotājs :name tika izdzēsts.",
-    "Are you sure you want to delete user :name?": "Vai tiešām vēlaties dzēst lietotāju :name?"
+    "Are you sure you want to delete user :name?": "Vai tiešām vēlaties dzēst lietotāju :name?",
+    "Opening hours": "Darba laiks",
+    "View all museum hours": "Skatīt visu filiāļu darba laikus"
 }

@@ -139,6 +139,44 @@
                     </div>
                 </div>
 
+                <!-- Opening Hours -->
+                @if(!empty($event->raw_data['opening_hours']))
+                    <div class="flex items-start gap-3.5">
+                        <div class="w-10 h-10 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center shrink-0 border border-purple-200">
+                            <i data-lucide="clock" class="w-5 h-5"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-xs text-slate-400 font-bold uppercase tracking-wider">{{ __('Opening hours') }}</p>
+                            <div class="mt-2 space-y-1.5 text-xs text-slate-700 font-medium">
+                                @if(is_array($event->raw_data['opening_hours']))
+                                    @foreach($event->raw_data['opening_hours'] as $day => $time)
+                                        <div class="flex items-center justify-between gap-2 py-0.5 border-b border-slate-100 last:border-0">
+                                            @if(is_string($day) && !is_numeric($day))
+                                                <span class="text-slate-500 font-medium truncate">{{ $day }}</span>
+                                                <span class="font-bold text-slate-900 shrink-0">{{ $time }}</span>
+                                            @else
+                                                <span class="font-bold text-slate-900">{{ $time }}</span>
+                                            @endif
+                                        </div>
+                                    @endforeach
+                                @else
+                                    <p class="font-bold text-slate-900">{{ $event->raw_data['opening_hours'] }}</p>
+                                @endif
+                            </div>
+                            @if(!empty($event->raw_data['opening_hours_source']))
+                                <a 
+                                    href="{{ $event->raw_data['opening_hours_source'] }}" 
+                                    target="_blank" 
+                                    rel="noopener noreferrer" 
+                                    class="inline-flex items-center gap-1 text-[11px] text-emerald-700 hover:text-emerald-800 font-bold mt-2.5">
+                                    <i data-lucide="external-link" class="w-3 h-3"></i>
+                                    {{ __('View all museum hours') }}
+                                </a>
+                            @endif
+                        </div>
+                    </div>
+                @endif
+
                 <!-- Price & Info -->
                 <div class="flex items-start gap-3.5">
                     <div class="w-10 h-10 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center shrink-0 border border-amber-200">
