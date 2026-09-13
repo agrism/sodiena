@@ -86,6 +86,7 @@ class MadonasMuzejsScraperTest extends TestCase
 
         $mednis = $scraper->resolveOpeningHours('Haralda Medņa Dziesmusvētku skola');
         $this->assertArrayHasKey('Trešdiena – Piektdiena', $mednis);
-        $this->assertStringContainsString('28080668', $mednis['Otrdiena, Svētdiena']);
+        $this->assertStringContainsString('28080668', $mednis['Otrdiena']);
+        $this->assertStringContainsString('28080668', $mednis['Svētdiena']);
     }
 }

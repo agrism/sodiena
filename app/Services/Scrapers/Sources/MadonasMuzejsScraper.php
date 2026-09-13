@@ -436,18 +436,19 @@ class MadonasMuzejsScraper extends BaseScraper
 
         if (str_contains($lower, 'dziesmusvētku') || str_contains($lower, 'medņa') || str_contains($lower, 'praulien')) {
             return [
+                'Pirmdiena' => 'Slēgts',
+                'Otrdiena' => 'Pēc pieteikuma (+371 28080668)',
                 'Trešdiena – Piektdiena' => '10:00 – 17:00',
                 'Sestdiena' => '10:00 – 16:00',
-                'Otrdiena, Svētdiena' => 'Pēc pieteikuma (+371 28080668)',
-                'Pirmdiena' => 'Slēgts',
+                'Svētdiena' => 'Pēc pieteikuma (+371 28080668)',
             ];
         }
 
         if (str_contains($lower, 'sarkaņ') || str_contains($lower, 'sarkani')) {
             return [
+                'Pirmdiena' => 'Slēgts',
                 'Otrdiena – Piektdiena' => '10:00 – 17:00',
                 'Sestdiena, Svētdiena' => 'Pēc pieteikuma (+371 26579716)',
-                'Pirmdiena' => 'Slēgts',
             ];
         }
 
@@ -460,13 +461,13 @@ class MadonasMuzejsScraper extends BaseScraper
 
         // Madonas muzeja Izstāžu zāles (Skolas iela 10a) & galvenā ēka
         return [
+            'Pirmdiena' => 'Slēgts',
             'Otrdiena' => '10:00 – 17:00',
             'Trešdiena' => '10:00 – 18:00',
             'Ceturtdiena' => '10:00 – 17:00',
             'Piektdiena' => '10:00 – 17:00',
             'Sestdiena' => '10:00 – 16:00',
             'Svētdiena' => '10:00 – 16:00',
-            'Pirmdiena' => 'Slēgts',
         ];
     }
 }
