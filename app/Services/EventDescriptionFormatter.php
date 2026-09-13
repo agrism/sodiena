@@ -36,7 +36,7 @@ class EventDescriptionFormatter
     /**
      * Format raw event description into structured, clean HTML.
      */
-    public function format(?string $text): string
+    public function format(?string $text, bool $isFree = false): string
     {
         if ($text === null || trim($text) === '') {
             return '';
@@ -51,6 +51,13 @@ class EventDescriptionFormatter
         // 2. Clean tracking parameters from URLs (e.g. utm_source=afiro)
         $text = preg_replace('/(\?|\&)utm_[a-zA-Z0-9_]+=[^&\s\"\'<>]*/u', '', $text);
         $text = preg_replace('/(https?:\/\/[^\s\)\"\'<>]+)[?&]+(?=[\s\)\"\'<>]|$)/u', '$1', $text);
+
+        // 2b. Sanitize "Biļetes:" if event is free or if the link is merely informational (e.g. liveriga.com, riga.lv, latvia.travel)
+        if ($isFree) {
+            $text = preg_replace('/\b(?:Biļetes|Biļešu cenas|Biļešu cena):\s*(?=https?:\/\/)/ui', "Papildu informācija: ", $text);
+        } else {
+            $text = preg_replace('/\b(?:Biļetes|Biļešu cenas|Biļešu cena):\s*(?=https?:\/\/(?:www\.)?(?:liveriga\.com|afiro\.lv|riga\.lv|latvia\.travel))/ui', "Papildu informācija: ", $text);
+        }
 
         // 3. Break before common section headings
         foreach ($this->headings as $heading) {

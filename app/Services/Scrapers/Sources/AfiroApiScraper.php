@@ -110,6 +110,11 @@ class AfiroApiScraper extends BaseScraper
         $imageUrl = $item['imageUrl'] ?? null;
         $externalId = $item['id'] ?? null;
         $description = $this->cleanText($item['description'] ?? '');
+        if ($isFree) {
+            $description = preg_replace('/\b(?:Biļetes|Biļešu cenas|Biļešu cena):\s*(?=https?:\/\/)/ui', "Papildu informācija: ", $description);
+        } else {
+            $description = preg_replace('/\b(?:Biļetes|Biļešu cenas|Biļešu cena):\s*(?=https?:\/\/(?:www\.)?(?:liveriga\.com|afiro\.lv|riga\.lv|latvia\.travel))/ui', "Papildu informācija: ", $description);
+        }
 
         // Extract real ticketing and official event URLs instead of aggregator links
         $extractedUrls = $this->extractRealUrls($description, $item);

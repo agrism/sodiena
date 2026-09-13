@@ -134,7 +134,7 @@ class Event extends Model
 
     public function getFormattedDescriptionHtmlAttribute(): string
     {
-        return app(\App\Services\EventDescriptionFormatter::class)->format($this->description);
+        return app(\App\Services\EventDescriptionFormatter::class)->format($this->description, (bool)$this->is_free);
     }
 
     public function getShortDescriptionAttribute(?string $value): ?string

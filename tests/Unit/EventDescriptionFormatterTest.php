@@ -37,4 +37,13 @@ class EventDescriptionFormatterTest extends TestCase
         $this->assertSame('', $this->formatter->format(null));
         $this->assertSame('', $this->formatter->format('   '));
     }
+
+    public function test_sanitizes_bilesu_label_for_free_events_or_info_links(): void
+    {
+        $raw = 'Izstāde par godu arhitektam. Biļetes: https://www.liveriga.com/lv/apmekle/pasakumi/izstade';
+        $html = $this->formatter->format($raw, true);
+
+        $this->assertStringContainsString('Papildu informācija:', $html);
+        $this->assertStringNotContainsString('Biļetes:', $html);
+    }
 }
