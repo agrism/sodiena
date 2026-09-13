@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\Source;
 use App\Services\Scrapers\Sources\AfiroApiScraper;
 use App\Services\Scrapers\Sources\BilesuParadizeScraper;
+use App\Services\Scrapers\Sources\BilesuServissScraper;
 use App\Services\Scrapers\Sources\DzejasDienasScraper;
 use App\Services\Scrapers\Sources\JurmalasMuzejsScraper;
 use App\Services\Scrapers\Sources\KulturasDatiScraper;
@@ -36,6 +37,13 @@ class SourceSeeder extends Seeder
                 'slug' => 'bilesu-paradize',
                 'url' => 'https://www.bilesuparadize.lv/lv/events',
                 'scraper_class' => BilesuParadizeScraper::class,
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Biļešu Serviss',
+                'slug' => 'bilesu-serviss',
+                'url' => 'https://www.bilesuserviss.lv/biletes/visi',
+                'scraper_class' => BilesuServissScraper::class,
                 'is_active' => true,
             ],
             [
