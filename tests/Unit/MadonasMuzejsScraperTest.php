@@ -27,7 +27,7 @@ class MadonasMuzejsScraperTest extends TestCase
         $source = Source::create([
             'name' => 'Madonas novadpētniecības un mākslas muzejs',
             'slug' => 'madonas-muzejs',
-            'url' => 'http://www.madonasmuzejs.lv/lv/izstāžu-un-pasākumu-kalendārs',
+            'url' => 'https://www.madonasmuzejs.lv/lv/izstāžu-un-pasākumu-kalendārs',
             'scraper_class' => MadonasMuzejsScraper::class,
             'is_active' => true,
         ]);
@@ -48,8 +48,8 @@ class MadonasMuzejsScraperTest extends TestCase
             categoryNames: ['Izstādes & Māksla', 'Kultūra & Tradīcijas'],
             entertainmentType: 'exhibition',
             isFree: true,
-            imageUrl: 'http://www.madonasmuzejs.lv/f/images/original/4cd67756d130b5c8dd09521555de494b.jpg',
-            sourceUrl: 'http://www.madonasmuzejs.lv/lv/aktualitātes/tev-nebūs-samierināt-monstrus',
+            imageUrl: 'https://www.madonasmuzejs.lv/f/images/original/4cd67756d130b5c8dd09521555de494b.jpg',
+            sourceUrl: 'https://www.madonasmuzejs.lv/lv/aktualitātes/tev-nebūs-samierināt-monstrus',
             sourceExternalId: 'mm-tev-nebus-samierinat-monstrus',
             locale: 'lv',
         );
@@ -62,7 +62,7 @@ class MadonasMuzejsScraperTest extends TestCase
         $event = Event::where('source_external_id', 'mm-tev-nebus-samierinat-monstrus')->first();
         $this->assertNotNull($event);
         $this->assertEquals('Tev Nebūs Samierināt Monstrus', $event->title);
-        $this->assertEquals('http://www.madonasmuzejs.lv/lv/aktualitātes/tev-nebūs-samierināt-monstrus', $event->source_url);
+        $this->assertEquals('https://www.madonasmuzejs.lv/lv/aktualitātes/tev-nebūs-samierināt-monstrus', $event->source_url);
         $this->assertEquals('madonasmuzejs.lv', $event->origin_host);
     }
 }

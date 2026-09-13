@@ -69,7 +69,7 @@ class SourceSeeder extends Seeder
             [
                 'name' => 'Madonas novadpētniecības un mākslas muzejs',
                 'slug' => 'madonas-muzejs',
-                'url' => 'http://www.madonasmuzejs.lv/lv/izstāžu-un-pasākumu-kalendārs',
+                'url' => 'https://www.madonasmuzejs.lv/lv/izstāžu-un-pasākumu-kalendārs',
                 'scraper_class' => \App\Services\Scrapers\Sources\MadonasMuzejsScraper::class,
                 'is_active' => true,
             ],

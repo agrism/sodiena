@@ -162,6 +162,10 @@ class MadonasMuzejsScraper extends BaseScraper
                 $image = $crawler->filter('.image-inner img, .content img')->first()->attr('src');
             }
 
+            if ($image) {
+                $image = $this->normalizeUrl($image);
+            }
+
             // Text paragraphs
             $paragraphs = [];
             $textNode = $crawler->filter('.text-block div[data-admin-inline-editable="true"], .content-inner');
@@ -200,11 +204,12 @@ class MadonasMuzejsScraper extends BaseScraper
         }
 
         if (str_starts_with($relUrl, 'http://') || str_starts_with($relUrl, 'https://')) {
-            return rtrim(strtok($relUrl, '?'), '/');
+            $url = preg_replace('/^http:\/\//i', 'https://', $relUrl);
+            return rtrim(strtok($url, '?'), '/');
         }
 
         $path = rtrim(strtok($relUrl, '?'), '/');
-        return 'http://www.madonasmuzejs.lv' . (str_starts_with($path, '/') ? '' : '/') . $path;
+        return 'https://www.madonasmuzejs.lv' . (str_starts_with($path, '/') ? '' : '/') . $path;
     }
 
     private function extractDates(string $text, string $pubDateStr): array
