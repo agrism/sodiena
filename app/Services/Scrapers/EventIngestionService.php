@@ -53,7 +53,7 @@ class EventIngestionService
 
             $source->update([
                 'last_scraped_at' => now(),
-                'last_scrape_status' => empty($errors) ? 'success' : 'partial',
+                'last_status' => empty($errors) ? 'success' : 'partial',
             ]);
         } catch (\Throwable $e) {
             $failedCount++;
@@ -62,7 +62,7 @@ class EventIngestionService
 
             $source->update([
                 'last_scraped_at' => now(),
-                'last_scrape_status' => 'failed',
+                'last_status' => 'failed',
             ]);
         }
 
