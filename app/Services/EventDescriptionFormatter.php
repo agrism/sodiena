@@ -8,15 +8,19 @@ class EventDescriptionFormatter
      * Common Latvian and English event headings.
      */
     protected array $headings = [
+        'Plenēra norises laiks:', 'Plenēra norises vieta:', 'Plenēra mērķi:', 'Plenēra mērķis:',
+        'Plenēra dalībnieku pietiekšanās:', 'Plenēra dalībnieku pieteikšanās:', 'Dalībnieku pieteikšanās:',
+        'Galvenie darbības virzieni:', 'Galvenie virzieni:', 'Darbības virzieni:',
+        'Izstādes atklāšana:', 'Izstāde apskatāma:', 'Izstāde atvērta:', 'Apskatāma:', 'Atklāšana:',
+        'Vakara programmā:', 'Pasākuma programma:', 'PROGRAMMĀ:', 'Programma:', 'PROGRAMMA:', 'Pasākumu plāns:',
         'Vairāk informācijas:', 'Papildu informācija:', 'Papildus informācija:',
         'Plašāka informācija:', 'Sīkāka informācija:', 'Informācija:',
-        'Pasākuma programma:', 'PROGRAMMĀ:', 'Programma:', 'PROGRAMMA:', 'Pasākumu plāns:',
         'Ieejas maksa:', 'Ieeja:', 'Biļešu cenas:', 'Biļetes:', 'Biļešu cena:',
         'Cena:', 'Cenas:', 'Dalības maksa:', 'Bezmaksas ieeja:',
-        'Norises vieta:', 'Vieta:', 'Adrese:',
-        'Piedalās:', 'Dalībnieki:', 'Mākslinieki:', 'Organizē:', 'Rīkotājs:',
+        'Norises vieta:', 'Vieta:', 'Adrese:', 'Norises laiks:', 'Laiks:',
+        'Piedalās:', 'Dalībnieki:', 'Mākslinieki:', 'Organizē:', 'Rīkotājs:', 'Kurators:', 'Kuratore:',
         'Svarīgi:', 'Uzmanību:', 'Ievērībai:', 'Piezīme:',
-        'Darba laiks:', 'Darba laiki:', 'Pieteikšanās:', 'Reģistrācija:', 'Kontakti:',
+        'Darba laiks:', 'Darba laiki:', 'Pieteikšanās:', 'Reģistrācija:', 'Pieteikties līdz:', 'Kontakti:',
         'Kāpēc piedalīties:', 'Atlaides:', 'Par pasākumu:', 'Par izstādi:',
         'Par koncertu:', 'Par izrādi:', 'Par festivālu:', 'Par filmu:',
         'Pasākumu drīkst apmeklēt:', 'Pasākuma valoda:', 'Pasākuma ilgums:',
@@ -61,7 +65,7 @@ class EventDescriptionFormatter
 
         // 3. Break before common section headings
         foreach ($this->headings as $heading) {
-            $pattern = '/(?<=\S)\s+(' . preg_quote($heading, '/') . ')/u';
+            $pattern = '/(?<=\S|\b)\s*(' . preg_quote($heading, '/') . ')/u';
             $text = preg_replace($pattern, "\n\n$1\n", $text);
         }
 
@@ -84,7 +88,8 @@ class EventDescriptionFormatter
 
         foreach ($rawLines as $rawLine) {
             $line = trim($rawLine);
-            if ($line === '') {
+            $line = trim($line, "\xC2\xA0\x20\t\n\r\0\x0B"); // Clean non-breaking spaces
+            if ($line === '' || $line === '•' || $line === '.' || $line === '-') {
                 continue;
             }
             $items[] = $line;
@@ -97,7 +102,7 @@ class EventDescriptionFormatter
             // Check if line is a section heading
             $isHeading = false;
             foreach ($this->headings as $heading) {
-                if (mb_stripos($line, $heading) === 0 && mb_strlen($line) <= mb_strlen($heading) + 4) {
+                if (mb_stripos($line, $heading) === 0 && mb_strlen($line) <= mb_strlen($heading) + 35) {
                     $isHeading = true;
                     break;
                 }
@@ -108,7 +113,7 @@ class EventDescriptionFormatter
                     $html .= "</ul>\n";
                     $inList = false;
                 }
-                $html .= '<h4 class="text-base sm:text-lg font-extrabold text-slate-900 mt-6 mb-3 flex items-center gap-2">'
+                $html .= '<h4 class="text-base sm:text-lg font-bold text-slate-900 mt-7 mb-3 flex items-center gap-2 border-l-4 border-emerald-500 pl-3">'
                     . $this->renderLineHtml($line)
                     . '</h4>' . "\n";
                 continue;

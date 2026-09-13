@@ -171,16 +171,25 @@ class MadonasMuzejsScraper extends BaseScraper
             $textNode = $crawler->filter('.text-block div[data-admin-inline-editable="true"], .content-inner');
             if ($textNode->count()) {
                 $html = $textNode->first()->html();
-                // Convert <br> to newlines
+
+                // Clean social footer and admin artifacts
+                $html = preg_replace('/<div[^>]*class="social"[^>]*>.*?<\/div>/si', '', $html);
+                $html = preg_replace('/Patīk šis raksts.*$/us', '', $html);
+
+                // Convert block tags and list items to proper newlines
                 $html = preg_replace('/<br\s*\/?>/i', "\n", $html);
-                $crawlerText = new Crawler($html);
-                $rawText = $crawlerText->text();
+                $html = preg_replace('/<\/(p|div|h1|h2|h3|h4|h5|h6)>/i', "\n\n", $html);
+                $html = preg_replace('/<li\b[^>]*>/i', "\n• ", $html);
+                $html = preg_replace('/<\/li>/i', "\n", $html);
+                $html = preg_replace('/<\/(ul|ol)>/i', "\n\n", $html);
+                $html = preg_replace('/<(?:strong|b)\b[^>]*>(.*?)<\/(?:strong|b)>/iu', "\n\n$1\n", $html);
 
-                // Clean social footer lines
-                $cleaned = preg_replace('/Patīk šis raksts.*$/us', '', $rawText);
-                $cleaned = preg_replace('/^.*?skatījumi\s+/u', '', $cleaned);
+                $rawText = strip_tags($html);
+                $rawText = html_entity_decode($rawText, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                $rawText = preg_replace('/^.*?skatījumi\s+/u', '', $rawText);
+                $rawText = preg_replace('/\n{3,}/', "\n\n", $rawText);
 
-                $lines = array_filter(array_map('trim', explode("\n", $cleaned)));
+                $lines = array_filter(array_map('trim', explode("\n", $rawText)));
                 $paragraphs = array_values($lines);
             }
 
