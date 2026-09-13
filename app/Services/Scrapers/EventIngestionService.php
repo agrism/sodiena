@@ -268,6 +268,7 @@ class EventIngestionService
                     'source_id' => $existingEvent->source_id ?: $source->id,
                     'source_slug' => $existingEvent->source_slug ?: $source->slug,
                     'source_url' => $dto->sourceUrl ?: $existingEvent->source_url,
+                    'location_id' => $locationId ?: $existingEvent->location_id,
                     'start_at' => $dto->startAt ?: $existingEvent->start_at,
                     'end_at' => $dto->endAt ?: $existingEvent->end_at,
                     'image_url' => $finalImageUrl,

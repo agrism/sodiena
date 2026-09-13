@@ -93,8 +93,8 @@ class AfiroApiScraper extends BaseScraper
             return null;
         }
 
-        $startAt = !empty($item['startAt']) ? Carbon::parse($item['startAt']) : now();
-        $endAt = !empty($item['endAt']) ? Carbon::parse($item['endAt']) : null;
+        $startAt = !empty($item['startAt']) ? Carbon::parse($item['startAt'])->setTimezone('Europe/Riga') : now();
+        $endAt = !empty($item['endAt']) ? Carbon::parse($item['endAt'])->setTimezone('Europe/Riga') : null;
 
         $locationData = $item['location'] ?? [];
         $venueName = $this->cleanText($locationData['line1'] ?? null);
