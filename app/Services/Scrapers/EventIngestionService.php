@@ -169,11 +169,36 @@ class EventIngestionService
             // Fuzzy similarity check for same date and similar title
             if (!$existingEvent) {
                 $sameDayEvents = Event::whereDate('start_at', $dto->startAt->toDateString())->get();
+                $cleanDto = preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower($dto->title));
+                $dtoWords = array_values(array_filter(explode(' ', $cleanDto), fn ($w) => mb_strlen($w) > 2 && !in_array($w, ['un', 'par', 'ar', 'pie', 'uz', 'no', 'vai'])));
+
                 foreach ($sameDayEvents as $candidate) {
-                    similar_text(mb_strtolower($candidate->title), mb_strtolower($dto->title), $percent);
-                    if ($percent >= 82) {
+                    $cleanCand = preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower($candidate->title));
+
+                    // Direct string similarity
+                    similar_text($cleanCand, $cleanDto, $percent);
+                    if ($percent >= 75) {
                         $existingEvent = $candidate;
                         break;
+                    }
+
+                    // Substring check
+                    if ((mb_strlen($cleanDto) > 12 && str_contains($cleanCand, $cleanDto)) || (mb_strlen($cleanCand) > 12 && str_contains($cleanDto, $cleanCand))) {
+                        $existingEvent = $candidate;
+                        break;
+                    }
+
+                    // Word token overlap on same day
+                    if (!empty($dtoWords)) {
+                        $candWords = array_values(array_filter(explode(' ', $cleanCand), fn ($w) => mb_strlen($w) > 2 && !in_array($w, ['un', 'par', 'ar', 'pie', 'uz', 'no', 'vai'])));
+                        $common = array_intersect($dtoWords, $candWords);
+                        if (count($common) >= 2 && !empty($candWords)) {
+                            $overlap = (count($common) / min(count($dtoWords), count($candWords))) * 100;
+                            if ($overlap >= 60) {
+                                $existingEvent = $candidate;
+                                break;
+                            }
+                        }
                     }
                 }
             }

@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\Source;
 use App\Services\Scrapers\Sources\AfiroApiScraper;
 use App\Services\Scrapers\Sources\BilesuParadizeScraper;
+use App\Services\Scrapers\Sources\DzejasDienasScraper;
 use App\Services\Scrapers\Sources\JurmalasMuzejsScraper;
 use App\Services\Scrapers\Sources\KulturasDatiScraper;
 use App\Services\Scrapers\Sources\LatgalesGorsScraper;
@@ -56,6 +57,13 @@ class SourceSeeder extends Seeder
                 'slug' => 'latgales-gors',
                 'url' => 'https://www.latgalesgors.lv/lv/notikumi',
                 'scraper_class' => LatgalesGorsScraper::class,
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Dzejas dienas',
+                'slug' => 'dzejas-dienas',
+                'url' => 'https://www.dzejasdienas.com/programma/',
+                'scraper_class' => DzejasDienasScraper::class,
                 'is_active' => true,
             ],
         ];
