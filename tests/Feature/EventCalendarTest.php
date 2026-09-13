@@ -101,4 +101,24 @@ class EventCalendarTest extends TestCase
         $this->assertEquals(0, $secondLog->items_created);
         $this->assertGreaterThan(0, $secondLog->items_updated);
     }
+
+    public function test_custom_404_error_page(): void
+    {
+        $response = $this->get('/non-existent-page-url-12345');
+
+        $response->assertStatus(404);
+        $response->assertSee('Lapa netika atrasta');
+        $response->assertSee('Atgriezties uz sākumlapu');
+        $response->assertDontSee('Laravel');
+    }
+
+    public function test_security_headers_and_no_framework_signatures(): void
+    {
+        $response = $this->get('/');
+
+        $response->assertStatus(200);
+        $response->assertHeader('X-Content-Type-Options', 'nosniff');
+        $response->assertHeader('X-Frame-Options', 'SAMEORIGIN');
+        $response->assertHeaderMissing('X-Powered-By');
+    }
 }
