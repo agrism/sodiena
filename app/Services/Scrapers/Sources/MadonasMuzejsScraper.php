@@ -112,12 +112,14 @@ class MadonasMuzejsScraper extends BaseScraper
                 // Price detection
                 [$isFree, $priceMin] = $this->detectPrice($fullDescription);
 
+                $leadExcerpt = !empty($detail['excerpt']) ? $detail['excerpt'] : $excerpt;
+
                 $dto = new ScrapedEventDTO(
                     title: $title,
                     startAt: $startAt,
                     endAt: $endAt,
                     description: $fullDescription,
-                    shortDescription: Str::limit(strip_tags($excerpt ?: $fullDescription), 160),
+                    shortDescription: !empty($leadExcerpt) ? Str::limit(strip_tags($leadExcerpt), 320) : Str::limit(strip_tags($fullDescription), 240),
                     venueName: $venueInfo['name'],
                     city: $venueInfo['city'],
                     region: $venueInfo['region'],
@@ -178,42 +180,65 @@ class MadonasMuzejsScraper extends BaseScraper
                 $image = $this->normalizeUrl($image);
             }
 
-            // Text paragraphs
-            $paragraphs = [];
-            $textNode = $crawler->filter('.text-block div[data-admin-inline-editable="true"]');
-            if (!$textNode->count()) {
-                $textNode = $crawler->filter('.content-inner');
+            // Lead excerpt
+            $excerpt = '';
+            if ($crawler->filter('.post .excerpt')->count()) {
+                $excerpt = $this->cleanText($crawler->filter('.post .excerpt')->first()->text());
             }
 
-            if ($textNode->count()) {
-                $html = $textNode->first()->html();
+            // Text paragraphs
+            $paragraphs = [];
+            $textNodes = $crawler->filter('.post .text-block div[data-admin-inline-editable="true"]');
+            if (!$textNodes->count()) {
+                $textNodes = $crawler->filter('.text-block div[data-admin-inline-editable="true"]');
+            }
+            if (!$textNodes->count()) {
+                $textNodes = $crawler->filter('.content-inner');
+            }
 
-                // Clean social footer, navigation and admin artifacts
-                $html = preg_replace('/<div[^>]*class="(?:social|navigation|disqus-comments)"[^>]*>.*?<\/div>/si', '', $html);
-                $html = preg_replace('/Patīk šis raksts.*$/us', '', $html);
+            if ($textNodes->count()) {
+                $textNodes->each(function (Crawler $node) use (&$paragraphs) {
+                    $html = $node->html();
 
-                // Convert block tags and list items to proper newlines
-                $html = preg_replace('/<br\s*\/?>/i', "\n", $html);
-                $html = preg_replace('/<\/(p|div|h1|h2|h3|h4|h5|h6)>/i', "\n\n", $html);
-                $html = preg_replace('/<li\b[^>]*>/i', "\n• ", $html);
-                $html = preg_replace('/<\/li>/i', "\n", $html);
-                $html = preg_replace('/<\/(ul|ol)>/i', "\n\n", $html);
-                $html = preg_replace('/<(?:strong|b)\b[^>]*>(.*?)<\/(?:strong|b)>/iu', "\n\n$1\n", $html);
+                    // Clean social footer, navigation and admin artifacts
+                    $html = preg_replace('/<div[^>]*class="(?:social|navigation|disqus-comments)"[^>]*>.*?<\/div>/si', '', $html);
+                    $html = preg_replace('/Patīk šis raksts.*$/us', '', $html);
 
-                $rawText = strip_tags($html);
-                $rawText = html_entity_decode($rawText, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-                $rawText = preg_replace('/^.*?skatījumi\s+/u', '', $rawText);
-                $rawText = preg_replace('/\n{3,}/', "\n\n", $rawText);
+                    // Convert block tags and list items to proper newlines
+                    $html = preg_replace('/<br\s*\/?>/i', "\n", $html);
+                    $html = preg_replace('/<\/(p|div|h1|h2|h3|h4|h5|h6)>/i', "\n\n", $html);
+                    $html = preg_replace('/<li\b[^>]*>/i', "\n• ", $html);
+                    $html = preg_replace('/<\/li>/i', "\n", $html);
+                    $html = preg_replace('/<\/(ul|ol)>/i', "\n\n", $html);
+                    $html = preg_replace('/<(?:strong|b)\b[^>]*>(.*?)<\/(?:strong|b)>/iu', "\n\n$1\n", $html);
 
-                $lines = array_filter(array_map('trim', explode("\n", $rawText)), function ($line) {
-                    $lower = mb_strtolower($line);
-                    if (preg_match('/^\d+\s*patīk$/u', $lower) || $lower === 'padalīties' || $lower === 'iepriekšējs' || $lower === 'nākamais' || $lower === 'patīk') {
-                        return false;
+                    $rawText = strip_tags($html);
+                    $rawText = html_entity_decode($rawText, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                    $rawText = preg_replace('/^.*?skatījumi\s+/u', '', $rawText);
+                    $rawText = preg_replace('/[^\S\r\n]+/u', ' ', $rawText);
+                    $rawText = preg_replace('/\n{3,}/', "\n\n", $rawText);
+
+                    $lines = array_filter(array_map('trim', explode("\n", $rawText)), function ($line) {
+                        $clean = trim($line, " \t\n\r\0\x0B\xC2\xA0");
+                        $lower = mb_strtolower($clean);
+                        if (preg_match('/^\d+\s*patīk$/u', $lower) || $lower === 'padalīties' || $lower === 'iepriekšējs' || $lower === 'nākamais' || $lower === 'patīk') {
+                            return false;
+                        }
+                        return $clean !== '';
+                    });
+
+                    foreach ($lines as $line) {
+                        $paragraphs[] = trim($line, " \t\n\r\0\x0B\xC2\xA0");
                     }
-                    return $line !== '';
                 });
+            }
 
-                $paragraphs = array_values($lines);
+            if (!empty($excerpt)) {
+                $cleanExcerpt = trim($excerpt, " \t\n\r\0\x0B\xC2\xA0");
+                $firstPara = !empty($paragraphs) ? trim($paragraphs[0], " \t\n\r\0\x0B\xC2\xA0") : '';
+                if ($firstPara === '' || !str_contains($firstPara, mb_substr($cleanExcerpt, 0, min(40, mb_strlen($cleanExcerpt))))) {
+                    array_unshift($paragraphs, $cleanExcerpt);
+                }
             }
 
             $description = implode("\n\n", $paragraphs);
@@ -222,6 +247,7 @@ class MadonasMuzejsScraper extends BaseScraper
                 'title' => $title,
                 'image' => $image,
                 'description' => $description,
+                'excerpt' => $excerpt,
             ];
         } catch (\Throwable $e) {
             Log::debug("MadonasMuzejsScraper detail fetch error for {$url}: " . $e->getMessage());
