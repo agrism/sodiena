@@ -46,6 +46,10 @@
     <div class="bg-white p-3.5 rounded-2xl border border-slate-300 shadow-xs">
         <form method="GET" action="{{ route('admin.events.index') }}" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-8 gap-2 text-xs">
             
+            <!-- Preserve active sorting across filter submissions -->
+            <input type="hidden" name="sort_by" value="{{ $sortBy }}">
+            <input type="hidden" name="sort_dir" value="{{ $sortDir }}">
+
             <!-- Search -->
             <div class="sm:col-span-2 md:col-span-2 lg:col-span-2 xl:col-span-2">
                 <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1 font-mono">Meklēt tekstā / ID / Vietā</label>
