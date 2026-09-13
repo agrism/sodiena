@@ -88,6 +88,13 @@ class SourceSeeder extends Seeder
                 'scraper_class' => \App\Services\Scrapers\Sources\AizkrauklesNovadsScraper::class,
                 'is_active' => true,
             ],
+            [
+                'name' => 'Daugavpils valstspilsēta (Afiša)',
+                'slug' => 'daugavpils-dome',
+                'url' => 'https://www.daugavpils.lv/afisa/',
+                'scraper_class' => \App\Services\Scrapers\Sources\DaugavpilsScraper::class,
+                'is_active' => true,
+            ],
         ];
 
         foreach ($sources as $s) {
