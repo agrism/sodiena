@@ -168,12 +168,16 @@ class MadonasMuzejsScraper extends BaseScraper
 
             // Text paragraphs
             $paragraphs = [];
-            $textNode = $crawler->filter('.text-block div[data-admin-inline-editable="true"], .content-inner');
+            $textNode = $crawler->filter('.text-block div[data-admin-inline-editable="true"]');
+            if (!$textNode->count()) {
+                $textNode = $crawler->filter('.content-inner');
+            }
+
             if ($textNode->count()) {
                 $html = $textNode->first()->html();
 
-                // Clean social footer and admin artifacts
-                $html = preg_replace('/<div[^>]*class="social"[^>]*>.*?<\/div>/si', '', $html);
+                // Clean social footer, navigation and admin artifacts
+                $html = preg_replace('/<div[^>]*class="(?:social|navigation|disqus-comments)"[^>]*>.*?<\/div>/si', '', $html);
                 $html = preg_replace('/Patīk šis raksts.*$/us', '', $html);
 
                 // Convert block tags and list items to proper newlines
@@ -189,7 +193,14 @@ class MadonasMuzejsScraper extends BaseScraper
                 $rawText = preg_replace('/^.*?skatījumi\s+/u', '', $rawText);
                 $rawText = preg_replace('/\n{3,}/', "\n\n", $rawText);
 
-                $lines = array_filter(array_map('trim', explode("\n", $rawText)));
+                $lines = array_filter(array_map('trim', explode("\n", $rawText)), function ($line) {
+                    $lower = mb_strtolower($line);
+                    if (preg_match('/^\d+\s*patīk$/u', $lower) || $lower === 'padalīties' || $lower === 'iepriekšējs' || $lower === 'nākamais' || $lower === 'patīk') {
+                        return false;
+                    }
+                    return $line !== '';
+                });
+
                 $paragraphs = array_values($lines);
             }
 
