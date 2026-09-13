@@ -66,8 +66,8 @@
         </div>
 
         <!-- Category Carousel / Pills -->
-        <div class="mb-8">
-            <div class="flex items-center gap-2 overflow-x-auto pb-3 pt-1 no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0">
+        <div class="mb-8 w-full max-w-full overflow-hidden">
+            <div class="flex items-center gap-2 overflow-x-auto pb-3 pt-1 no-scrollbar w-full">
                 <!-- All category pill -->
                 <button 
                     type="button"
@@ -100,11 +100,11 @@
         </div>
 
         <!-- Filter Control Bar -->
-        <div class="bg-white border border-slate-200/80 rounded-2xl p-4 mb-8 shadow-xs">
-            <div class="flex flex-wrap items-center justify-between gap-4">
+        <div class="bg-white border border-slate-200/80 rounded-2xl p-3 sm:p-4 mb-8 shadow-xs w-full max-w-full overflow-hidden">
+            <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 w-full">
                 
                 <!-- Quick Date Filters & Exact Date Picker -->
-                <div class="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                <div class="flex flex-wrap items-center gap-1.5 sm:gap-2 w-full lg:w-auto">
                     <span class="text-xs font-bold text-slate-500 uppercase tracking-wider mr-1 hidden sm:inline">{{ __('When') }}</span>
                     @php
                         $periods = [
@@ -122,7 +122,7 @@
                             type="button"
                             data-filter-period="{{ $key }}"
                             onclick="applyFilter('period', '{{ $key }}')"
-                            class="period-btn px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer {{ (!request('date') && (request('period', 'all') === $key)) ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-transparent' }}">
+                            class="period-btn px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer {{ (!request('date') && (request('period', 'all') === $key)) ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-transparent' }}">
                             {{ $label }}
                         </button>
                     @endforeach
@@ -132,7 +132,7 @@
                         <button 
                             type="button" 
                             id="date-picker-btn"
-                            class="relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer {{ request('date') ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-xs' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200/90 bg-slate-50/50' }}">
+                            class="relative flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer {{ request('date') ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-xs' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200/90 bg-slate-50/50' }}">
                             <i data-lucide="calendar" class="w-3.5 h-3.5 {{ request('date') ? 'text-emerald-700' : 'text-slate-400' }}"></i>
                             <span id="date-picker-label">{{ request('date') ? \Carbon\Carbon::parse(request('date'))->format('d.m.Y') : __('Date') }}</span>
                             <input 
@@ -155,12 +155,12 @@
                 </div>
 
                 <!-- Secondary Filters: City & Price -->
-                <div class="flex flex-wrap items-center gap-3 ml-auto">
+                <div class="flex flex-wrap items-center gap-2 sm:gap-3 w-full lg:w-auto lg:ml-auto">
                     <!-- City Selector -->
-                    <div class="relative">
+                    <div class="relative flex-1 sm:flex-initial">
                         <select 
                             onchange="applyFilter('city', this.value)"
-                            class="appearance-none bg-slate-50 text-slate-700 text-xs font-bold py-2 pl-3 pr-8 rounded-xl border border-slate-200 hover:border-slate-300 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer">
+                            class="w-full appearance-none bg-slate-50 text-slate-700 text-xs font-bold py-2 pl-3 pr-8 rounded-xl border border-slate-200 hover:border-slate-300 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer">
                             <option value="all" {{ (!request('city') || request('city') === 'all') ? 'selected' : '' }}>{{ __('All cities') }}</option>
                             @foreach($cities as $c)
                                 <option value="{{ $c }}" {{ request('city') === $c ? 'selected' : '' }}>📍 {{ $c }}</option>
@@ -170,10 +170,10 @@
                     </div>
 
                     <!-- Price Filter -->
-                    <div class="relative">
+                    <div class="relative flex-1 sm:flex-initial">
                         <select 
                             onchange="applyFilter('price', this.value)"
-                            class="appearance-none bg-slate-50 text-slate-700 text-xs font-bold py-2 pl-3 pr-8 rounded-xl border border-slate-200 hover:border-slate-300 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer">
+                            class="w-full appearance-none bg-slate-50 text-slate-700 text-xs font-bold py-2 pl-3 pr-8 rounded-xl border border-slate-200 hover:border-slate-300 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer">
                             <option value="all" {{ (!request('price') || request('price') === 'all') ? 'selected' : '' }}>{{ __('All prices') }}</option>
                             <option value="free" {{ request('price') === 'free' ? 'selected' : '' }}>{{ __('Only Free') }}</option>
                             <option value="paid" {{ request('price') === 'paid' ? 'selected' : '' }}>{{ __('Only Paid') }}</option>

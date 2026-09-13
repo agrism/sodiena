@@ -14,6 +14,22 @@
     --color-brand-700: #047857;
 }
 
+html, body {
+    max-width: 100vw;
+    width: 100%;
+    overflow-x: hidden;
+    position: relative;
+}
+
+/* Hide scrollbar helper */
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
 /* HTMX Indicator styles */
 .htmx-indicator {
     opacity: 0;
