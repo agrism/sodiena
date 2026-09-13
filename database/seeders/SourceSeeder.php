@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\Source;
 use App\Services\Scrapers\Sources\AfiroApiScraper;
 use App\Services\Scrapers\Sources\BilesuParadizeScraper;
+use App\Services\Scrapers\Sources\JurmalasMuzejsScraper;
 use App\Services\Scrapers\Sources\KulturasDatiScraper;
 use App\Services\Scrapers\Sources\LiveRigaScraper;
 use Illuminate\Database\Seeder;
@@ -40,6 +41,13 @@ class SourceSeeder extends Seeder
                 'slug' => 'live-riga',
                 'url' => 'https://www.liveriga.com/lv/apmekle/pasakumi',
                 'scraper_class' => LiveRigaScraper::class,
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Jūrmalas muzejs',
+                'slug' => 'jurmalas-muzejs',
+                'url' => 'https://www.jurmalasmuzejs.lv/lv/notikumu-kalendars',
+                'scraper_class' => JurmalasMuzejsScraper::class,
                 'is_active' => true,
             ],
         ];

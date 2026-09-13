@@ -183,6 +183,7 @@ class EventIngestionService
                 $updateData = [
                     'source_id' => $existingEvent->source_id ?: $source->id,
                     'source_slug' => $existingEvent->source_slug ?: $source->slug,
+                    'source_url' => $dto->sourceUrl ?: $existingEvent->source_url,
                     'end_at' => $dto->endAt ?: $existingEvent->end_at,
                     'image_url' => $dto->imageUrl ?: $existingEvent->image_url,
                     'ticket_url' => $dto->ticketUrl ?: $existingEvent->ticket_url,
