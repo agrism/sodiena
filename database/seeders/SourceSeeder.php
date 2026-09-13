@@ -66,6 +66,13 @@ class SourceSeeder extends Seeder
                 'scraper_class' => DzejasDienasScraper::class,
                 'is_active' => true,
             ],
+            [
+                'name' => 'Madonas novadpētniecības un mākslas muzejs',
+                'slug' => 'madonas-muzejs',
+                'url' => 'http://www.madonasmuzejs.lv/lv/izstāžu-un-pasākumu-kalendārs',
+                'scraper_class' => \App\Services\Scrapers\Sources\MadonasMuzejsScraper::class,
+                'is_active' => true,
+            ],
         ];
 
         foreach ($sources as $s) {
