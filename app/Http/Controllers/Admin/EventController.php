@@ -23,6 +23,7 @@ class EventController extends Controller
         $originHost = trim((string) $request->input('origin_host', 'all'));
         $categorySlug = $request->input('category', 'all');
         $city = $request->input('city', 'all');
+        $locationId = $request->input('location_id', 'all');
         $timeframe = $request->input('timeframe', 'upcoming');
         $sortBy = $request->input('sort_by', 'start_at');
         $sortDir = strtolower($request->input('sort_dir', 'asc')) === 'desc' ? 'desc' : 'asc';
@@ -79,6 +80,13 @@ class EventController extends Controller
             });
         }
 
+        // Filter by Location / Vieta
+        if ($locationId === 'missing' || $locationId === 'none') {
+            $query->whereNull('location_id');
+        } elseif (!empty($locationId) && $locationId !== 'all') {
+            $query->where('location_id', $locationId);
+        }
+
         // Filter by Timeframe
         $now = now();
         match ($timeframe) {
@@ -125,6 +133,17 @@ class EventController extends Controller
             ->orderBy('city')
             ->pluck('city');
 
+        // Extract list of distinct locations with event counts
+        $locations = \Illuminate\Support\Facades\Cache::remember('admin_locations_list_' . ($city !== 'all' ? md5($city) : 'all'), 60, function () use ($city) {
+            $locQuery = Location::has('events')->withCount('events');
+            if (!empty($city) && $city !== 'all') {
+                $locQuery->where('city', $city);
+            }
+            return $locQuery->orderBy('name')->get(['id', 'name', 'city']);
+        });
+
+        $missingLocationCount = Event::whereNull('location_id')->count();
+
         // Extract list of distinct origin websites with counts
         $originHosts = \Illuminate\Support\Facades\Cache::remember('admin_origin_hosts_list', 120, function () {
             return Event::whereNotNull('source_url')
@@ -160,6 +179,9 @@ class EventController extends Controller
             'missingOriginCount',
             'categories',
             'cities',
+            'locations',
+            'locationId',
+            'missingLocationCount',
             'stats',
             'search',
             'sourceSlug',

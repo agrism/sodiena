@@ -44,10 +44,10 @@
 
     <!-- Filter Toolbar -->
     <div class="bg-white p-3.5 rounded-2xl border border-slate-300 shadow-xs">
-        <form method="GET" action="{{ route('admin.events.index') }}" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2 text-xs">
+        <form method="GET" action="{{ route('admin.events.index') }}" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-8 gap-2 text-xs">
             
             <!-- Search -->
-            <div class="lg:col-span-2">
+            <div class="sm:col-span-2 md:col-span-2 lg:col-span-2 xl:col-span-2">
                 <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1 font-mono">Meklēt tekstā / ID / Vietā</label>
                 <input 
                     type="text" 
@@ -112,37 +112,57 @@
                 </select>
             </div>
 
-            <!-- Timeframe Filter -->
+            <!-- Location / Venue Filter (Vieta) -->
             <div>
-                <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1 font-mono">Laika posms</label>
-                <select name="timeframe" class="w-full px-2 py-1.5 bg-slate-50 border border-slate-300 rounded text-xs focus:outline-none">
-                    <option value="upcoming" {{ $timeframe === 'upcoming' ? 'selected' : '' }}>Aktuālie (Nākotnes)</option>
-                    <option value="today" {{ $timeframe === 'today' ? 'selected' : '' }}>Šodien</option>
-                    <option value="this_week" {{ $timeframe === 'this_week' ? 'selected' : '' }}>Šonedēļ</option>
-                    <option value="this_month" {{ $timeframe === 'this_month' ? 'selected' : '' }}>Šomēnes</option>
-                    <option value="past" {{ $timeframe === 'past' ? 'selected' : '' }}>Pagājušie</option>
-                    <option value="all" {{ $timeframe === 'all' ? 'selected' : '' }}>Visi ieraksti</option>
+                <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1 font-mono">Vieta</label>
+                <select name="location_id" class="w-full px-2 py-1.5 bg-slate-50 border border-slate-300 rounded text-xs focus:outline-none">
+                    <option value="all">🏛️ Visas vietas</option>
+                    @if($missingLocationCount > 0)
+                        <option value="missing" {{ $locationId === 'missing' ? 'selected' : '' }} class="font-bold text-amber-700">
+                            ⚠️ Nav vietas / tukšs ({{ number_format($missingLocationCount, 0, '.', ' ') }})
+                        </option>
+                    @endif
+                    @foreach($locations as $loc)
+                        <option value="{{ $loc->id }}" {{ (string)$locationId === (string)$loc->id ? 'selected' : '' }}>
+                            {{ $loc->name }}{{ $loc->city ? ' ('.$loc->city.')' : '' }} ({{ $loc->events_count }})
+                        </option>
+                    @endforeach
                 </select>
             </div>
 
-            <!-- Actions / Per Page -->
-            <div class="flex items-end gap-1.5">
-                <select name="per_page" class="w-20 px-2 py-1.5 bg-slate-50 border border-slate-300 rounded text-xs focus:outline-none font-mono">
-                    <option value="25" {{ $perPage === 25 ? 'selected' : '' }}>25 / lpp</option>
-                    <option value="50" {{ $perPage === 50 ? 'selected' : '' }}>50 / lpp</option>
-                    <option value="100" {{ $perPage === 100 ? 'selected' : '' }}>100 / lpp</option>
-                    <option value="200" {{ $perPage === 200 ? 'selected' : '' }}>200 / lpp</option>
-                </select>
+            <!-- Timeframe & Actions -->
+            <div class="sm:col-span-2 md:col-span-2 lg:col-span-2 xl:col-span-1 flex flex-col justify-between">
+                <div>
+                    <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1 font-mono">Laiks / Ieraksti</label>
+                    <div class="grid grid-cols-2 gap-1">
+                        <select name="timeframe" class="w-full px-1.5 py-1.5 bg-slate-50 border border-slate-300 rounded text-[11px] focus:outline-none">
+                            <option value="upcoming" {{ $timeframe === 'upcoming' ? 'selected' : '' }}>Aktuālie</option>
+                            <option value="today" {{ $timeframe === 'today' ? 'selected' : '' }}>Šodien</option>
+                            <option value="this_week" {{ $timeframe === 'this_week' ? 'selected' : '' }}>Šonedēļ</option>
+                            <option value="this_month" {{ $timeframe === 'this_month' ? 'selected' : '' }}>Šomēnes</option>
+                            <option value="past" {{ $timeframe === 'past' ? 'selected' : '' }}>Pagājušie</option>
+                            <option value="all" {{ $timeframe === 'all' ? 'selected' : '' }}>Visi</option>
+                        </select>
+                        <select name="per_page" class="w-full px-1 py-1.5 bg-slate-50 border border-slate-300 rounded text-[11px] focus:outline-none font-mono">
+                            <option value="25" {{ $perPage === 25 ? 'selected' : '' }}>25/lp</option>
+                            <option value="50" {{ $perPage === 50 ? 'selected' : '' }}>50/lp</option>
+                            <option value="100" {{ $perPage === 100 ? 'selected' : '' }}>100/lp</option>
+                            <option value="200" {{ $perPage === 200 ? 'selected' : '' }}>200/lp</option>
+                        </select>
+                    </div>
+                </div>
 
-                <button type="submit" class="flex-grow px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded text-xs transition-colors">
-                    Filtrēt
-                </button>
+                <div class="flex items-center gap-1 mt-1.5">
+                    <button type="submit" class="flex-grow px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded text-xs transition-colors">
+                        Filtrēt
+                    </button>
 
-                @if($search || $sourceSlug !== 'all' || $originHost !== 'all' || $categorySlug !== 'all' || $city !== 'all' || $timeframe !== 'upcoming')
-                    <a href="{{ route('admin.events.index') }}" class="px-2 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded text-xs transition-colors" title="Notīrīt filtrus">
-                        &times;
-                    </a>
-                @endif
+                    @if($search || $sourceSlug !== 'all' || $originHost !== 'all' || $categorySlug !== 'all' || $city !== 'all' || $locationId !== 'all' || $timeframe !== 'upcoming')
+                        <a href="{{ route('admin.events.index') }}" class="px-2 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded text-xs transition-colors" title="Notīrīt filtrus">
+                            &times;
+                        </a>
+                    @endif
+                </div>
             </div>
 
         </form>
@@ -224,12 +244,22 @@
 
                             <!-- Location & City -->
                             <td class="py-2 px-3 border-r border-slate-200 font-sans">
-                                <span class="font-semibold text-slate-800 block truncate max-w-xs">
-                                    {{ $event->location?->name ?: '-' }}
-                                </span>
-                                <span class="text-[10px] text-slate-500 font-mono">
-                                    📍 {{ $event->location?->city ?: 'Latvija' }}
-                                </span>
+                                @if($event->location)
+                                    <a 
+                                        href="{{ request()->fullUrlWithQuery(['location_id' => $event->location->id]) }}" 
+                                        class="font-semibold text-slate-800 hover:text-emerald-700 hover:underline block truncate max-w-xs" 
+                                        title="Filtrēt pēc vietas: {{ $event->location->name }}">
+                                        {{ $event->location->name }}
+                                    </a>
+                                    <a 
+                                        href="{{ request()->fullUrlWithQuery(['city' => $event->location->city, 'location_id' => 'all']) }}" 
+                                        class="text-[10px] text-slate-500 hover:text-emerald-700 hover:underline font-mono block mt-0.5" 
+                                        title="Filtrēt pēc pilsētas: {{ $event->location->city }}">
+                                        📍 {{ $event->location->city ?: 'Latvija' }}
+                                    </a>
+                                @else
+                                    <span class="text-slate-400 font-sans">-</span>
+                                @endif
                             </td>
 
                             <!-- Categories -->

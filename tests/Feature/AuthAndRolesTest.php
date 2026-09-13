@@ -223,10 +223,20 @@ class AuthAndRolesTest extends TestCase
             'ticket_url' => null,
         ]);
 
-        $missingResponse = $this->actingAs($admin)->get('/admin/events?origin_host=missing');
-        $missingResponse->assertStatus(200);
-        $missingResponse->assertSee('Missing Origin Event 999');
-        $missingResponse->assertDontSee('Grid Test Event 101');
+        // Admin can filter by location_id
+        $loc = \App\Models\Location::create([
+            'name' => 'Lielā Ģilde',
+            'city' => 'Rīga',
+            'region' => 'Rīga un Pierīga',
+        ]);
+        $testEvent->update(['location_id' => $loc->id]);
+
+        $locResponse = $this->actingAs($admin)->get("/admin/events?location_id={$loc->id}");
+        $locResponse->assertStatus(200);
+        $locResponse->assertSee('Grid Test Event 101');
+        $locResponse->assertSee('Lielā Ģilde');
+        $locResponse->assertSee('Vieta');
+        $locResponse->assertDontSee('Missing Origin Event 999');
     }
 
     public function test_admin_pages_render_left_and_right_sidebars(): void
