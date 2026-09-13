@@ -78,5 +78,6 @@ class DzejasDienasScraperTest extends TestCase
         $this->assertEquals('https://www.dzejasdienas.com/programma/vards-skana-krasa-bulduros/', $fresh->source_url);
         $this->assertEquals('dzejasdienas.com', $fresh->origin_host);
         $this->assertEquals('https://www.dzejasdienas.com/programma/vards-skana-krasa-bulduros/', $fresh->origin_url);
+        $this->assertStringContainsString('default-event.jpg', $fresh->display_image_url);
     }
 }

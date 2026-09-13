@@ -58,34 +58,49 @@ class DzejasDienasScraper extends BaseScraper
                         $slugPart = $cleanUrl ? basename(parse_url($cleanUrl, PHP_URL_PATH)) : Str::slug($title);
                         $externalId = 'dzed-' . $slugPart;
 
-                        // Time & Date parsing
+                        // Time & Date parsing from summary
                         $timeStr = $itemNode->filter('.event-summary__time')->count() ? $this->cleanText($itemNode->filter('.event-summary__time')->text()) : '';
                         $startAt = $this->parseDzejasDienasDate($currentDateHeading, $timeStr);
 
-                        // Short text
+                        // Short text from summary
                         $shortContent = $itemNode->filter('.event-summary__text')->count() ? $this->cleanText($itemNode->filter('.event-summary__text')->text()) : '';
 
-                        // Location resolution
-                        $venueInfo = $this->resolveLocation($title, $shortContent);
+                        // Open individual event page to fetch full details, authors, and real banner image
+                        $detail = $this->fetchEventDetail($cleanUrl);
+
+                        $finalTitle = !empty($detail['title']) ? $detail['title'] : $title;
+                        $finalDescription = !empty($detail['description']) ? $detail['description'] : $shortContent;
+                        $finalImage = $detail['image'] ?? null;
+
+                        if (!empty($detail['timeStr']) && empty($timeStr)) {
+                            $startAt = $this->parseDzejasDienasDate($currentDateHeading, $detail['timeStr']);
+                        }
+
+                        // Location resolution using title, short content, and detail content
+                        $venueInfo = $this->resolveLocation($finalTitle, $finalDescription . ' ' . $shortContent);
 
                         // Category & entertainment type
                         $categories = ['Kultūra & Tradīcijas', 'Izstādes & Māksla'];
                         $entertainmentType = 'culture';
 
-                        if (str_contains(mb_strtolower($title . ' ' . $shortContent), 'bērn') || str_contains(mb_strtolower($title), 'ģimen')) {
+                        $fullContext = mb_strtolower($finalTitle . ' ' . $finalDescription);
+                        if (str_contains($fullContext, 'bērn') || str_contains($fullContext, 'ģimen')) {
                             $categories = ['Ģimenēm & Bērniem', 'Kultūra & Tradīcijas'];
                             $entertainmentType = 'family';
-                        } elseif (str_contains(mb_strtolower($title . ' ' . $shortContent), 'koncert') || str_contains(mb_strtolower($title), 'dzied')) {
+                        } elseif (str_contains($fullContext, 'koncert') || str_contains($fullContext, 'dzied') || str_contains($fullContext, 'mūzik')) {
                             $categories = ['Mūzika & Koncerti', 'Kultūra & Tradīcijas'];
                             $entertainmentType = 'concert';
+                        } elseif (str_contains($fullContext, 'meistardarbnīc') || str_contains($fullContext, 'meistarklas') || str_contains($fullContext, 'lekcij')) {
+                            $categories = ['Bizness & Izglītība', 'Kultūra & Tradīcijas'];
+                            $entertainmentType = 'workshop';
                         }
 
                         $dto = new ScrapedEventDTO(
-                            title: $title,
+                            title: $finalTitle,
                             startAt: $startAt,
                             endAt: null,
-                            description: $shortContent,
-                            shortDescription: Str::limit(strip_tags($shortContent), 160),
+                            description: $finalDescription,
+                            shortDescription: Str::limit(strip_tags($shortContent ?: $finalDescription), 160),
                             venueName: $venueInfo['name'],
                             city: $venueInfo['city'],
                             region: $venueInfo['region'],
@@ -96,13 +111,14 @@ class DzejasDienasScraper extends BaseScraper
                             categoryNames: $categories,
                             entertainmentType: $entertainmentType,
                             isFree: true,
-                            imageUrl: 'https://www.dzejasdienas.com/wp-content/uploads/2019/09/aplis-default-og-img.jpg',
+                            imageUrl: $finalImage,
                             sourceUrl: $cleanUrl ?: $targetUrl,
                             sourceExternalId: $externalId,
                             locale: 'lv',
                             rawData: [
                                 'date_heading' => $currentDateHeading,
-                                'time_raw' => $timeStr,
+                                'time_raw' => $timeStr ?: ($detail['timeStr'] ?? ''),
+                                'authors' => $detail['authors'] ?? [],
                             ]
                         );
 
@@ -117,6 +133,84 @@ class DzejasDienasScraper extends BaseScraper
         }
 
         return $events;
+    }
+
+    private function fetchEventDetail(?string $url): array
+    {
+        if (empty($url) || !str_contains($url, 'dzejasdienas.com/programma/')) {
+            return [];
+        }
+
+        try {
+            $crawler = $this->fetchCrawler($url);
+            if (!$crawler) {
+                return [];
+            }
+
+            // Title
+            $title = '';
+            if ($crawler->filter('.single-item-page__title')->count()) {
+                $title = $this->cleanText($crawler->filter('.single-item-page__title')->text());
+            }
+
+            // Subtitle & Time
+            $timeStr = '';
+            if ($crawler->filter('.single-item-page__subtitle')->count()) {
+                $subText = $this->cleanText($crawler->filter('.single-item-page__subtitle')->text());
+                if (preg_match('/(\d{1,2}[\.:]\d{2})/', $subText, $tm)) {
+                    $timeStr = $tm[1];
+                }
+            }
+
+            // Generic content paragraphs
+            $descParts = [];
+            if ($crawler->filter('.generic-content')->count()) {
+                $crawler->filter('.generic-content > p, .generic-content')->each(function (Crawler $p) use (&$descParts) {
+                    $pText = $this->cleanText($p->text(''));
+                    if (!empty($pText)) {
+                        $descParts[] = $pText;
+                    }
+                });
+            }
+
+            // Participating authors
+            $authors = [];
+            if ($crawler->filter('.author-card__title')->count()) {
+                $crawler->filter('.author-card__title')->each(function (Crawler $aNode) use (&$authors) {
+                    $aName = $this->cleanText($aNode->text(''));
+                    if (!empty($aName)) {
+                        $authors[] = $aName;
+                    }
+                });
+            }
+
+            if (!empty($authors)) {
+                $descParts[] = "Piedalās autori: " . implode(', ', array_unique($authors));
+            }
+
+            $description = implode("\n\n", array_unique($descParts));
+
+            // Image extraction: look for real event banner or content image
+            $image = null;
+            $imgNodes = $crawler->filter('.page-banner img, .page-banner__image, .single-item-page .generic-content img');
+            if ($imgNodes->count()) {
+                $candidateSrc = $imgNodes->first()->attr('src');
+                if ($candidateSrc && !str_contains($candidateSrc, 'aplis-default-og-img.jpg') && !str_contains($candidateSrc, 'emoji') && !str_contains($candidateSrc, 'gravatar')) {
+                    $image = $candidateSrc;
+                }
+            }
+
+            return [
+                'title' => $title,
+                'timeStr' => $timeStr,
+                'description' => $description,
+                'authors' => $authors,
+                'image' => $image,
+            ];
+        } catch (\Throwable $e) {
+            Log::debug("DzejasDienasScraper detail fetch error for {$url}: " . $e->getMessage());
+            return [];
+        }
     }
 
     private function normalizeUrl(?string $relUrl): ?string

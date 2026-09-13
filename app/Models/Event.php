@@ -145,7 +145,7 @@ class Event extends Model
 
     public function getDisplayImageUrlAttribute(): string
     {
-        if (!empty($this->image_url)) {
+        if (!empty($this->image_url) && !str_contains($this->image_url, 'aplis-default-og-img.jpg')) {
             return $this->image_url;
         }
 

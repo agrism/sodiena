@@ -204,13 +204,22 @@ class EventIngestionService
             }
 
             if ($existingEvent) {
+                // Image handling: if new scraper provides an image, use it.
+                // If existing event has a known generic placeholder image (like aplis-default-og-img.jpg) and dto doesn't have an image, clear it to null.
+                $finalImageUrl = $dto->imageUrl;
+                if (!$finalImageUrl && $existingEvent->image_url && str_contains($existingEvent->image_url, 'aplis-default-og-img.jpg')) {
+                    $finalImageUrl = null;
+                } elseif (!$finalImageUrl) {
+                    $finalImageUrl = $existingEvent->image_url;
+                }
+
                 // Update existing event details
                 $updateData = [
                     'source_id' => $existingEvent->source_id ?: $source->id,
                     'source_slug' => $existingEvent->source_slug ?: $source->slug,
                     'source_url' => $dto->sourceUrl ?: $existingEvent->source_url,
                     'end_at' => $dto->endAt ?: $existingEvent->end_at,
-                    'image_url' => $dto->imageUrl ?: $existingEvent->image_url,
+                    'image_url' => $finalImageUrl,
                     'ticket_url' => $dto->ticketUrl ?: $existingEvent->ticket_url,
                     'is_free' => $dto->isFree,
                     'price_min' => $dto->priceMin !== null ? $dto->priceMin : $existingEvent->price_min,
