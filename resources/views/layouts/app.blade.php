@@ -85,10 +85,10 @@
                     <!-- Auth Section -->
                     <div class="flex items-center gap-2 border-l border-slate-200 pl-2 sm:pl-3">
                         @guest
-                            <a href="{{ route('login') }}" class="px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-all">
+                            <a href="{{ route('login') }}" class="px-2.5 py-1.5 sm:px-3 rounded-xl text-xs sm:text-sm font-bold text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-all">
                                 {{ __('Sign In') }}
                             </a>
-                            <a href="{{ route('register') }}" class="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-extrabold transition-all shadow-xs">
+                            <a href="{{ route('register') }}" class="inline-flex items-center gap-1 px-2.5 py-1.5 sm:px-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-extrabold transition-all shadow-xs">
                                 <i data-lucide="user-plus" class="w-3.5 h-3.5"></i>
                                 {{ __('Register') }}
                             </a>
