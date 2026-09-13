@@ -246,7 +246,7 @@ class EventIngestionService
                         'title' => $dto->title,
                         'slug' => Str::slug($dto->title) . '-' . substr(md5($existingEvent->id . $locale), 0, 6),
                         'description' => $dto->description,
-                        'short_description' => $dto->shortDescription ?: Str::limit(strip_tags($dto->description ?? ''), 160),
+                        'short_description' => $dto->shortDescription ?: (mb_strlen($dto->description ?? '') <= 220 ? $dto->description : Str::limit(strip_tags($dto->description ?? ''), 160)),
                     ]
                 );
 
@@ -290,7 +290,7 @@ class EventIngestionService
                 'title' => $dto->title,
                 'slug' => Str::slug($dto->title) . '-' . substr(md5($event->id . $locale), 0, 6),
                 'description' => $dto->description,
-                'short_description' => $dto->shortDescription ?: Str::limit(strip_tags($dto->description ?? ''), 160),
+                'short_description' => $dto->shortDescription ?: (mb_strlen($dto->description ?? '') <= 220 ? $dto->description : Str::limit(strip_tags($dto->description ?? ''), 160)),
             ]);
 
             if (!empty($categoryIds)) {

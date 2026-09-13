@@ -31,13 +31,13 @@
         <div class="lg:col-span-8 space-y-8">
             
             <!-- Hero Image Banner -->
-            <div class="relative rounded-3xl overflow-hidden bg-slate-100 border border-slate-200/90 shadow-md">
+            <div class="relative rounded-3xl overflow-hidden bg-slate-900 border border-slate-200/90 shadow-md aspect-[16/9] sm:aspect-[2/1] md:aspect-[21/9] max-h-[480px]">
                 <img 
                     src="{{ $event->display_image_url }}" 
                     alt="{{ $event->title }}"
-                    class="w-full max-h-[480px] object-cover">
+                    class="w-full h-full object-cover">
 
-                <div class="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent"></div>
+                <div class="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent"></div>
 
                 <!-- Floating info on image -->
                 <div class="absolute bottom-6 left-6 right-6 flex flex-wrap items-center justify-between gap-3 text-white">
@@ -69,10 +69,15 @@
                 </div>
 
                 @php
-                    $trimmedShort = rtrim(trim($event->short_description ?? ''), '. ');
-                    $isAutoSnippet = !empty($trimmedShort) && str_starts_with(trim($event->description ?? ''), $trimmedShort);
+                    $cleanShort = trim(preg_replace('/[\s\.\…]+$/u', '', $event->short_description ?? ''));
+                    $cleanDesc = trim(preg_replace('/[\s\.\…]+$/u', '', $event->description ?? ''));
+                    $isAutoSnippet = !empty($cleanShort) && (
+                        $cleanShort === $cleanDesc ||
+                        str_starts_with($cleanDesc, $cleanShort) ||
+                        (mb_strlen($cleanShort) >= 30 && mb_substr($cleanShort, 0, 30) === mb_substr($cleanDesc, 0, 30))
+                    );
                 @endphp
-                @if(!empty($event->short_description) && $event->short_description !== $event->description && !$isAutoSnippet)
+                @if(!empty($event->short_description) && !$isAutoSnippet)
                     <p class="text-base sm:text-lg font-medium text-slate-700 leading-relaxed bg-slate-50 p-4 sm:p-5 rounded-2xl border border-slate-200/60">
                         {{ $event->short_description }}
                     </p>

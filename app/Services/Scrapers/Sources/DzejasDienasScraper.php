@@ -100,7 +100,7 @@ class DzejasDienasScraper extends BaseScraper
                             startAt: $startAt,
                             endAt: null,
                             description: $finalDescription,
-                            shortDescription: Str::limit(strip_tags($shortContent ?: $finalDescription), 160),
+                            shortDescription: mb_strlen($finalDescription) <= 220 ? $finalDescription : Str::limit(strip_tags($finalDescription), 160),
                             venueName: $venueInfo['name'],
                             city: $venueInfo['city'],
                             region: $venueInfo['region'],
