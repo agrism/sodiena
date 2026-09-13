@@ -32,17 +32,10 @@
             
             <!-- Hero Image Banner -->
             <div class="relative rounded-3xl overflow-hidden bg-slate-100 border border-slate-200/90 shadow-md">
-                @if($event->image_url)
-                    <img 
-                        src="{{ $event->image_url }}" 
-                        alt="{{ $event->title }}"
-                        class="w-full max-h-[480px] object-cover">
-                @else
-                    <div class="w-full h-80 flex flex-col items-center justify-center bg-gradient-to-tr from-slate-100 to-slate-200 text-slate-400">
-                        <i data-lucide="image" class="w-16 h-16 stroke-[1.5]"></i>
-                        <span class="text-sm font-semibold mt-2">Šodiena Notikums</span>
-                    </div>
-                @endif
+                <img 
+                    src="{{ $event->display_image_url }}" 
+                    alt="{{ $event->title }}"
+                    class="w-full max-h-[480px] object-cover">
 
                 <div class="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent"></div>
 
@@ -208,9 +201,7 @@
                 @foreach($relatedEvents as $rel)
                     <a href="{{ route('events.show', $rel->slug) }}" class="group block bg-white rounded-2xl border border-slate-200/90 overflow-hidden shadow-xs hover:shadow-md hover:border-slate-300 transition-all">
                         <div class="relative aspect-video bg-slate-100 overflow-hidden">
-                            @if($rel->image_url)
-                                <img src="{{ $rel->image_url }}" alt="{{ $rel->title }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
-                            @endif
+                            <img src="{{ $rel->display_image_url }}" alt="{{ $rel->title }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
                             <div class="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent"></div>
                             <span class="absolute bottom-2 left-2 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-white/95 text-slate-900 backdrop-blur-md shadow-xs">
                                 {{ $rel->formatted_date }}

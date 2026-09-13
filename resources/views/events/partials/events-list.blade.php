@@ -19,18 +19,11 @@
                 
                 <!-- Event Image & Badges -->
                 <div class="relative aspect-[16/10] bg-slate-100 overflow-hidden">
-                    @if($event->image_url)
-                        <img 
-                            src="{{ $event->image_url }}" 
-                            alt="{{ $event->title }}"
-                            loading="lazy"
-                            class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out">
-                    @else
-                        <div class="w-full h-full flex flex-col items-center justify-center bg-gradient-to-tr from-slate-100 to-slate-200 text-slate-400">
-                            <i data-lucide="image" class="w-10 h-10 stroke-[1.5]"></i>
-                            <span class="text-xs font-semibold mt-1">Šodiena Notikums</span>
-                        </div>
-                    @endif
+                    <img 
+                        src="{{ $event->display_image_url }}" 
+                        alt="{{ $event->title }}"
+                        loading="lazy"
+                        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out">
 
                     <!-- Subtle overlay gradient -->
                     <div class="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent"></div>

@@ -143,6 +143,15 @@ class Event extends Model
         return ($trans && !empty($trans->short_description)) ? $trans->short_description : $value;
     }
 
+    public function getDisplayImageUrlAttribute(): string
+    {
+        if (!empty($this->image_url)) {
+            return $this->image_url;
+        }
+
+        return asset('images/default-event.jpg');
+    }
+
     public function getLocalizedSlugAttribute(): string
     {
         $trans = $this->translation();
