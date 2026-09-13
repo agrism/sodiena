@@ -81,6 +81,13 @@ class SourceSeeder extends Seeder
                 'scraper_class' => \App\Services\Scrapers\Sources\MadonasMuzejsScraper::class,
                 'is_active' => true,
             ],
+            [
+                'name' => 'Aizkraukles novada pašvaldība',
+                'slug' => 'aizkraukles-novads',
+                'url' => 'https://www.aizkraukle.lv/lv/notikumu-kalendars',
+                'scraper_class' => \App\Services\Scrapers\Sources\AizkrauklesNovadsScraper::class,
+                'is_active' => true,
+            ],
         ];
 
         foreach ($sources as $s) {

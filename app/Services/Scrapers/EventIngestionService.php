@@ -371,6 +371,12 @@ class EventIngestionService
             'Jelgava' => 'Zemgale',
             'Bauska' => 'Zemgale',
             'Dobele' => 'Zemgale',
+            'Aizkraukle' => 'Zemgale',
+            'Koknese' => 'Zemgale',
+            'Pļaviņas' => 'Zemgale',
+            'Jaunjelgava' => 'Zemgale',
+            'Skrīveri' => 'Zemgale',
+            'Nereta' => 'Zemgale',
             'Daugavpils' => 'Latgale',
             'Rēzekne' => 'Latgale',
         ];
