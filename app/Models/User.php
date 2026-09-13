@@ -46,4 +46,69 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
+    public function roles(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(Role::class);
+    }
+
+    public function hasRole(string|array $roles): bool
+    {
+        $roles = is_array($roles) ? $roles : [$roles];
+        return $this->roles->contains(fn (Role $role) => in_array($role->slug, $roles, true));
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->hasRole(Role::ADMIN);
+    }
+
+    public function isRegular(): bool
+    {
+        return $this->hasRole(Role::REGULAR);
+    }
+
+    public function assignRole(string|Role $role): void
+    {
+        $roleModel = $role instanceof Role ? $role : Role::where('slug', $role)->first();
+        if ($roleModel && !$this->roles()->where('roles.id', $roleModel->id)->exists()) {
+            $this->roles()->attach($roleModel->id);
+            $this->load('roles');
+        }
+    }
+
+    public function removeRole(string|Role $role): void
+    {
+        $roleModel = $role instanceof Role ? $role : Role::where('slug', $role)->first();
+        if ($roleModel) {
+            $this->roles()->detach($roleModel->id);
+            $this->load('roles');
+        }
+    }
+
+    public function syncRole(string|Role $role): void
+    {
+        $roleModel = $role instanceof Role ? $role : Role::where('slug', $role)->first();
+        if ($roleModel) {
+            $this->roles()->sync([$roleModel->id]);
+            $this->load('roles');
+        }
+    }
+
+    public function getPrimaryRoleAttribute(): ?Role
+    {
+        if ($this->roles->isEmpty()) {
+            return null;
+        }
+
+        // Prefer Admin if present
+        $admin = $this->roles->firstWhere('slug', Role::ADMIN);
+        return $admin ?: $this->roles->first();
+    }
+
+    public function getLocalizedRoleNameAttribute(): string
+    {
+        $role = $this->primary_role;
+        return $role ? $role->localized_name : __('Regular');
+    }
 }

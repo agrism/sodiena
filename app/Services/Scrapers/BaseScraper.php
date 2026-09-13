@@ -68,6 +68,13 @@ abstract class BaseScraper implements EventScraperInterface
             return null;
         }
         $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        return trim(preg_replace('/\s+/u', ' ', $text));
+        $text = preg_replace('/<br\s*\/?>/i', "\n", $text);
+        // Replace non-newline whitespace with single space
+        $text = preg_replace('/[^\S\r\n]+/u', ' ', $text);
+        // Collapse 3 or more newlines into 2
+        $text = preg_replace('/(\r?\n\s*){3,}/u', "\n\n", $text);
+        // Trim each line
+        $lines = array_map('trim', explode("\n", $text));
+        return trim(implode("\n", $lines));
     }
 }

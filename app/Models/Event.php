@@ -132,6 +132,11 @@ class Event extends Model
         return ($trans && !empty($trans->description)) ? $trans->description : $value;
     }
 
+    public function getFormattedDescriptionHtmlAttribute(): string
+    {
+        return app(\App\Services\EventDescriptionFormatter::class)->format($this->description);
+    }
+
     public function getShortDescriptionAttribute(?string $value): ?string
     {
         $trans = $this->translation();
@@ -440,6 +445,57 @@ class Event extends Model
         }
 
         return $word;
+    }
+
+    public function getLocalizedEntertainmentTypeAttribute(): ?string
+    {
+        if (empty($this->entertainment_type)) {
+            return null;
+        }
+
+        $locale = app()->getLocale();
+
+        $types = [
+            'concert' => [
+                'lv' => 'Koncerts',
+                'en' => 'Concert',
+                'ru' => 'Концерт',
+            ],
+            'chill' => [
+                'lv' => 'Atpūta',
+                'en' => 'Relaxation',
+                'ru' => 'Отдых',
+            ],
+            'exhibition' => [
+                'lv' => 'Izstāde',
+                'en' => 'Exhibition',
+                'ru' => 'Выставка',
+            ],
+            'workshop' => [
+                'lv' => 'Meistarklase',
+                'en' => 'Workshop',
+                'ru' => 'Мастер-класс',
+            ],
+            'active' => [
+                'lv' => 'Aktīvā atpūta',
+                'en' => 'Active leisure',
+                'ru' => 'Активный отдых',
+            ],
+            'family' => [
+                'lv' => 'Ģimenei',
+                'en' => 'For families',
+                'ru' => 'Для всей семьи',
+            ],
+            'party' => [
+                'lv' => 'Ballīte',
+                'en' => 'Party',
+                'ru' => 'Вечеринка',
+            ],
+        ];
+
+        $key = strtolower(trim($this->entertainment_type));
+
+        return $types[$key][$locale] ?? $types[$key]['lv'] ?? __($this->entertainment_type);
     }
 
     public function getFormattedPriceAttribute(): string

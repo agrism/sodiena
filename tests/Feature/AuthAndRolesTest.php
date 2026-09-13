@@ -1,0 +1,167 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Role;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
+use Tests\TestCase;
+
+class AuthAndRolesTest extends TestCase
+{
+    use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Role::firstOrCreate(['slug' => Role::ADMIN], ['name' => 'Administrators']);
+        Role::firstOrCreate(['slug' => Role::REGULAR], ['name' => 'Lietotājs']);
+    }
+
+    public function test_user_can_register_and_receives_regular_role(): void
+    {
+        $response = $this->post('/register', [
+            'name' => 'Jānis Bērziņš',
+            'email' => 'janis@example.com',
+            'password' => 'secret1234',
+            'password_confirmation' => 'secret1234',
+        ]);
+
+        $response->assertRedirect(route('events.index'));
+        $this->assertAuthenticated();
+
+        $user = User::where('email', 'janis@example.com')->first();
+        $this->assertNotNull($user);
+        $this->assertTrue($user->isRegular());
+        $this->assertFalse($user->isAdmin());
+    }
+
+    public function test_user_can_login_and_logout(): void
+    {
+        $user = User::create([
+            'name' => 'Test User',
+            'email' => 'test@example.com',
+            'password' => Hash::make('password123'),
+        ]);
+        $user->assignRole(Role::REGULAR);
+
+        // Login
+        $response = $this->post('/login', [
+            'email' => 'test@example.com',
+            'password' => 'password123',
+        ]);
+
+        $response->assertRedirect(route('events.index'));
+        $this->assertAuthenticatedAs($user);
+
+        // Logout
+        $logoutResponse = $this->post('/logout');
+        $logoutResponse->assertRedirect(route('events.index'));
+        $this->assertGuest();
+    }
+
+    public function test_guest_and_regular_user_cannot_access_admin_users_registry(): void
+    {
+        // Guest redirected to login
+        $this->get('/admin/users')->assertRedirect(route('login'));
+
+        // Regular user receives 403 Forbidden
+        $regularUser = User::create([
+            'name' => 'Regular User',
+            'email' => 'regular@example.com',
+            'password' => Hash::make('password123'),
+        ]);
+        $regularUser->assignRole(Role::REGULAR);
+
+        $this->actingAs($regularUser)->get('/admin/users')->assertStatus(403);
+    }
+
+    public function test_admin_can_access_users_registry_and_change_roles(): void
+    {
+        $admin = User::create([
+            'name' => 'Admin User',
+            'email' => 'admin@example.com',
+            'password' => Hash::make('password123'),
+        ]);
+        $admin->assignRole(Role::ADMIN);
+
+        $targetUser = User::create([
+            'name' => 'Target User',
+            'email' => 'target@example.com',
+            'password' => Hash::make('password123'),
+        ]);
+        $targetUser->assignRole(Role::REGULAR);
+
+        // Admin views users registry
+        $response = $this->actingAs($admin)->get('/admin/users');
+        $response->assertStatus(200);
+        $response->assertSee('Target User');
+
+        // Admin promotes target user to admin
+        $roleUpdateResponse = $this->actingAs($admin)->post("/admin/users/{$targetUser->id}/role", [
+            'role' => Role::ADMIN,
+        ]);
+        $roleUpdateResponse->assertRedirect(route('admin.users.index'));
+
+        $this->assertTrue($targetUser->fresh()->isAdmin());
+
+        // Admin creates a new user
+        $createResponse = $this->actingAs($admin)->post('/admin/users', [
+            'name' => 'New Staff',
+            'email' => 'staff@example.com',
+            'password' => 'password123',
+            'role' => Role::ADMIN,
+        ]);
+        $createResponse->assertRedirect(route('admin.users.index'));
+        $newUser = User::where('email', 'staff@example.com')->first();
+        $this->assertNotNull($newUser);
+        $this->assertTrue($newUser->isAdmin());
+
+        // Admin deletes target user
+        $deleteResponse = $this->actingAs($admin)->delete("/admin/users/{$targetUser->id}");
+        $deleteResponse->assertRedirect(route('admin.users.index'));
+        $this->assertDatabaseMissing('users', ['id' => $targetUser->id]);
+    }
+
+    public function test_admin_cannot_demote_or_delete_themselves(): void
+    {
+        $admin = User::create([
+            'name' => 'Admin User',
+            'email' => 'admin@example.com',
+            'password' => Hash::make('password123'),
+        ]);
+        $admin->assignRole(Role::ADMIN);
+
+        // Attempt self demotion
+        $demoteResponse = $this->actingAs($admin)->post("/admin/users/{$admin->id}/role", [
+            'role' => Role::REGULAR,
+        ]);
+        $demoteResponse->assertSessionHas('error');
+        $this->assertTrue($admin->fresh()->isAdmin());
+
+        // Attempt self deletion
+        $deleteResponse = $this->actingAs($admin)->delete("/admin/users/{$admin->id}");
+        $deleteResponse->assertSessionHas('error');
+        $this->assertDatabaseHas('users', ['id' => $admin->id]);
+    }
+
+    public function test_artisan_make_admin_command(): void
+    {
+        $user = User::create([
+            'name' => 'Cli User',
+            'email' => 'cli@example.com',
+            'password' => Hash::make('password123'),
+        ]);
+        $user->assignRole(Role::REGULAR);
+
+        $this->assertFalse($user->isAdmin());
+
+        $this->artisan('app:make-admin cli@example.com')
+            ->expectsOutputToContain('has been granted [admin] role successfully.')
+            ->assertExitCode(0);
+
+        $this->assertTrue($user->fresh()->isAdmin());
+    }
+}

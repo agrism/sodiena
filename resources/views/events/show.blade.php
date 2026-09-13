@@ -68,21 +68,25 @@
                     <h1 class="text-2xl sm:text-4xl font-extrabold text-slate-900 tracking-tight leading-tight">
                         {{ $event->title }}
                     </h1>
-                    @if($event->entertainment_type)
+                    @if($event->localized_entertainment_type)
                         <div class="mt-3 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-xs font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            {{ $event->entertainment_type }}
+                            {{ $event->localized_entertainment_type }}
                         </div>
                     @endif
                 </div>
 
-                @if($event->short_description && $event->short_description !== $event->description)
+                @php
+                    $trimmedShort = rtrim(trim($event->short_description ?? ''), '. ');
+                    $isAutoSnippet = !empty($trimmedShort) && str_starts_with(trim($event->description ?? ''), $trimmedShort);
+                @endphp
+                @if(!empty($event->short_description) && $event->short_description !== $event->description && !$isAutoSnippet)
                     <p class="text-base sm:text-lg font-medium text-slate-700 leading-relaxed bg-slate-50 p-4 sm:p-5 rounded-2xl border border-slate-200/60">
                         {{ $event->short_description }}
                     </p>
                 @endif
 
-                <div class="prose prose-slate max-w-none text-slate-700 leading-relaxed text-sm sm:text-base space-y-4">
-                    {!! nl2br(e($event->description)) !!}
+                <div class="prose prose-slate max-w-none text-slate-700 leading-relaxed text-sm sm:text-base">
+                    {!! $event->formatted_description_html !!}
                 </div>
             </div>
 

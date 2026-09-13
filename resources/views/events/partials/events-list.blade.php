@@ -75,9 +75,9 @@
                                     {{ $category->name }}
                                 </span>
                             @endforeach
-                            @if($event->entertainment_type)
+                            @if($event->localized_entertainment_type)
                                 <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                    {{ $event->entertainment_type }}
+                                    {{ $event->localized_entertainment_type }}
                                 </span>
                             @endif
                         </div>

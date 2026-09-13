@@ -19,6 +19,10 @@ return Application::configure(basePath: dirname(__DIR__))
             SecurityHeaders::class,
             SetLocale::class,
         ]);
+
+        $middleware->alias([
+            'role' => \App\Http\Middleware\EnsureUserHasRole::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
