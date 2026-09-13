@@ -175,7 +175,15 @@ class EventIngestionService
 
             // Fuzzy similarity check for same date and similar title / stems / descriptions
             if (!$existingEvent && $dto->startAt) {
-                $sameDayEvents = Event::whereDate('start_at', $dto->startAt->toDateString())->get();
+                $candidatesQuery = Event::whereDate('start_at', $dto->startAt->toDateString());
+                if ($dto->endAt) {
+                    $candidatesQuery->orWhereDate('end_at', $dto->endAt->toDateString())
+                        ->orWhere(function ($q) use ($dto) {
+                            $q->where('start_at', '<=', $dto->endAt)
+                              ->where('end_at', '>=', $dto->startAt);
+                        });
+                }
+                $sameDayEvents = $candidatesQuery->get();
                 $cleanDto = preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower($dto->title, 'UTF-8'));
                 $dtoStems = $this->getLatvianWordStems($dto->title);
                 $dtoWords = array_values(array_filter(explode(' ', $cleanDto), fn ($w) => mb_strlen($w, 'UTF-8') > 2 && !in_array($w, ['un', 'par', 'ar', 'pie', 'uz', 'no', 'vai'])));

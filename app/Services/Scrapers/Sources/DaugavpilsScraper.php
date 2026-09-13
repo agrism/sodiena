@@ -199,6 +199,11 @@ class DaugavpilsScraper extends BaseScraper
 
             $start = $parseDateStr($date1Text, $time1Text);
             $end = $parseDateStr($date2Text, $time2Text);
+
+            if ($end && $start->greaterThan($end)) {
+                $start = $start->copy()->subYear();
+            }
+
             return [$start, $end];
         }
 
