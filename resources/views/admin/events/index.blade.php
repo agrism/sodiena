@@ -282,7 +282,11 @@
                                 Notikuma Nosaukums {!! $sortBy === 'title' ? ($sortDir === 'asc' ? '▲' : '▼') : '' !!}
                             </a>
                         </th>
-                        <th class="py-2.5 px-3 border-r border-slate-300 min-w-[180px]">Vieta & Pilsēta</th>
+                        <th class="py-2.5 px-3 border-r border-slate-300 min-w-[180px]">
+                            <a href="{{ request()->fullUrlWithQuery(['sort_by' => 'location', 'sort_dir' => ($sortBy === 'location' && $sortDir === 'asc') ? 'desc' : 'asc']) }}" class="flex items-center gap-1 hover:text-emerald-700">
+                                Vieta & Pilsēta {!! $sortBy === 'location' ? ($sortDir === 'asc' ? '▲' : '▼') : '' !!}
+                            </a>
+                        </th>
                         <th class="py-2.5 px-3 border-r border-slate-300 min-w-[150px]">Kategorija</th>
                         <th class="py-2.5 px-3 border-r border-slate-300 w-28">Tips</th>
                         <th class="py-2.5 px-3 border-r border-slate-300 w-28">

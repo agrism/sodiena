@@ -115,11 +115,23 @@ class EventController extends Controller
         };
 
         // Sorting
-        $allowedSorts = ['id', 'start_at', 'title', 'price_min', 'views_count', 'created_at'];
-        if (in_array($sortBy, $allowedSorts, true)) {
-            $query->orderBy($sortBy, $sortDir);
+        $allowedSorts = ['id', 'start_at', 'title', 'price_min', 'views_count', 'created_at', 'location', 'venue', 'city'];
+        if ($sortBy === 'location' || $sortBy === 'venue') {
+            $query->leftJoin('locations', 'events.location_id', '=', 'locations.id')
+                  ->select('events.*')
+                  ->orderBy('locations.name', $sortDir)
+                  ->orderBy('locations.city', $sortDir)
+                  ->orderBy('events.start_at', 'asc');
+        } elseif ($sortBy === 'city') {
+            $query->leftJoin('locations', 'events.location_id', '=', 'locations.id')
+                  ->select('events.*')
+                  ->orderBy('locations.city', $sortDir)
+                  ->orderBy('locations.name', $sortDir)
+                  ->orderBy('events.start_at', 'asc');
+        } elseif (in_array($sortBy, $allowedSorts, true)) {
+            $query->orderBy('events.' . $sortBy, $sortDir);
         } else {
-            $query->orderBy('start_at', 'asc');
+            $query->orderBy('events.start_at', 'asc');
         }
 
         $events = $query->paginate($perPage)->withQueryString();

@@ -237,6 +237,12 @@ class AuthAndRolesTest extends TestCase
         $locResponse->assertSee('Lielā Ģilde');
         $locResponse->assertSee('Vieta');
         $locResponse->assertDontSee('Missing Origin Event 999');
+
+        // Admin can sort by location
+        $sortResponse = $this->actingAs($admin)->get('/admin/events?sort_by=location&sort_dir=asc');
+        $sortResponse->assertStatus(200);
+        $sortResponse->assertSee('Vieta & Pilsēta', false);
+        $sortResponse->assertSee('Grid Test Event 101');
     }
 
     public function test_admin_pages_render_left_and_right_sidebars(): void
