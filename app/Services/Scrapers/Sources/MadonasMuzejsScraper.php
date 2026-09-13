@@ -71,14 +71,22 @@ class MadonasMuzejsScraper extends BaseScraper
                 $detail = $this->fetchEventDetail($cleanUrl);
 
                 $title = !empty($detail['title']) ? $detail['title'] : $this->cleanText($linkNode->text());
+                $title = $this->formatTitle($title);
                 if (empty($title)) {
                     return;
                 }
 
+                $fullDescription = !empty($detail['description']) ? $detail['description'] : $excerpt;
+
+                // Skip non-event posts (obituaries, memorial notes)
+                if (!$this->isEventPost($title, $fullDescription)) {
+                    return;
+                }
+
                 $slugPart = basename(parse_url($cleanUrl, PHP_URL_PATH));
+                $slugPart = trim($slugPart, '-');
                 $externalId = 'mm-' . $slugPart;
 
-                $fullDescription = !empty($detail['description']) ? $detail['description'] : $excerpt;
                 $imageUrl = !empty($detail['image']) ? $detail['image'] : $thumbImg;
 
                 // Parse dates and times from text and fallback to publish date
@@ -88,7 +96,7 @@ class MadonasMuzejsScraper extends BaseScraper
                 if ($endAt && $endAt->isPast() && $endAt->diffInDays(now()) > 365) {
                     return;
                 }
-                if (!$endAt && $startAt->isPast() && $startAt->diffInDays(now()) > 180) {
+                if (!$endAt && $startAt->isPast() && $startAt->diffInDays(now()) > 365) {
                     return;
                 }
 
@@ -152,6 +160,43 @@ class MadonasMuzejsScraper extends BaseScraper
         }
 
         return $events;
+    }
+
+    private function isEventPost(string $title, string $text): bool
+    {
+        $lower = mb_strtolower($title . ' ' . mb_substr($text, 0, 300));
+
+        if (str_contains($lower, 'mūžībā devies') || str_contains($lower, 'piemiņai')) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private function formatTitle(string $title): string
+    {
+        $title = $this->cleanText($title) ?? '';
+        $title = trim($title, " \t\n\r\0\x0B\xC2\xA0-–—");
+
+        if (empty($title)) {
+            return '';
+        }
+
+        // Normalize ALL-CAPS titles into title/sentence case
+        $lettersOnly = preg_replace('/[^\p{L}]+/u', '', $title);
+        if (!empty($lettersOnly) && mb_strtoupper($lettersOnly) === $lettersOnly && mb_strlen($lettersOnly) > 4) {
+            $lower = mb_strtolower($title);
+            $formatted = mb_strtoupper(mb_substr($lower, 0, 1)) . mb_substr($lower, 1);
+            $formatted = preg_replace_callback('/([\.\!\?\:\“\”\«\»\|\-]\s*)([a-zāčēģīķļņšūž])/u', function ($m) {
+                return $m[1] . mb_strtoupper($m[2]);
+            }, $formatted);
+            $formatted = preg_replace_callback('/([“«])([a-zāčēģīķļņšūž])/u', function ($m) {
+                return $m[1] . mb_strtoupper($m[2]);
+            }, $formatted);
+            $title = $formatted;
+        }
+
+        return $title;
     }
 
     private function fetchEventDetail(string $url): array
@@ -273,12 +318,14 @@ class MadonasMuzejsScraper extends BaseScraper
     private function extractDates(string $text, string $pubDateStr): array
     {
         $months = [
-            'janvār' => 1, 'februār' => 2, 'mart' => 3, 'aprīl' => 4,
-            'maij' => 5, 'jūnij' => 6, 'jūlij' => 7, 'august' => 8,
-            'septembr' => 9, 'oktobr' => 10, 'novembr' => 11, 'decembr' => 12,
+            'janv' => 1, 'feb' => 2, 'mar' => 3, 'apr' => 4,
+            'mai' => 5, 'jūn' => 6, 'jun' => 6, 'jūl' => 7, 'jul' => 7, 'aug' => 8,
+            'sep' => 9, 'okt' => 10, 'nov' => 11, 'dec' => 12,
         ];
 
         $currentYear = (int) date('Y');
+        $startAt = null;
+        $endAt = null;
 
         // Pattern 1: "No 2026.gada 12.septembra ... līdz 22.novembrim"
         if (preg_match('/(?:No|no)\s+(\d{4})\.\s*gada\s+(\d{1,2})\.\s*([a-zāčēģīķļņšūž]+)[^\.\n]*?(?:līdz|–|-)\s+(?:(\d{4})\.\s*gada\s+)?(\d{1,2})\.\s*([a-zāčēģīķļņšūž]+)/iu', $text, $m)) {
@@ -289,52 +336,75 @@ class MadonasMuzejsScraper extends BaseScraper
             $endDay = (int) $m[5];
             $endMonth = $this->matchMonth($m[6], $months);
 
-            $time = $this->extractTime($text) ?? '10:00';
-            $startAt = Carbon::create($startYear, $startMonth, $startDay, (int)substr($time, 0, 2), (int)substr($time, 3, 2), 0);
-            $endAt = Carbon::create($endYear, $endMonth, $endDay, 18, 0, 0);
-            return [$startAt, $endAt];
+            if ($startYear >= 2024 && $startMonth >= 1 && $startMonth <= 12 && $startDay >= 1 && $startDay <= 31) {
+                $time = $this->extractTime($text) ?? '10:00';
+                $startAt = Carbon::create($startYear, $startMonth, $startDay, (int)substr($time, 0, 2), (int)substr($time, 3, 2), 0);
+                if ($endMonth >= 1 && $endMonth <= 12 && $endDay >= 1 && $endDay <= 31) {
+                    $endAt = Carbon::create($endYear, $endMonth, $endDay, 18, 0, 0);
+                }
+            }
         }
 
         // Pattern 2: "No 12.septembra līdz 22.novembrim"
-        if (preg_match('/(?:No|no)\s+(\d{1,2})\.\s*([a-zāčēģīķļņšūž]+)[^\.\n]*?(?:līdz|–|-)\s+(\d{1,2})\.\s*([a-zāčēģīķļņšūž]+)(?:\s+(\d{4}))?/iu', $text, $m)) {
+        if (!$startAt && preg_match('/(?:No|no)\s+(\d{1,2})\.\s*([a-zāčēģīķļņšūž]+)[^\.\n]*?(?:līdz|–|-)\s+(\d{1,2})\.\s*([a-zāčēģīķļņšūž]+)(?:\s+(\d{4}))?/iu', $text, $m)) {
             $year = !empty($m[5]) ? (int) $m[5] : $currentYear;
             $startDay = (int) $m[1];
             $startMonth = $this->matchMonth($m[2], $months);
             $endDay = (int) $m[3];
             $endMonth = $this->matchMonth($m[4], $months);
 
-            $time = $this->extractTime($text) ?? '10:00';
-            $startAt = Carbon::create($year, $startMonth, $startDay, (int)substr($time, 0, 2), (int)substr($time, 3, 2), 0);
-            $endAt = Carbon::create($year, $endMonth, $endDay, 18, 0, 0);
-            return [$startAt, $endAt];
+            if ($year >= 2024 && $startMonth >= 1 && $startMonth <= 12 && $startDay >= 1 && $startDay <= 31) {
+                $time = $this->extractTime($text) ?? '10:00';
+                $startAt = Carbon::create($year, $startMonth, $startDay, (int)substr($time, 0, 2), (int)substr($time, 3, 2), 0);
+                if ($endMonth >= 1 && $endMonth <= 12 && $endDay >= 1 && $endDay <= 31) {
+                    $endAt = Carbon::create($year, $endMonth, $endDay, 18, 0, 0);
+                }
+            }
         }
 
         // Pattern 3: "2026.gada 8.augustā plkst.11.30" or "12.septembrī plkst.13.00"
-        if (preg_match('/(?:(\d{4})\.\s*gada\s+)?(\d{1,2})\.\s*([a-zāčēģīķļņšūž]+)(?:\s+plkst\.?\s*(\d{1,2}[\.:]\d{2}))?/iu', $text, $m)) {
+        if (!$startAt && preg_match('/(?:(\d{4})\.\s*gada\s+)?(\d{1,2})\.\s*([a-zāčēģīķļņšūž]+)(?:\s+plkst\.?\s*(\d{1,2}[\.:]\d{2}))?/iu', $text, $m)) {
             $year = !empty($m[1]) ? (int) $m[1] : $currentYear;
             $day = (int) $m[2];
             $month = $this->matchMonth($m[3], $months);
             $time = !empty($m[4]) ? str_replace('.', ':', $m[4]) : ($this->extractTime($text) ?? '12:00');
             $parts = explode(':', $time);
 
-            $startAt = Carbon::create($year, $month, $day, (int)($parts[0] ?? 12), (int)($parts[1] ?? 0), 0);
-            return [$startAt, null];
+            if ($year >= 2024 && $month >= 1 && $month <= 12 && $day >= 1 && $day <= 31) {
+                $startAt = Carbon::create($year, $month, $day, (int)($parts[0] ?? 12), (int)($parts[1] ?? 0), 0);
+            }
         }
 
         // Fallback: parse publication date
-        if (preg_match('/(\d{1,2})\.(\d{1,2})\.(\d{4})/u', $pubDateStr, $dm)) {
+        if (!$startAt && preg_match('/(\d{1,2})\.(\d{1,2})\.(\d{4})/u', $pubDateStr, $dm)) {
             $startAt = Carbon::create((int)$dm[3], (int)$dm[2], (int)$dm[1], 10, 0, 0);
-            return [$startAt, null];
         }
 
-        return [now(), null];
+        if (!$startAt) {
+            $startAt = now();
+        }
+
+        // Check if there is an explicit end date in text (e.g. "līdz š.g. 31.maijam" or "līdz 20.septembrim")
+        if (!$endAt && preg_match('/(?:līdz|–|-)\s+(?:š\.g\.\s*|(\d{4})\.\s*gada\s+)?(\d{1,2})\.\s*([a-zāčēģīķļņšūž]+)/iu', $text, $em)) {
+            $eYear = !empty($em[1]) ? (int)$em[1] : $startAt->year;
+            $eDay = (int)$em[2];
+            $eMonth = $this->matchMonth($em[3], $months);
+            if ($eMonth >= 1 && $eMonth <= 12 && $eDay >= 1 && $eDay <= 31) {
+                $candidateEnd = Carbon::create($eYear, $eMonth, $eDay, 18, 0, 0);
+                if ($candidateEnd->greaterThanOrEqualTo($startAt)) {
+                    $endAt = $candidateEnd;
+                }
+            }
+        }
+
+        return [$startAt, $endAt];
     }
 
     private function matchMonth(string $name, array $months): int
     {
-        $lower = mb_strtolower(trim($name));
+        $clean = preg_replace('/[^a-zāčēģīķļņšūž]+/iu', '', mb_strtolower(trim($name)));
         foreach ($months as $prefix => $m) {
-            if (str_starts_with($lower, $prefix)) {
+            if (str_starts_with($clean, $prefix)) {
                 return $m;
             }
         }
