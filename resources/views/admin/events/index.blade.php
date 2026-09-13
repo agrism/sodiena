@@ -239,6 +239,12 @@
                             <option value="50" {{ $perPage === 50 ? 'selected' : '' }}>50/lp</option>
                             <option value="100" {{ $perPage === 100 ? 'selected' : '' }}>100/lp</option>
                             <option value="200" {{ $perPage === 200 ? 'selected' : '' }}>200/lp</option>
+                            <option value="300" {{ $perPage === 300 ? 'selected' : '' }}>300/lp</option>
+                            <option value="400" {{ $perPage === 400 ? 'selected' : '' }}>400/lp</option>
+                            <option value="500" {{ $perPage === 500 ? 'selected' : '' }}>500/lp</option>
+                            <option value="600" {{ $perPage === 600 ? 'selected' : '' }}>600/lp</option>
+                            <option value="700" {{ $perPage === 700 ? 'selected' : '' }}>700/lp</option>
+                            <option value="1000" {{ $perPage === 1000 ? 'selected' : '' }}>1000/lp</option>
                         </select>
                     </div>
                 </div>

@@ -29,7 +29,7 @@ class EventController extends Controller
         $sortDir = strtolower($request->input('sort_dir', 'asc')) === 'desc' ? 'desc' : 'asc';
         $perPage = (int) $request->input('per_page', 50);
 
-        if (!in_array($perPage, [25, 50, 100, 200], true)) {
+        if (!in_array($perPage, [25, 50, 100, 200, 300, 400, 500, 600, 700, 1000], true)) {
             $perPage = 50;
         }
 
