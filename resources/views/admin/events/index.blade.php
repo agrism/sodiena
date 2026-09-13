@@ -112,13 +112,18 @@
                 </select>
             </div>
 
-            <!-- Location / Venue Filter (Vieta) -->
-            <div>
-                <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1 font-mono">Vieta</label>
-                <select name="location_id" class="w-full px-2 py-1.5 bg-slate-50 border border-slate-300 rounded text-xs focus:outline-none">
-                    <option value="all">🏛️ Visas vietas</option>
+            <!-- Location / Venue Filter (Vieta) with Live Text Search -->
+            <div class="relative" id="locationComboboxWrapper">
+                <div class="flex items-center justify-between mb-1">
+                    <label class="block text-[10px] font-bold uppercase text-slate-500 font-mono">Vieta</label>
+                    <span id="locCountBadge" class="text-[9px] font-mono text-slate-400 font-bold">({{ count($locations) }})</span>
+                </div>
+                
+                <!-- Hidden select for form submission -->
+                <select name="location_id" id="adminLocationSelect" class="hidden">
+                    <option value="all" {{ $locationId === 'all' ? 'selected' : '' }}>🏛️ Visas vietas</option>
                     @if($missingLocationCount > 0)
-                        <option value="missing" {{ $locationId === 'missing' ? 'selected' : '' }} class="font-bold text-amber-700">
+                        <option value="missing" {{ $locationId === 'missing' ? 'selected' : '' }}>
                             ⚠️ Nav vietas / tukšs ({{ number_format($missingLocationCount, 0, '.', ' ') }})
                         </option>
                     @endif
@@ -128,6 +133,92 @@
                         </option>
                     @endforeach
                 </select>
+
+                <!-- Combobox Trigger Button -->
+                <button 
+                    type="button" 
+                    id="locComboboxBtn"
+                    onclick="toggleLocationDropdown()"
+                    class="w-full px-2 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-300 rounded text-xs text-left flex items-center justify-between focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:bg-white transition-colors cursor-pointer">
+                    <span id="locComboboxLabel" class="truncate font-medium text-slate-800">
+                        @if($locationId === 'missing')
+                            ⚠️ Nav vietas / tukšs
+                        @elseif($selectedLoc = $locations->firstWhere('id', (int)$locationId))
+                            {{ $selectedLoc->name }}{{ $selectedLoc->city ? ' ('.$selectedLoc->city.')' : '' }}
+                        @else
+                            🏛️ Visas vietas
+                        @endif
+                    </span>
+                    <i data-lucide="chevrons-up-down" class="w-3.5 h-3.5 text-slate-400 shrink-0 ml-1"></i>
+                </button>
+
+                <!-- Dropdown Search Panel -->
+                <div 
+                    id="locDropdownPanel" 
+                    class="hidden absolute left-0 sm:right-auto w-72 sm:w-80 md:w-96 top-full mt-1 bg-white border border-slate-300 rounded-xl shadow-2xl z-50 p-2.5 text-xs font-sans">
+                    
+                    <!-- Search Input Inside Dropdown -->
+                    <div class="relative mb-2">
+                        <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5 pointer-events-none"></i>
+                        <input 
+                            type="text" 
+                            id="locSearchInput" 
+                            placeholder="Ieraksti vietu vai pilsētu..." 
+                            class="w-full pl-8 pr-7 py-1.5 bg-slate-50 border border-slate-300 rounded text-xs focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                            autocomplete="off">
+                        <button 
+                            type="button" 
+                            id="locSearchClearBtn" 
+                            onclick="clearLocSearch()" 
+                            class="hidden absolute right-2 top-1.5 text-slate-400 hover:text-slate-700 font-bold text-sm">
+                            &times;
+                        </button>
+                    </div>
+
+                    <!-- Quick Action: Reset to All -->
+                    <div class="mb-1 pb-1 border-b border-slate-100 flex items-center justify-between">
+                        <button 
+                            type="button" 
+                            onclick="selectLocation('all', '🏛️ Visas vietas', true)" 
+                            class="text-left px-2 py-1 rounded hover:bg-slate-100 text-slate-700 hover:text-slate-900 font-bold flex items-center gap-1.5 text-[11px] {{ $locationId === 'all' ? 'text-emerald-700 font-black' : '' }}">
+                            <span>🏛️ Visas vietas</span>
+                        </button>
+                        @if($missingLocationCount > 0)
+                            <button 
+                                type="button" 
+                                onclick="selectLocation('missing', '⚠️ Nav vietas / tukšs', true)" 
+                                class="text-left px-2 py-1 rounded hover:bg-amber-50 text-amber-800 font-bold text-[11px] {{ $locationId === 'missing' ? 'bg-amber-100' : '' }}">
+                                <span>⚠️ Bez vietas ({{ $missingLocationCount }})</span>
+                            </button>
+                        @endif
+                    </div>
+
+                    <!-- Options List with Live Search Filtering -->
+                    <div id="locOptionsList" class="max-h-56 overflow-y-auto space-y-0.5 font-sans divide-y divide-slate-50">
+                        @foreach($locations as $loc)
+                            <button 
+                                type="button" 
+                                data-name="{{ mb_strtolower($loc->name . ' ' . $loc->city, 'UTF-8') }}"
+                                onclick="selectLocation('{{ $loc->id }}', '{{ addslashes($loc->name . ($loc->city ? ' (' . $loc->city . ')' : '')) }}', true)" 
+                                class="loc-option-item w-full text-left px-2 py-1.5 rounded hover:bg-slate-100 flex items-center justify-between text-slate-800 transition-colors {{ (string)$locationId === (string)$loc->id ? 'bg-emerald-50 text-emerald-900 font-bold' : '' }}">
+                                <div class="truncate mr-2">
+                                    <span class="block truncate font-medium text-[11px]">{{ $loc->name }}</span>
+                                    @if($loc->city)
+                                        <span class="block text-[10px] text-slate-400">📍 {{ $loc->city }}</span>
+                                    @endif
+                                </div>
+                                <span class="text-[10px] font-mono text-slate-500 font-semibold bg-slate-100 px-1.5 py-0.5 rounded shrink-0">
+                                    {{ $loc->events_count }}
+                                </span>
+                            </button>
+                        @endforeach
+                    </div>
+
+                    <!-- No Results Message -->
+                    <div id="locNoResults" class="hidden py-4 text-center text-slate-400 text-xs">
+                        Nav atrasta neviena vieta
+                    </div>
+                </div>
             </div>
 
             <!-- Timeframe & Actions -->
@@ -369,3 +460,109 @@
 
 </div>
 @endsection
+
+@push('scripts')
+<script>
+    function toggleLocationDropdown() {
+        const panel = document.getElementById('locDropdownPanel');
+        if (!panel) return;
+        const isHidden = panel.classList.contains('hidden');
+        if (isHidden) {
+            panel.classList.remove('hidden');
+            const searchInput = document.getElementById('locSearchInput');
+            if (searchInput) {
+                searchInput.value = '';
+                filterLocOptions('');
+                setTimeout(() => searchInput.focus(), 50);
+            }
+        } else {
+            panel.classList.add('hidden');
+        }
+    }
+
+    function selectLocation(id, label, autoSubmit = false) {
+        const select = document.getElementById('adminLocationSelect');
+        const labelEl = document.getElementById('locComboboxLabel');
+        const panel = document.getElementById('locDropdownPanel');
+        if (select) {
+            select.value = id;
+        }
+        if (labelEl) {
+            labelEl.textContent = label;
+        }
+        if (panel) {
+            panel.classList.add('hidden');
+        }
+        if (autoSubmit && select && select.form) {
+            select.form.submit();
+        }
+    }
+
+    function clearLocSearch() {
+        const input = document.getElementById('locSearchInput');
+        if (input) {
+            input.value = '';
+            filterLocOptions('');
+            input.focus();
+        }
+    }
+
+    function filterLocOptions(query) {
+        const q = (query || '').trim().toLowerCase();
+        const clearBtn = document.getElementById('locSearchClearBtn');
+        if (clearBtn) {
+            clearBtn.classList.toggle('hidden', q === '');
+        }
+
+        const items = document.querySelectorAll('.loc-option-item');
+        let visibleCount = 0;
+
+        items.forEach(item => {
+            const name = item.getAttribute('data-name') || '';
+            if (q === '' || name.includes(q)) {
+                item.style.display = '';
+                visibleCount++;
+            } else {
+                item.style.display = 'none';
+            }
+        });
+
+        const noResults = document.getElementById('locNoResults');
+        if (noResults) {
+            noResults.classList.toggle('hidden', visibleCount > 0 || q === '');
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const searchInput = document.getElementById('locSearchInput');
+        if (searchInput) {
+            searchInput.addEventListener('input', function (e) {
+                filterLocOptions(e.target.value);
+            });
+            searchInput.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape') {
+                    const panel = document.getElementById('locDropdownPanel');
+                    panel?.classList.add('hidden');
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    // Select first visible item
+                    const firstVisible = Array.from(document.querySelectorAll('.loc-option-item')).find(item => item.style.display !== 'none');
+                    if (firstVisible) {
+                        firstVisible.click();
+                    }
+                }
+            });
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function (e) {
+            const container = document.getElementById('locationComboboxWrapper');
+            const panel = document.getElementById('locDropdownPanel');
+            if (container && panel && !container.contains(e.target)) {
+                panel.classList.add('hidden');
+            }
+        });
+    });
+</script>
+@endpush
+
