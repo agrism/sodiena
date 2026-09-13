@@ -14,6 +14,10 @@ window.flatpickrLocales = {
     'en': 'default'
 };
 
+// Dispatch event notifying that flatpickr is ready
+window.dispatchEvent(new CustomEvent('flatpickr-ready'));
+document.dispatchEvent(new CustomEvent('flatpickr-ready'));
+
 // Initialize Lucide icons on page load and on every HTMX content swap
 document.addEventListener('DOMContentLoaded', () => {
     createIcons({ icons });

@@ -245,7 +245,12 @@
     function setupDatePicker() {
         const dateInput = document.getElementById('custom-date-picker');
         const dateBtn = document.getElementById('date-picker-btn');
-        if (!dateInput || !window.flatpickr) return;
+        if (!dateInput) return;
+
+        if (!window.flatpickr) {
+            setTimeout(setupDatePicker, 50);
+            return;
+        }
 
         const currentLocale = '{{ app()->getLocale() }}';
         const localeObj = (window.flatpickrLocales && window.flatpickrLocales[currentLocale]) ? window.flatpickrLocales[currentLocale] : 'default';
@@ -276,11 +281,10 @@
         }
     }
 
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', setupDatePicker);
-    } else {
-        setupDatePicker();
-    }
+    window.addEventListener('flatpickr-ready', setupDatePicker);
+    document.addEventListener('flatpickr-ready', setupDatePicker);
+    document.addEventListener('DOMContentLoaded', setupDatePicker);
+    setupDatePicker();
 
     function applyFilter(key, value) {
         const hiddenInput = document.getElementById('hidden-' + key);
