@@ -40,6 +40,8 @@ class EventController extends Controller
                   ->orWhere('description', 'like', "%{$search}%")
                   ->orWhere('slug', 'like', "%{$search}%")
                   ->orWhere('source_external_id', 'like', "%{$search}%")
+                  ->orWhere('source_url', 'like', "%{$search}%")
+                  ->orWhere('ticket_url', 'like', "%{$search}%")
                   ->orWhereHas('location', function ($locQ) use ($search) {
                       $locQ->where('name', 'like', "%{$search}%")
                            ->orWhere('city', 'like', "%{$search}%");

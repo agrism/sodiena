@@ -174,13 +174,18 @@ class AuthAndRolesTest extends TestCase
         ]);
         $admin->assignRole(Role::ADMIN);
 
-        \App\Models\Event::create([
+        $testEvent = \App\Models\Event::create([
             'title' => 'Grid Test Event 101',
             'slug' => 'grid-test-event-101',
             'start_at' => now()->addDays(3),
             'fingerprint' => 'grid-fp-101',
             'status' => 'published',
+            'source_slug' => 'afiro-api',
+            'source_url' => 'https://www.liveriga.com/lv/apmekle/pasakumi/izstade-test-101',
         ]);
+
+        $this->assertEquals('liveriga.com', $testEvent->origin_host);
+        $this->assertEquals('https://www.liveriga.com/lv/apmekle/pasakumi/izstade-test-101', $testEvent->origin_url);
 
         // Regular user blocked
         $regular = User::create([
@@ -192,10 +197,13 @@ class AuthAndRolesTest extends TestCase
 
         $this->actingAs($regular)->get('/admin/events')->assertStatus(403);
 
-        // Admin can view and search
-        $response = $this->actingAs($admin)->get('/admin/events?search=Grid+Test');
+        // Admin can view, see origin website, and search by domain
+        $response = $this->actingAs($admin)->get('/admin/events?search=liveriga');
         $response->assertStatus(200);
         $response->assertSee('Grid Test Event 101');
+        $response->assertSee('Īstā vietne (Avots)');
+        $response->assertSee('liveriga.com');
+        $response->assertSee('https://www.liveriga.com/lv/apmekle/pasakumi/izstade-test-101');
     }
 
     public function test_admin_pages_render_left_and_right_sidebars(): void

@@ -591,4 +591,24 @@ class Event extends Model
 
         return $dateFormatted . $timePrefix . $start->format('H:i');
     }
+
+    public function getOriginUrlAttribute(): ?string
+    {
+        return $this->source_url ?: $this->ticket_url;
+    }
+
+    public function getOriginHostAttribute(): ?string
+    {
+        $url = $this->origin_url;
+        if (empty($url)) {
+            return null;
+        }
+
+        $host = parse_url($url, PHP_URL_HOST);
+        if (!$host) {
+            return null;
+        }
+
+        return preg_replace('/^www\./i', '', $host);
+    }
 }

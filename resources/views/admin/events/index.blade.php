@@ -163,7 +163,8 @@
                                 Cena {!! $sortBy === 'price_min' ? ($sortDir === 'asc' ? '▲' : '▼') : '' !!}
                             </a>
                         </th>
-                        <th class="py-2.5 px-3 border-r border-slate-300 w-32">Avots</th>
+                        <th class="py-2.5 px-3 border-r border-slate-300 min-w-[160px]">Īstā vietne (Avots)</th>
+                        <th class="py-2.5 px-3 border-r border-slate-300 w-28">Robots</th>
                         <th class="py-2.5 px-3 border-r border-slate-300 w-28 text-center">Ārējais ID</th>
                         <th class="py-2.5 px-3 text-center w-24">Saites</th>
                     </tr>
@@ -220,7 +221,7 @@
                                 <div class="flex flex-wrap gap-1">
                                     @foreach($event->categories as $category)
                                         <span class="inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
-                                            {{ $category->name }}
+                                             {{ $category->name }}
                                         </span>
                                     @endforeach
                                 </div>
@@ -250,9 +251,27 @@
                                 @endif
                             </td>
 
-                            <!-- Source -->
+                            <!-- Real Origin Website -->
                             <td class="py-2 px-3 border-r border-slate-200 font-sans">
-                                <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-800 border border-slate-200 block truncate">
+                                @if($event->origin_url)
+                                    <a 
+                                        href="{{ $event->origin_url }}" 
+                                        target="_blank" 
+                                        rel="noopener noreferrer" 
+                                        class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-50 text-blue-800 hover:bg-blue-100 hover:text-blue-950 border border-blue-200 transition-colors max-w-[170px]"
+                                        title="{{ $event->origin_url }}">
+                                        <i data-lucide="globe" class="w-3.5 h-3.5 text-blue-600 shrink-0"></i>
+                                        <span class="truncate">{{ $event->origin_host }}</span>
+                                        <i data-lucide="external-link" class="w-2.5 h-2.5 text-blue-400 shrink-0"></i>
+                                    </a>
+                                @else
+                                    <span class="text-slate-400 text-[10px]">-</span>
+                                @endif
+                            </td>
+
+                            <!-- Robot / Scraper Source -->
+                            <td class="py-2 px-3 border-r border-slate-200 font-sans">
+                                <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 block truncate" title="Imports: {{ $event->source?->name ?: $event->source_slug }}">
                                     {{ $event->source?->name ?: $event->source_slug }}
                                 </span>
                             </td>
@@ -284,7 +303,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="10" class="py-12 text-center text-slate-400 font-sans">
+                            <td colspan="11" class="py-12 text-center text-slate-400 font-sans">
                                 <i data-lucide="inbox" class="w-8 h-8 mx-auto stroke-1 text-slate-300"></i>
                                 <p class="mt-2 text-sm font-semibold">Nav atrasts neviens notikums pēc norādītajiem filtriem.</p>
                             </td>
