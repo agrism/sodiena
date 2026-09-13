@@ -35,7 +35,7 @@ class EventController extends Controller
             ->filterBySource($sourceSlug)
             ->search($search);
 
-        $events = $query->paginate(12)->withQueryString();
+        $events = $query->paginate(16)->withQueryString();
 
         // If this is an HTMX partial request, return only the list fragment
         if ($request->header('HX-Request')) {

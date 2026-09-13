@@ -130,44 +130,24 @@
         @endforeach
     </div>
 
-    <!-- Pagination -->
-    @if($events->hasPages())
-        <div class="col-span-full pt-8 flex items-center justify-center">
-            <div class="flex items-center gap-2">
-                @if ($events->onFirstPage())
-                    <span class="px-4 py-2 rounded-xl bg-slate-100 text-slate-400 text-sm font-semibold cursor-not-allowed border border-slate-200">
-                        {{ __('Previous') }}
-                    </span>
-                @else
-                    <a 
-                        hx-get="{{ $events->previousPageUrl() }}"
-                        hx-target="#events-container"
-                        hx-indicator="#loading-spinner"
-                        hx-push-url="true"
-                        class="px-4 py-2 rounded-xl bg-white text-slate-700 text-sm font-bold border border-slate-200 hover:border-slate-300 hover:bg-slate-50 transition-colors cursor-pointer shadow-xs">
-                        {{ __('Previous') }}
-                    </a>
-                @endif
-
-                <span class="px-4 py-2 text-xs font-bold text-slate-500">
-                    {{ $events->currentPage() }} / {{ $events->lastPage() }}
-                </span>
-
-                @if ($events->hasMorePages())
-                    <a 
-                        hx-get="{{ $events->nextPageUrl() }}"
-                        hx-target="#events-container"
-                        hx-indicator="#loading-spinner"
-                        hx-push-url="true"
-                        class="px-4 py-2 rounded-xl bg-emerald-600 text-white text-sm font-bold shadow-xs hover:bg-emerald-700 transition-colors cursor-pointer">
-                        {{ __('Next') }}
-                    </a>
-                @else
-                    <span class="px-4 py-2 rounded-xl bg-slate-100 text-slate-400 text-sm font-semibold cursor-not-allowed border border-slate-200">
-                        {{ __('Next') }}
-                    </span>
-                @endif
+    <!-- Infinite Scroll Sentinel -->
+    @if($events->hasMorePages())
+        <div 
+            hx-get="{{ $events->nextPageUrl() }}" 
+            hx-trigger="revealed" 
+            hx-swap="outerHTML"
+            class="col-span-full py-12 flex flex-col items-center justify-center">
+            <div class="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full bg-white text-emerald-700 font-bold text-xs shadow-md border border-slate-200 animate-pulse">
+                <svg class="animate-spin -ml-1 mr-1 h-4 w-4 text-emerald-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span>{{ __('Loading more events...') }}</span>
             </div>
+        </div>
+    @else
+        <div class="col-span-full py-12 text-center text-xs font-semibold text-slate-400">
+            <span>✨ {{ __('All events shown') }}</span>
         </div>
     @endif
 @endif
