@@ -17,11 +17,18 @@ return new class extends Migration
         });
 
         // Backfill existing records
-        DB::statement("
-            UPDATE events e 
-            JOIN sources s ON e.source_id = s.id 
-            SET e.source_slug = s.slug
-        ");
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement("
+                UPDATE events e 
+                JOIN sources s ON e.source_id = s.id 
+                SET e.source_slug = s.slug
+            ");
+        } else {
+            DB::statement("
+                UPDATE events 
+                SET source_slug = (SELECT slug FROM sources WHERE sources.id = events.source_id)
+            ");
+        }
     }
 
     /**

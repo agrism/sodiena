@@ -68,6 +68,13 @@ class EventIngestionService
 
         $duration = microtime(true) - $startTime;
 
+        $cleanErrors = null;
+        if (!empty($errors)) {
+            $cleanErrors = array_map(function ($err) {
+                return mb_convert_encoding($err, 'UTF-8', 'UTF-8');
+            }, array_slice($errors, 0, 15));
+        }
+
         return ScrapeLog::create([
             'source_id' => $source->id,
             'items_found' => $scrapedCount,
@@ -75,7 +82,7 @@ class EventIngestionService
             'items_updated' => $updatedCount,
             'duration_seconds' => round($duration, 2),
             'status' => empty($errors) ? 'success' : ($createdCount > 0 || $updatedCount > 0 ? 'partial' : 'failed'),
-            'errors' => !empty($errors) ? array_slice($errors, 0, 15) : null,
+            'errors' => $cleanErrors,
             'started_at' => $startedAt,
             'completed_at' => now(),
         ]);

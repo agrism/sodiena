@@ -35,8 +35,8 @@ class ScrapedEventDTO
 
     public function getFingerprint(): string
     {
-        $normTitle = mb_strtolower(preg_replace('/[^\p{L}\p{N}]+/u', '', $this->title));
-        $date = $this->startAt->format('Y-m-d');
+        $normTitle = mb_strtolower(preg_replace('/[^\p{L}\p{N}]+/u', '', $this->title ?? ''));
+        $date = $this->startAt ? $this->startAt->format('Y-m-d') : '';
         $city = mb_strtolower(trim($this->city ?? ''));
         return hash('sha256', "{$normTitle}|{$date}|{$city}");
     }

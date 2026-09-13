@@ -182,21 +182,25 @@ class MadonasMuzejsScraper extends BaseScraper
             return '';
         }
 
+        $title = mb_convert_encoding($title, 'UTF-8', 'UTF-8');
+
         // Normalize ALL-CAPS titles into title/sentence case
         $lettersOnly = preg_replace('/[^\p{L}]+/u', '', $title);
-        if (!empty($lettersOnly) && mb_strtoupper($lettersOnly) === $lettersOnly && mb_strlen($lettersOnly) > 4) {
-            $lower = mb_strtolower($title);
-            $formatted = mb_strtoupper(mb_substr($lower, 0, 1)) . mb_substr($lower, 1);
+        if (!empty($lettersOnly) && mb_strtoupper($lettersOnly, 'UTF-8') === $lettersOnly && mb_strlen($lettersOnly, 'UTF-8') > 4) {
+            $lower = mb_strtolower($title, 'UTF-8');
+            $firstChar = mb_substr($lower, 0, 1, 'UTF-8');
+            $rest = mb_substr($lower, 1, null, 'UTF-8');
+            $formatted = mb_strtoupper($firstChar, 'UTF-8') . $rest;
             $formatted = preg_replace_callback('/([\.\!\?\:\“\”\«\»\|\-]\s*)([a-zāčēģīķļņšūž])/u', function ($m) {
-                return $m[1] . mb_strtoupper($m[2]);
+                return $m[1] . mb_strtoupper($m[2], 'UTF-8');
             }, $formatted);
-            $formatted = preg_replace_callback('/([“«])([a-zāčēģīķļņšūž])/u', function ($m) {
-                return $m[1] . mb_strtoupper($m[2]);
+            $formatted = preg_replace_callback('/([“«\x22])([a-zāčēģīķļņšūž])/u', function ($m) {
+                return $m[1] . mb_strtoupper($m[2], 'UTF-8');
             }, $formatted);
             $title = $formatted;
         }
 
-        return $title;
+        return mb_convert_encoding($title, 'UTF-8', 'UTF-8');
     }
 
     private function fetchEventDetail(string $url): array
