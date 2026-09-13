@@ -141,6 +141,26 @@
 
                 <!-- Opening Hours -->
                 @if(!empty($event->raw_data['opening_hours']))
+                    @php
+                        $openingHoursList = $event->raw_data['opening_hours'];
+                        if (is_array($openingHoursList)) {
+                            $dayOrder = [
+                                'Pirmdiena' => 1,
+                                'Otrdiena' => 2,
+                                'Trešdiena' => 3,
+                                'Ceturtdiena' => 4,
+                                'Piektdiena' => 5,
+                                'Sestdiena' => 6,
+                                'Svētdiena' => 7,
+                                'Pirmdiena – Piektdiena' => 1,
+                                'Otrdiena – Piektdiena' => 2,
+                                'Trešdiena – Piektdiena' => 3,
+                                'Sestdiena, Svētdiena' => 6,
+                                'Sestdien, svētdien' => 6,
+                            ];
+                            uksort($openingHoursList, fn($a, $b) => ($dayOrder[$a] ?? 99) <=> ($dayOrder[$b] ?? 99));
+                        }
+                    @endphp
                     <div class="flex items-start gap-3.5">
                         <div class="w-10 h-10 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center shrink-0 border border-purple-200">
                             <i data-lucide="clock" class="w-5 h-5"></i>
@@ -148,8 +168,8 @@
                         <div class="flex-1 min-w-0">
                             <p class="text-xs text-slate-400 font-bold uppercase tracking-wider">{{ __('Opening hours') }}</p>
                             <div class="mt-2 space-y-1.5 text-xs text-slate-700 font-medium">
-                                @if(is_array($event->raw_data['opening_hours']))
-                                    @foreach($event->raw_data['opening_hours'] as $day => $time)
+                                @if(is_array($openingHoursList))
+                                    @foreach($openingHoursList as $day => $time)
                                         <div class="flex items-center justify-between gap-2 py-0.5 border-b border-slate-100 last:border-0">
                                             @if(is_string($day) && !is_numeric($day))
                                                 <span class="text-slate-500 font-medium truncate">{{ $day }}</span>
@@ -160,7 +180,7 @@
                                         </div>
                                     @endforeach
                                 @else
-                                    <p class="font-bold text-slate-900">{{ $event->raw_data['opening_hours'] }}</p>
+                                    <p class="font-bold text-slate-900">{{ $openingHoursList }}</p>
                                 @endif
                             </div>
                             @if(!empty($event->raw_data['opening_hours_source']))
