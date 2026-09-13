@@ -101,19 +101,41 @@ class EventIngestionService
                 $cityName = $dto->city ?: 'Rīga';
                 $regionName = $dto->region ?: $this->guessRegionByCity($cityName);
 
-                $location = Location::firstOrCreate(
-                    [
+                $location = Location::where(function ($q) use ($locationName) {
+                    $q->where('name', $locationName)
+                      ->orWhereHas('translations', function ($tq) use ($locationName) {
+                          $tq->where('name', $locationName);
+                      });
+                })->where(function ($q) use ($cityName) {
+                    $q->where('city', $cityName)
+                      ->orWhereHas('translations', function ($tq) use ($cityName) {
+                          $tq->where('city', $cityName);
+                      });
+                })->first();
+
+                if (!$location) {
+                    $location = Location::create([
                         'name' => $locationName,
                         'city' => $cityName,
-                    ],
-                    [
                         'region' => $regionName,
                         'address' => $dto->address,
                         'latitude' => $dto->latitude,
                         'longitude' => $dto->longitude,
                         'place_type' => $dto->placeType ?: 'venue',
-                    ]
-                );
+                    ]);
+                } else {
+                    $locUpdate = [];
+                    if (empty($location->address) && !empty($dto->address)) {
+                        $locUpdate['address'] = $dto->address;
+                    }
+                    if (empty($location->latitude) && !empty($dto->latitude)) {
+                        $locUpdate['latitude'] = $dto->latitude;
+                        $locUpdate['longitude'] = $dto->longitude;
+                    }
+                    if (!empty($locUpdate)) {
+                        $location->update($locUpdate);
+                    }
+                }
 
                 LocationTranslation::updateOrCreate(
                     [
@@ -124,7 +146,7 @@ class EventIngestionService
                         'name' => $locationName,
                         'city' => $cityName,
                         'region' => $regionName,
-                        'address' => $dto->address,
+                        'address' => $dto->address ?: $location->address,
                     ]
                 );
 
