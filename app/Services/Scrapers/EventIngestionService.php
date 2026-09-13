@@ -95,63 +95,7 @@ class EventIngestionService
             $locale = $dto->locale ?: 'lv';
 
             // 1. Resolve or create Location and Location Translations
-            $locationId = null;
-            if ($dto->venueName || $dto->city || $dto->latitude) {
-                $locationName = $dto->venueName ?: ($dto->city . ' centrs');
-                $cityName = $dto->city ?: 'Rīga';
-                $regionName = $dto->region ?: $this->guessRegionByCity($cityName);
-
-                $location = Location::where(function ($q) use ($locationName) {
-                    $q->where('name', $locationName)
-                      ->orWhereHas('translations', function ($tq) use ($locationName) {
-                          $tq->where('name', $locationName);
-                      });
-                })->where(function ($q) use ($cityName) {
-                    $q->where('city', $cityName)
-                      ->orWhereHas('translations', function ($tq) use ($cityName) {
-                          $tq->where('city', $cityName);
-                      });
-                })->first();
-
-                if (!$location) {
-                    $location = Location::create([
-                        'name' => $locationName,
-                        'city' => $cityName,
-                        'region' => $regionName,
-                        'address' => $dto->address,
-                        'latitude' => $dto->latitude,
-                        'longitude' => $dto->longitude,
-                        'place_type' => $dto->placeType ?: 'venue',
-                    ]);
-                } else {
-                    $locUpdate = [];
-                    if (empty($location->address) && !empty($dto->address)) {
-                        $locUpdate['address'] = $dto->address;
-                    }
-                    if (empty($location->latitude) && !empty($dto->latitude)) {
-                        $locUpdate['latitude'] = $dto->latitude;
-                        $locUpdate['longitude'] = $dto->longitude;
-                    }
-                    if (!empty($locUpdate)) {
-                        $location->update($locUpdate);
-                    }
-                }
-
-                LocationTranslation::updateOrCreate(
-                    [
-                        'location_id' => $location->id,
-                        'locale' => $locale,
-                    ],
-                    [
-                        'name' => $locationName,
-                        'city' => $cityName,
-                        'region' => $regionName,
-                        'address' => $dto->address ?: $location->address,
-                    ]
-                );
-
-                $locationId = $location->id;
-            }
+            $locationId = $this->resolveOrCreateLocation($dto, $locale);
 
             // 2. Resolve or create Categories and Category Translations
             $categoryIds = [];
@@ -485,6 +429,158 @@ class EventIngestionService
         }
 
         return array_values(array_unique($stems));
+    }
+
+    public function resolveOrCreateLocation(ScrapedEventDTO $dto, string $locale = 'lv'): ?int
+    {
+        if (!$dto->venueName && !$dto->city && !$dto->latitude) {
+            return null;
+        }
+
+        $rawVenue = trim($dto->venueName ?? '');
+        $cityName = trim($dto->city ?: 'Rīga');
+        $regionName = $dto->region ?: $this->guessRegionByCity($cityName);
+
+        // Clean venue name: strip quotes, decode entities
+        $locationName = $rawVenue ?: ($cityName . ' centrs');
+        $cleanQueryName = $this->cleanLocationName($locationName);
+
+        // 1. Exact / direct translation match in same city
+        $location = Location::where(function ($q) use ($locationName, $cleanQueryName) {
+            $q->where('name', $locationName)
+              ->orWhere('name', $cleanQueryName)
+              ->orWhereHas('translations', function ($tq) use ($locationName, $cleanQueryName) {
+                  $tq->where('name', $locationName)
+                     ->orWhere('name', $cleanQueryName);
+              });
+        })->where(function ($q) use ($cityName) {
+            $q->where('city', $cityName)
+              ->orWhereHas('translations', function ($tq) use ($cityName) {
+                  $tq->where('city', $cityName);
+              });
+        })->first();
+
+        // 2. Fuzzy / base venue / address match in the same city
+        if (!$location) {
+            $cityLocations = Location::where(function ($q) use ($cityName) {
+                $q->where('city', $cityName)
+                  ->orWhereHas('translations', function ($tq) use ($cityName) {
+                      $tq->where('city', $cityName);
+                  });
+            })->get();
+
+            $baseQueryName = $this->getBaseVenueName($cleanQueryName);
+            $queryStreet = $this->extractStreetAndNumber($dto->address);
+
+            foreach ($cityLocations as $candidate) {
+                $candName = $candidate->name;
+                $cleanCandName = $this->cleanLocationName($candName);
+                $baseCandName = $this->getBaseVenueName($cleanCandName);
+                $candStreet = $this->extractStreetAndNumber($candidate->address);
+
+                // A. Base venue match (ignoring hall/zāle suffixes or address in parentheses)
+                if (mb_strlen($baseQueryName, 'UTF-8') >= 4 && mb_strtolower($baseQueryName, 'UTF-8') === mb_strtolower($baseCandName, 'UTF-8')) {
+                    $location = $candidate;
+                    break;
+                }
+
+                // B. Substring match if one venue name is fully contained in another (e.g. "Tradīciju māja" in "Daugavpils Vienības nama Tradīciju māja")
+                $normQuery = preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower($cleanQueryName, 'UTF-8'));
+                $normCand = preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower($cleanCandName, 'UTF-8'));
+                if (mb_strlen($normQuery, 'UTF-8') >= 8 && mb_strlen($normCand, 'UTF-8') >= 8) {
+                    if (str_contains($normCand, $normQuery) || str_contains($normQuery, $normCand)) {
+                        $location = $candidate;
+                        break;
+                    }
+                }
+
+                // C. Street address match in the same city
+                if ($queryStreet && $candStreet && mb_strtolower($queryStreet, 'UTF-8') === mb_strtolower($candStreet, 'UTF-8')) {
+                    $location = $candidate;
+                    break;
+                }
+
+                // D. Stemmed token overlap
+                $queryStems = $this->getLatvianWordStems($cleanQueryName);
+                $candStems = $this->getLatvianWordStems($cleanCandName);
+                if (count($queryStems) >= 2 && count($candStems) >= 2) {
+                    $common = array_intersect($queryStems, $candStems);
+                    $overlap = (count($common) / min(count($queryStems), count($candStems))) * 100;
+                    if ($overlap >= 75) {
+                        $location = $candidate;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (!$location) {
+            $location = Location::create([
+                'name' => $cleanQueryName,
+                'city' => $cityName,
+                'region' => $regionName,
+                'address' => $dto->address,
+                'latitude' => $dto->latitude,
+                'longitude' => $dto->longitude,
+                'place_type' => $dto->placeType ?: 'venue',
+            ]);
+        } else {
+            // Enrich existing location if new data is more descriptive / complete
+            $locUpdate = [];
+            if (mb_strlen($cleanQueryName, 'UTF-8') > mb_strlen($location->name, 'UTF-8') && !str_contains($cleanQueryName, '(')) {
+                $locUpdate['name'] = $cleanQueryName;
+            }
+            if (empty($location->address) && !empty($dto->address)) {
+                $locUpdate['address'] = $dto->address;
+            }
+            if (empty($location->latitude) && !empty($dto->latitude)) {
+                $locUpdate['latitude'] = $dto->latitude;
+                $locUpdate['longitude'] = $dto->longitude;
+            }
+            if (!empty($locUpdate)) {
+                $location->update($locUpdate);
+            }
+        }
+
+        LocationTranslation::updateOrCreate(
+            [
+                'location_id' => $location->id,
+                'locale' => $locale,
+            ],
+            [
+                'name' => $location->name,
+                'city' => $cityName,
+                'region' => $regionName,
+                'address' => $dto->address ?: $location->address,
+            ]
+        );
+
+        return $location->id;
+    }
+
+    private function cleanLocationName(string $name): string
+    {
+        $clean = html_entity_decode($name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $clean = str_replace(['“', '”', '«', '»', '"', '’', '`'], '', $clean);
+        return trim(preg_replace('/\s+/', ' ', $clean));
+    }
+
+    private function getBaseVenueName(string $name): string
+    {
+        $name = preg_replace('/\s*\([^)]*\)/', '', $name); // remove (address...)
+        // strip hall suffixes
+        $name = preg_replace('/,?\s*(?:Lielā zāle|Mazā zāle|Jaunā zāle|Kamerzāle|Kora zāle|Koncertzāle|Eksperimentālā skatuve|MAZĀ ZĀLE|LIELĀ ZĀLE|1\.\s*stāvs|2\.\s*stāvs)$/iu', '', $name);
+        return trim($name);
+    }
+
+    private function extractStreetAndNumber(?string $address): ?string
+    {
+        if (empty($address)) return null;
+        // match e.g. "Rīgas iela 22a", "Spīdolas iela 2", "Brīvības bulvāris 36", "Stadiona iela 1"
+        if (preg_match('/([\p{L}\s]+(?:iela|bulvāris|gatve|prospekts|laukums|krastmala|dambis)\s+\d+[a-z]?)/iu', $address, $m)) {
+            return trim($m[1]);
+        }
+        return null;
     }
 }
 
