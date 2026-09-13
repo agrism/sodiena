@@ -164,13 +164,18 @@ class DzejasDienasScraper extends BaseScraper
 
             // Generic content paragraphs
             $descParts = [];
-            if ($crawler->filter('.generic-content')->count()) {
-                $crawler->filter('.generic-content > p, .generic-content')->each(function (Crawler $p) use (&$descParts) {
+            if ($crawler->filter('.generic-content > p')->count()) {
+                $crawler->filter('.generic-content > p')->each(function (Crawler $p) use (&$descParts) {
                     $pText = $this->cleanText($p->text(''));
                     if (!empty($pText)) {
                         $descParts[] = $pText;
                     }
                 });
+            } elseif ($crawler->filter('.generic-content')->count()) {
+                $pText = $this->cleanText($crawler->filter('.generic-content')->first()->text(''));
+                if (!empty($pText)) {
+                    $descParts[] = $pText;
+                }
             }
 
             // Participating authors
