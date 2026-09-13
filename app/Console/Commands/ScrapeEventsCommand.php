@@ -52,10 +52,11 @@ class ScrapeEventsCommand extends Command
             
             $log = $ingestionService->ingest($source);
 
-            if ($log->status === 'success') {
-                $this->output->writeln("<info>PABEIGTS</info> (Atrasti: {$log->items_found}, Izveidoti: {$log->items_created}, Atjaunoti: {$log->items_updated}, Ilgums: {$log->duration_seconds}s)");
+            if ($log->status === 'success' || $log->status === 'partial') {
+                $statusText = $log->status === 'partial' ? '<comment>DAĻĒJI PABEIGTS</comment>' : '<info>PABEIGTS</info>';
+                $this->output->writeln("{$statusText} (Atrasti: {$log->items_found}, Izveidoti: {$log->items_created}, Atjaunoti: {$log->items_updated}, Ilgums: {$log->duration_seconds}s)");
             } else {
-                $errMsg = $log->errors[0]['fatal'] ?? 'Nezināma kļūda';
+                $errMsg = is_array($log->errors) ? ($log->errors[0] ?? 'Nezināma kļūda') : 'Nezināma kļūda';
                 $this->output->writeln("<error>KĻŪDA</error> ({$errMsg})");
             }
         }
