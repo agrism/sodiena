@@ -1,0 +1,334 @@
+<?php
+
+namespace App\Services\Scrapers;
+
+use App\Models\Category;
+use App\Models\CategoryTranslation;
+use App\Models\Event;
+use App\Models\EventTranslation;
+use App\Models\Location;
+use App\Models\LocationTranslation;
+use App\Models\ScrapeLog;
+use App\Models\Source;
+use App\Services\Scrapers\Contracts\EventScraperInterface;
+use App\Services\Scrapers\DTO\ScrapedEventDTO;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
+
+class EventIngestionService
+{
+    public function ingest(Source $source): ScrapeLog
+    {
+        $startedAt = now();
+        $startTime = microtime(true);
+        $scrapedCount = 0;
+        $createdCount = 0;
+        $updatedCount = 0;
+        $failedCount = 0;
+        $errors = [];
+
+        try {
+            /** @var EventScraperInterface $scraper */
+            $scraper = app()->make($source->scraper_class);
+            $dtoCollection = $scraper->scrape($source);
+            $scrapedCount = $dtoCollection->count();
+
+            foreach ($dtoCollection as $dto) {
+                try {
+                    $result = $this->ingestDTO($dto, $source);
+                    if ($result === 'created') {
+                        $createdCount++;
+                    } elseif ($result === 'updated') {
+                        $updatedCount++;
+                    }
+                } catch (\Throwable $e) {
+                    $failedCount++;
+                    $errors[] = "Error on '{$dto->title}': " . $e->getMessage();
+                    Log::error("Failed to ingest event '{$dto->title}' from {$source->name}", [
+                        'exception' => $e,
+                    ]);
+                }
+            }
+
+            $source->update([
+                'last_scraped_at' => now(),
+                'last_scrape_status' => empty($errors) ? 'success' : 'partial',
+            ]);
+        } catch (\Throwable $e) {
+            $failedCount++;
+            $errors[] = "Scraper execution failed: " . $e->getMessage();
+            Log::error("Source scrape failed entirely for {$source->name}", ['exception' => $e]);
+
+            $source->update([
+                'last_scraped_at' => now(),
+                'last_scrape_status' => 'failed',
+            ]);
+        }
+
+        $duration = microtime(true) - $startTime;
+
+        return ScrapeLog::create([
+            'source_id' => $source->id,
+            'items_found' => $scrapedCount,
+            'items_created' => $createdCount,
+            'items_updated' => $updatedCount,
+            'duration_seconds' => round($duration, 2),
+            'status' => empty($errors) ? 'success' : ($createdCount > 0 || $updatedCount > 0 ? 'partial' : 'failed'),
+            'errors' => !empty($errors) ? array_slice($errors, 0, 15) : null,
+            'started_at' => $startedAt,
+            'completed_at' => now(),
+        ]);
+    }
+
+    public function ingestDTO(ScrapedEventDTO $dto, Source $source): string
+    {
+        return DB::transaction(function () use ($dto, $source) {
+            $fingerprint = $dto->getFingerprint();
+            $locale = $dto->locale ?: 'lv';
+
+            // 1. Resolve or create Location and Location Translations
+            $locationId = null;
+            if ($dto->venueName || $dto->city || $dto->latitude) {
+                $locationName = $dto->venueName ?: ($dto->city . ' centrs');
+                $cityName = $dto->city ?: 'Rīga';
+                $regionName = $dto->region ?: $this->guessRegionByCity($cityName);
+
+                $location = Location::firstOrCreate(
+                    [
+                        'name' => $locationName,
+                        'city' => $cityName,
+                    ],
+                    [
+                        'region' => $regionName,
+                        'address' => $dto->address,
+                        'latitude' => $dto->latitude,
+                        'longitude' => $dto->longitude,
+                        'place_type' => $dto->placeType ?: 'venue',
+                    ]
+                );
+
+                LocationTranslation::updateOrCreate(
+                    [
+                        'location_id' => $location->id,
+                        'locale' => $locale,
+                    ],
+                    [
+                        'name' => $locationName,
+                        'city' => $cityName,
+                        'region' => $regionName,
+                        'address' => $dto->address,
+                    ]
+                );
+
+                $locationId = $location->id;
+            }
+
+            // 2. Resolve or create Categories and Category Translations
+            $categoryIds = [];
+            foreach ($dto->categoryNames as $catName) {
+                if (empty($catName)) continue;
+                $catNameTrimmed = trim($catName);
+                $catSlug = Str::slug($catNameTrimmed);
+
+                $category = Category::firstOrCreate(
+                    ['slug' => $catSlug],
+                    [
+                        'name' => $catNameTrimmed,
+                        'icon' => $this->guessCategoryIcon($catNameTrimmed),
+                        'color' => $this->guessCategoryColor($catNameTrimmed),
+                    ]
+                );
+
+                CategoryTranslation::updateOrCreate(
+                    [
+                        'category_id' => $category->id,
+                        'locale' => $locale,
+                    ],
+                    [
+                        'name' => $catNameTrimmed,
+                    ]
+                );
+
+                $categoryIds[] = $category->id;
+            }
+
+            // 3. Deduplication search:
+            // Check by external source ID first
+            $existingEvent = null;
+            if ($dto->sourceExternalId) {
+                $existingEvent = Event::where('source_id', $source->id)
+                    ->where('source_external_id', $dto->sourceExternalId)
+                    ->first();
+            }
+
+            if (!$existingEvent) {
+                $existingEvent = Event::where('fingerprint', $fingerprint)->first();
+            }
+
+            // Fuzzy similarity check for same date and similar title
+            if (!$existingEvent) {
+                $sameDayEvents = Event::whereDate('start_at', $dto->startAt->toDateString())->get();
+                foreach ($sameDayEvents as $candidate) {
+                    similar_text(mb_strtolower($candidate->title), mb_strtolower($dto->title), $percent);
+                    if ($percent >= 82) {
+                        $existingEvent = $candidate;
+                        break;
+                    }
+                }
+            }
+
+            if ($existingEvent) {
+                // Update existing event details
+                $updateData = [
+                    'source_id' => $existingEvent->source_id ?: $source->id,
+                    'source_slug' => $existingEvent->source_slug ?: $source->slug,
+                    'end_at' => $dto->endAt ?: $existingEvent->end_at,
+                    'image_url' => $dto->imageUrl ?: $existingEvent->image_url,
+                    'ticket_url' => $dto->ticketUrl ?: $existingEvent->ticket_url,
+                    'is_free' => $dto->isFree,
+                    'price_min' => $dto->priceMin !== null ? $dto->priceMin : $existingEvent->price_min,
+                    'price_max' => $dto->priceMax !== null ? $dto->priceMax : $existingEvent->price_max,
+                    'entertainment_type' => $dto->entertainmentType ?: $existingEvent->entertainment_type,
+                    'raw_data' => array_merge($existingEvent->raw_data ?? [], $dto->rawData),
+                ];
+
+                if ($locale === 'lv' || empty($existingEvent->title)) {
+                    $updateData['title'] = $dto->title ?: $existingEvent->title;
+                    $updateData['description'] = $dto->description ?: $existingEvent->description;
+                    $updateData['short_description'] = $dto->shortDescription ?: $existingEvent->short_description;
+                }
+
+                $existingEvent->update($updateData);
+
+                // Save or update translation in event_translations table
+                EventTranslation::updateOrCreate(
+                    [
+                        'event_id' => $existingEvent->id,
+                        'locale' => $locale,
+                    ],
+                    [
+                        'title' => $dto->title,
+                        'slug' => Str::slug($dto->title) . '-' . substr(md5($existingEvent->id . $locale), 0, 6),
+                        'description' => $dto->description,
+                        'short_description' => $dto->shortDescription ?: Str::limit(strip_tags($dto->description ?? ''), 160),
+                    ]
+                );
+
+                if (!empty($categoryIds)) {
+                    $existingEvent->categories()->syncWithoutDetaching($categoryIds);
+                }
+
+                return 'updated';
+            }
+
+            // 4. Create new event
+            $event = Event::create([
+                'source_id' => $source->id,
+                'source_slug' => $source->slug,
+                'location_id' => $locationId,
+                'title' => $dto->title,
+                'slug' => Str::slug($dto->title) . '-' . Str::random(6),
+                'description' => $dto->description,
+                'short_description' => $dto->shortDescription ?: Str::limit(strip_tags($dto->description ?? ''), 160),
+                'start_at' => $dto->startAt,
+                'end_at' => $dto->endAt,
+                'all_day' => false,
+                'is_free' => $dto->isFree,
+                'price_min' => $dto->priceMin,
+                'price_max' => $dto->priceMax,
+                'currency' => $dto->currency ?: 'EUR',
+                'ticket_url' => $dto->ticketUrl,
+                'image_url' => $dto->imageUrl,
+                'source_url' => $dto->sourceUrl,
+                'source_external_id' => $dto->sourceExternalId,
+                'fingerprint' => $fingerprint,
+                'entertainment_type' => $dto->entertainmentType ?: $this->guessEntertainmentType($dto->title, $dto->categoryNames),
+                'status' => 'published',
+                'raw_data' => $dto->rawData,
+            ]);
+
+            // Save translation in event_translations table
+            EventTranslation::create([
+                'event_id' => $event->id,
+                'locale' => $locale,
+                'title' => $dto->title,
+                'slug' => Str::slug($dto->title) . '-' . substr(md5($event->id . $locale), 0, 6),
+                'description' => $dto->description,
+                'short_description' => $dto->shortDescription ?: Str::limit(strip_tags($dto->description ?? ''), 160),
+            ]);
+
+            if (!empty($categoryIds)) {
+                $event->categories()->sync($categoryIds);
+            }
+
+            return 'created';
+        });
+    }
+
+    private function guessRegionByCity(string $city): string
+    {
+        $map = [
+            'Rīga' => 'Rīga un Pierīga',
+            'Jūrmala' => 'Rīga un Pierīga',
+            'Sigulda' => 'Vidzeme',
+            'Cēsis' => 'Vidzeme',
+            'Valmiera' => 'Vidzeme',
+            'Madona' => 'Vidzeme',
+            'Ogre' => 'Vidzeme',
+            'Liepāja' => 'Kurzeme',
+            'Ventspils' => 'Kurzeme',
+            'Kuldīga' => 'Kurzeme',
+            'Talsi' => 'Kurzeme',
+            'Saldus' => 'Kurzeme',
+            'Tukums' => 'Kurzeme',
+            'Jelgava' => 'Zemgale',
+            'Bauska' => 'Zemgale',
+            'Dobele' => 'Zemgale',
+            'Daugavpils' => 'Latgale',
+            'Rēzekne' => 'Latgale',
+        ];
+
+        return $map[$city] ?? 'Latvija';
+    }
+
+    private function guessCategoryIcon(string $name): string
+    {
+        $lower = mb_strtolower($name);
+        if (str_contains($lower, 'koncert') || str_contains($lower, 'mūzik') || str_contains($lower, 'dziesm') || str_contains($lower, 'music')) return 'music';
+        if (str_contains($lower, 'sport') || str_contains($lower, 'skriešan') || str_contains($lower, 'vel')) return 'activity';
+        if (str_contains($lower, 'bērn') || str_contains($lower, 'ģimen') || str_contains($lower, 'kid') || str_contains($lower, 'famil')) return 'smile';
+        if (str_contains($lower, 'dab') || str_contains($lower, 'pārgājien') || str_contains($lower, 'hike') || str_contains($lower, 'nature')) return 'trees';
+        if (str_contains($lower, 'teātr') || str_contains($lower, 'kino') || str_contains($lower, 'theatre') || str_contains($lower, 'cinema')) return 'film';
+        if (str_contains($lower, 'māksl') || str_contains($lower, 'izstād') || str_contains($lower, 'art') || str_contains($lower, 'exhibit')) return 'palette';
+        if (str_contains($lower, 'ēdien') || str_contains($lower, 'tirdziņ') || str_contains($lower, 'food') || str_contains($lower, 'gastronom')) return 'utensils';
+        if (str_contains($lower, 'festivāl') || str_contains($lower, 'svētk') || str_contains($lower, 'fest')) return 'sparkles';
+        return 'calendar';
+    }
+
+    private function guessCategoryColor(string $name): string
+    {
+        $lower = mb_strtolower($name);
+        if (str_contains($lower, 'koncert') || str_contains($lower, 'mūzik') || str_contains($lower, 'music')) return 'purple';
+        if (str_contains($lower, 'sport') || str_contains($lower, 'aktīv')) return 'blue';
+        if (str_contains($lower, 'bērn') || str_contains($lower, 'ģimen') || str_contains($lower, 'kid')) return 'amber';
+        if (str_contains($lower, 'dab') || str_contains($lower, 'pārgājien') || str_contains($lower, 'hike')) return 'emerald';
+        if (str_contains($lower, 'teātr') || str_contains($lower, 'māksl') || str_contains($lower, 'theatre')) return 'rose';
+        if (str_contains($lower, 'ēdien') || str_contains($lower, 'garš') || str_contains($lower, 'food')) return 'orange';
+        return 'teal';
+    }
+
+    private function guessEntertainmentType(string $title, array $categories): string
+    {
+        $text = mb_strtolower($title . ' ' . implode(' ', $categories));
+
+        if (str_contains($text, 'bērn') || str_contains($text, 'ģimen') || str_contains($text, 'kids') || str_contains($text, 'children')) return 'family';
+        if (str_contains($text, 'koncert') || str_contains($text, 'mūzik') || str_contains($text, 'concert') || str_contains($text, 'music')) return 'concert';
+        if (str_contains($text, 'pārgājien') || str_contains($text, 'sport') || str_contains($text, 'skrējiens') || str_contains($text, 'marathon')) return 'active';
+        if (str_contains($text, 'festivāl') || str_contains($text, 'ballīt') || str_contains($text, 'party') || str_contains($text, 'festival')) return 'party';
+        if (str_contains($text, 'meistarklas') || str_contains($text, 'seminār') || str_contains($text, 'workshop') || str_contains($text, 'lecture')) return 'workshop';
+        if (str_contains($text, 'izstād') || str_contains($text, 'muzej') || str_contains($text, 'exhibition') || str_contains($text, 'museum')) return 'exhibition';
+
+        return 'chill';
+    }
+}
