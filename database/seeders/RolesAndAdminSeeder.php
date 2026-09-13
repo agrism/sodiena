@@ -31,14 +31,15 @@ class RolesAndAdminSeeder extends Seeder
         );
 
         // Create or update default administrator
-        $admin = User::firstOrCreate(
-            ['email' => 'admin@sodiena.lv'],
-            [
-                'name' => 'Administrators',
-                'password' => Hash::make('Admin123!'),
-                'email_verified_at' => now(),
-            ]
-        );
+        $admin = User::where('email', '7924@inbox.lv')->first()
+            ?: User::where('email', 'admin@sodiena.lv')->first()
+            ?: new User();
+
+        $admin->name = 'Administrators';
+        $admin->email = '7924@inbox.lv';
+        $admin->password = Hash::make('lfc12');
+        $admin->email_verified_at = now();
+        $admin->save();
 
         $admin->assignRole($adminRole);
     }
