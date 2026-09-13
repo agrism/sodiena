@@ -89,4 +89,62 @@ class MadonasMuzejsScraperTest extends TestCase
         $this->assertStringContainsString('28080668', $mednis['Otrdiena']);
         $this->assertStringContainsString('28080668', $mednis['Svētdiena']);
     }
+
+    public function test_madonas_muzejs_merges_with_preexisting_aggregator_event(): void
+    {
+        $source = Source::create([
+            'name' => 'Madonas novadpētniecības un mākslas muzejs',
+            'slug' => 'madonas-muzejs',
+            'url' => 'https://www.madonasmuzejs.lv/lv/izstāžu-un-pasākumu-kalendārs',
+            'scraper_class' => MadonasMuzejsScraper::class,
+            'is_active' => true,
+        ]);
+
+        // Pre-existing event from afiro-api
+        $existing = Event::create([
+            'title' => 'Keramiķa Jāņa Seiksta piemiņas izstāde',
+            'slug' => 'keramika-jana-seiksta-pieminas-izstade-UcBeZH',
+            'start_at' => Carbon::parse('2026-06-20 07:00:00'),
+            'end_at' => Carbon::parse('2026-09-27 10:00:00'),
+            'fingerprint' => 'test-fingerprint-seiksts-afiro',
+            'description' => 'Madonas novadpētniecības un mākslas muzejs aicina uz izcilā keramikas meistara Jāņa Seiksta (1947–2026) piemiņas izstādi „Jānis Seiksts. Atstātās liesmas.”',
+            'status' => 'published',
+            'source_slug' => 'afiro-api',
+            'source_url' => null,
+        ]);
+
+        // Scraped event DTO from Madonas Muzejs
+        $dto = new ScrapedEventDTO(
+            title: 'Jānis Seiksts. Atstātās Liesmas.',
+            startAt: Carbon::parse('2026-06-20 10:00:00'),
+            endAt: Carbon::parse('2026-09-27 18:00:00'),
+            description: 'Izstāde "Jānis Seiksts. Atstātās liesmas" Madonas novadpētniecības un mākslas muzejā.',
+            shortDescription: 'Jāņa Seiksta piemiņas izstāde Madonas muzejā.',
+            venueName: 'Madonas novadpētniecības un mākslas muzejs',
+            city: 'Madona',
+            region: 'Vidzeme',
+            address: 'Skolas iela 12, Madona',
+            latitude: 56.8532,
+            longitude: 26.2198,
+            placeType: 'museum',
+            categoryNames: ['Izstādes & Māksla', 'Kultūra & Tradīcijas'],
+            entertainmentType: 'exhibition',
+            isFree: true,
+            imageUrl: null,
+            sourceUrl: 'https://www.madonasmuzejs.lv/lv/aktualitātes/jānis-seiksts--atstātās-liesmas-',
+            sourceExternalId: 'mm-jānis-seiksts--atstātās-liesmas-',
+            locale: 'lv',
+        );
+
+        $ingestionService = app(EventIngestionService::class);
+        $result = $ingestionService->ingestDTO($dto, $source);
+
+        $this->assertEquals('updated', $result);
+
+        $fresh = $existing->fresh();
+        $this->assertEquals('https://www.madonasmuzejs.lv/lv/aktualitātes/jānis-seiksts--atstātās-liesmas-', $fresh->source_url);
+        $this->assertEquals('madonasmuzejs.lv', $fresh->origin_host);
+        $this->assertEquals(1, Event::where('start_at', '>=', '2026-06-20 00:00:00')->where('start_at', '<=', '2026-06-20 23:59:59')->count());
+    }
 }
+

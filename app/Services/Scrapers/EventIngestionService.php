@@ -173,31 +173,32 @@ class EventIngestionService
                 $existingEvent = Event::where('fingerprint', $fingerprint)->first();
             }
 
-            // Fuzzy similarity check for same date and similar title
-            if (!$existingEvent) {
+            // Fuzzy similarity check for same date and similar title / stems / descriptions
+            if (!$existingEvent && $dto->startAt) {
                 $sameDayEvents = Event::whereDate('start_at', $dto->startAt->toDateString())->get();
-                $cleanDto = preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower($dto->title));
-                $dtoWords = array_values(array_filter(explode(' ', $cleanDto), fn ($w) => mb_strlen($w) > 2 && !in_array($w, ['un', 'par', 'ar', 'pie', 'uz', 'no', 'vai'])));
+                $cleanDto = preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower($dto->title, 'UTF-8'));
+                $dtoStems = $this->getLatvianWordStems($dto->title);
+                $dtoWords = array_values(array_filter(explode(' ', $cleanDto), fn ($w) => mb_strlen($w, 'UTF-8') > 2 && !in_array($w, ['un', 'par', 'ar', 'pie', 'uz', 'no', 'vai'])));
 
                 foreach ($sameDayEvents as $candidate) {
-                    $cleanCand = preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower($candidate->title));
+                    $cleanCand = preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower($candidate->title, 'UTF-8'));
 
-                    // Direct string similarity
+                    // 1. Direct string similarity
                     similar_text($cleanCand, $cleanDto, $percent);
                     if ($percent >= 75) {
                         $existingEvent = $candidate;
                         break;
                     }
 
-                    // Substring check
-                    if ((mb_strlen($cleanDto) > 12 && str_contains($cleanCand, $cleanDto)) || (mb_strlen($cleanCand) > 12 && str_contains($cleanDto, $cleanCand))) {
+                    // 2. Substring check
+                    if ((mb_strlen($cleanDto, 'UTF-8') > 12 && str_contains($cleanCand, $cleanDto)) || (mb_strlen($cleanCand, 'UTF-8') > 12 && str_contains($cleanDto, $cleanCand))) {
                         $existingEvent = $candidate;
                         break;
                     }
 
-                    // Word token overlap on same day
+                    // 3. Exact word token overlap on same day
                     if (!empty($dtoWords)) {
-                        $candWords = array_values(array_filter(explode(' ', $cleanCand), fn ($w) => mb_strlen($w) > 2 && !in_array($w, ['un', 'par', 'ar', 'pie', 'uz', 'no', 'vai'])));
+                        $candWords = array_values(array_filter(explode(' ', $cleanCand), fn ($w) => mb_strlen($w, 'UTF-8') > 2 && !in_array($w, ['un', 'par', 'ar', 'pie', 'uz', 'no', 'vai'])));
                         $common = array_intersect($dtoWords, $candWords);
                         if (count($common) >= 2 && !empty($candWords)) {
                             $overlap = (count($common) / min(count($dtoWords), count($candWords))) * 100;
@@ -205,6 +206,48 @@ class EventIngestionService
                                 $existingEvent = $candidate;
                                 break;
                             }
+                        }
+                    }
+
+                    // 4. Stemmed word overlap (Latvian declension-aware)
+                    $candStems = $this->getLatvianWordStems($candidate->title);
+                    $commonStems = array_intersect($dtoStems, $candStems);
+                    if (count($commonStems) >= 2) {
+                        $stemOverlap = (count($commonStems) / min(count($dtoStems), count($candStems))) * 100;
+                        if ($stemOverlap >= 40) {
+                            $existingEvent = $candidate;
+                            break;
+                        }
+                    }
+
+                    // 5. Cross-field title in candidate description check
+                    $candDescLower = mb_strtolower($candidate->description ?? '', 'UTF-8');
+                    $cleanDtoTitleNoPunct = trim(preg_replace('/[^\p{L}\p{N}\s]+/u', ' ', mb_strtolower($dto->title, 'UTF-8')));
+                    if (mb_strlen($cleanDtoTitleNoPunct, 'UTF-8') >= 8 && str_contains($candDescLower, $cleanDtoTitleNoPunct)) {
+                        $existingEvent = $candidate;
+                        break;
+                    }
+
+                    // Check key stemmed phrase in description
+                    if (count($dtoStems) >= 2) {
+                        $allDtoStemsInDesc = true;
+                        foreach ($dtoStems as $stem) {
+                            if (!str_contains($candDescLower, $stem)) {
+                                $allDtoStemsInDesc = false;
+                                break;
+                            }
+                        }
+                        if ($allDtoStemsInDesc) {
+                            $existingEvent = $candidate;
+                            break;
+                        }
+                    }
+
+                    // 6. Same date range (start_at + end_at) with at least 1 significant stem matching
+                    if ($dto->endAt && $candidate->end_at && $dto->endAt->toDateString() === $candidate->end_at->toDateString()) {
+                        if (count($commonStems) >= 1) {
+                            $existingEvent = $candidate;
+                            break;
                         }
                     }
                 }
@@ -374,4 +417,37 @@ class EventIngestionService
 
         return 'chill';
     }
+
+    private function getLatvianWordStems(string $text): array
+    {
+        $clean = preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower($text, 'UTF-8'));
+        $words = array_values(array_filter(explode(' ', $clean), fn ($w) => mb_strlen($w, 'UTF-8') > 2 && !in_array($w, ['un', 'par', 'ar', 'pie', 'uz', 'no', 'vai', 'kas', 'tas', 'būs', 'kā'])));
+
+        $stems = [];
+        $suffixes = [
+            'ajiem', 'ajām', 'ajam', 'ajai', 'ajās', 'ajos',
+            'iem', 'ām', 'am', 'os', 'ēs', 'as', 'es', 'is', 'us',
+            'ās', 'ēs', 'īs', 'os', 'ei', 'im', 'um', 'om', 'ai',
+            'ju', 'ja', 'ļa', 'ņa', 'ra', 'sa', 'ta', 'da', 'ba', 'ka', 'ga', 'ma', 'va', 'za', 'ža', 'ša', 'ča',
+            'dā', 'tā', 'mā', 'kā', 'sā', 'vā', 'rā', 'lā', 'bā', 'zā', 'žā', 'šā', 'čā',
+            'a', 'e', 'i', 'u', 'o', 's', 'š', 'ā', 'ē', 'ī', 'ū',
+        ];
+
+        foreach ($words as $w) {
+            $stem = $w;
+            foreach ($suffixes as $suf) {
+                if (mb_strlen($w, 'UTF-8') - mb_strlen($suf, 'UTF-8') >= 3 && str_ends_with($w, $suf)) {
+                    $candidate = mb_substr($w, 0, mb_strlen($w, 'UTF-8') - mb_strlen($suf, 'UTF-8'), 'UTF-8');
+                    if (mb_strlen($candidate, 'UTF-8') >= 3) {
+                        $stem = $candidate;
+                        break;
+                    }
+                }
+            }
+            $stems[] = $stem;
+        }
+
+        return array_values(array_unique($stems));
+    }
 }
+

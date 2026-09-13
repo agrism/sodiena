@@ -184,13 +184,23 @@ class MadonasMuzejsScraper extends BaseScraper
 
         $title = mb_convert_encoding($title, 'UTF-8', 'UTF-8');
 
-        // Normalize ALL-CAPS titles into title/sentence case
+        // Normalize ALL-CAPS titles into title case
         $lettersOnly = preg_replace('/[^\p{L}]+/u', '', $title);
         if (!empty($lettersOnly) && mb_strtoupper($lettersOnly, 'UTF-8') === $lettersOnly && mb_strlen($lettersOnly, 'UTF-8') > 4) {
             $lower = mb_strtolower($title, 'UTF-8');
-            $firstChar = mb_substr($lower, 0, 1, 'UTF-8');
-            $rest = mb_substr($lower, 1, null, 'UTF-8');
-            $formatted = mb_strtoupper($firstChar, 'UTF-8') . $rest;
+            $words = explode(' ', $lower);
+            $casedWords = [];
+            $minorWords = ['un', 'ar', 'par', 'pie', 'uz', 'no', 'vai', 'kā', 'pret', 'līdz', 'pa', 'pēc', 'zem', 'virs', 'pretī', 'š.g.'];
+            foreach ($words as $i => $word) {
+                if ($i === 0 || !in_array(trim($word, " \t\n\r\0\x0B\xC2\xA0-–—.,!?:;\"'«»“”"), $minorWords)) {
+                    $firstChar = mb_substr($word, 0, 1, 'UTF-8');
+                    $rest = mb_substr($word, 1, null, 'UTF-8');
+                    $casedWords[] = mb_strtoupper($firstChar, 'UTF-8') . $rest;
+                } else {
+                    $casedWords[] = $word;
+                }
+            }
+            $formatted = implode(' ', $casedWords);
             $formatted = preg_replace_callback('/([\.\!\?\:\“\”\«\»\|\-]\s*)([a-zāčēģīķļņšūž])/u', function ($m) {
                 return $m[1] . mb_strtoupper($m[2], 'UTF-8');
             }, $formatted);
