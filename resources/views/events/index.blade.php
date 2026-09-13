@@ -127,21 +127,22 @@
                         </button>
                     @endforeach
 
-                    <!-- Custom Exact Date Picker Button -->
+                    <!-- Custom Exact Date Picker Button with Flatpickr -->
                     <div class="relative inline-flex items-center">
-                        <label 
+                        <button 
+                            type="button" 
                             id="date-picker-btn"
-                            for="custom-date-picker" 
                             class="relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer {{ request('date') ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-xs' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200/90 bg-slate-50/50' }}">
                             <i data-lucide="calendar" class="w-3.5 h-3.5 {{ request('date') ? 'text-emerald-700' : 'text-slate-400' }}"></i>
                             <span id="date-picker-label">{{ request('date') ? \Carbon\Carbon::parse(request('date'))->format('d.m.Y') : __('Date') }}</span>
                             <input 
-                                type="date" 
+                                type="text" 
                                 id="custom-date-picker" 
                                 value="{{ request('date') }}"
-                                onchange="applyExactDate(this.value)"
-                                class="absolute inset-0 opacity-0 cursor-pointer w-full h-full">
-                        </label>
+                                class="sr-only pointer-events-none"
+                                tabindex="-1"
+                                aria-hidden="true">
+                        </button>
                         <button 
                             type="button" 
                             id="clear-date-btn"
@@ -239,6 +240,48 @@
         });
     }
 
+    let fpInstance = null;
+
+    function setupDatePicker() {
+        const dateInput = document.getElementById('custom-date-picker');
+        const dateBtn = document.getElementById('date-picker-btn');
+        if (!dateInput || !window.flatpickr) return;
+
+        const currentLocale = '{{ app()->getLocale() }}';
+        const localeObj = (window.flatpickrLocales && window.flatpickrLocales[currentLocale]) ? window.flatpickrLocales[currentLocale] : 'default';
+
+        if (fpInstance) {
+            try { fpInstance.destroy(); } catch (e) {}
+        }
+
+        fpInstance = window.flatpickr(dateInput, {
+            locale: localeObj,
+            dateFormat: 'Y-m-d',
+            defaultDate: document.getElementById('hidden-date')?.value || null,
+            positionElement: dateBtn,
+            disableMobile: "true",
+            onChange: function(selectedDates, dateStr) {
+                applyExactDate(dateStr);
+            }
+        });
+
+        if (dateBtn) {
+            dateBtn.onclick = function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                if (fpInstance) {
+                    fpInstance.toggle();
+                }
+            };
+        }
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', setupDatePicker);
+    } else {
+        setupDatePicker();
+    }
+
     function applyFilter(key, value) {
         const hiddenInput = document.getElementById('hidden-' + key);
         if (hiddenInput) {
@@ -250,8 +293,9 @@
             const hiddenDate = document.getElementById('hidden-date');
             if (hiddenDate) hiddenDate.value = '';
             
-            const dateInput = document.getElementById('custom-date-picker');
-            if (dateInput) dateInput.value = '';
+            if (fpInstance) {
+                fpInstance.clear();
+            }
 
             const dateBtn = document.getElementById('date-picker-btn');
             if (dateBtn) {
@@ -313,8 +357,9 @@
         const hiddenDate = document.getElementById('hidden-date');
         if (hiddenDate) hiddenDate.value = '';
 
-        const dateInput = document.getElementById('custom-date-picker');
-        if (dateInput) dateInput.value = '';
+        if (fpInstance) {
+            fpInstance.clear();
+        }
 
         const dateLabel = document.getElementById('date-picker-label');
         if (dateLabel) dateLabel.textContent = "{{ __('Date') }}";
@@ -335,8 +380,14 @@
         const params = new URLSearchParams(window.location.search);
         const dateParam = params.get('date');
         if (dateParam) {
+            if (fpInstance) {
+                fpInstance.setDate(dateParam, false);
+            }
             applyExactDate(dateParam);
         } else {
+            if (fpInstance) {
+                fpInstance.clear();
+            }
             updatePeriodButtons(params.get('period') || 'all');
         }
         updateCategoryButtons(params.get('category') || 'all');
