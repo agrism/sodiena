@@ -31,6 +31,7 @@ Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->n
 Route::middleware(['auth', 'role:admin'])->group(function () {
     // Sources & Scraper management
     Route::get('/sources', [EventController::class, 'sources'])->name('events.sources');
+    Route::get('/admin/sources', [EventController::class, 'sources']);
     Route::post('/sources/{source}/scrape', [EventController::class, 'triggerScrape'])->name('events.scrape');
 
     // Events Data Grid (Excel style review)

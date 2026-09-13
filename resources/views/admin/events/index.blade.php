@@ -1,6 +1,7 @@
-@extends('layouts.app')
+@extends('layouts.admin')
 
 @section('title', 'Notikumu datu tabula (Admin) — Šodiena')
+@section('title_topbar', 'ŠODIENA.LV :: PASĀKUMU TABULA (EXCEL)')
 
 @section('content')
 <div class="max-w-[1700px] mx-auto px-2 sm:px-4 lg:px-6 py-6 space-y-4">

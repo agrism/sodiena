@@ -197,4 +197,32 @@ class AuthAndRolesTest extends TestCase
         $response->assertStatus(200);
         $response->assertSee('Grid Test Event 101');
     }
+
+    public function test_admin_pages_render_left_and_right_sidebars(): void
+    {
+        $admin = User::create([
+            'name' => 'Super Admin',
+            'email' => 'superadmin@example.com',
+            'password' => Hash::make('password123'),
+        ]);
+        $admin->assignRole(Role::ADMIN);
+
+        $response = $this->actingAs($admin)->get('/admin/events');
+        $response->assertStatus(200);
+        
+        // Assert left sidebar
+        $response->assertSee('id="adminLeftSidebar"', false);
+        $response->assertSee('Pasākumu tabula');
+        $response->assertSee('Lietotāji un lomas');
+        $response->assertSee('Avoti un roboti');
+        
+        // Assert topbar
+        $response->assertSee('class="eds-topbar', false);
+        $response->assertSee('Publiskais portāls');
+        
+        // Assert right user offcanvas sidebar
+        $response->assertSee('id="userSidebarOffcanvas"', false);
+        $response->assertSee('superadmin@example.com');
+        $response->assertSee('Administrators');
+    }
 }

@@ -86,3 +86,21 @@
     fill: #059669 !important;
 }
 
+/* EDS Admin Layout Styles */
+.eds-app-wrapper {
+    display: flex;
+    min-height: 100vh;
+}
+
+.eds-sidebar {
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.eds-topbar {
+    background-color: #002855;
+}
+
+#userSidebarOffcanvas {
+    transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+

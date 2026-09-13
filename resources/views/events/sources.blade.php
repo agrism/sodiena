@@ -1,6 +1,7 @@
-@extends('layouts.app')
+@extends('layouts.admin')
 
 @section('title', 'Pasākumu Avoti un Roboti — Šodiena')
+@section('title_topbar', 'ŠODIENA.LV :: AVOTI UN ROBOTI')
 
 @section('content')
 <div class="max-w-7xl xl:max-w-[1400px] 2xl:max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-10">
