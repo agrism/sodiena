@@ -62,9 +62,12 @@
                 <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1 font-mono">Īstā vietne</label>
                 <select name="origin_host" class="w-full px-2 py-1.5 bg-slate-50 border border-slate-300 rounded text-xs focus:outline-none">
                     <option value="all">🌐 Visas vietnes</option>
+                    <option value="missing" {{ $originHost === 'missing' ? 'selected' : '' }} class="font-bold text-amber-700">
+                        ⚠️ Nav vietnes / tukšs ({{ number_format($missingOriginCount, 0, '.', ' ') }})
+                    </option>
                     @foreach($originHosts as $host => $cnt)
                         <option value="{{ $host }}" {{ $originHost === $host ? 'selected' : '' }}>
-                            {{ $host }} ({{ $cnt }})
+                            {{ $host }} ({{ number_format($cnt, 0, '.', ' ') }})
                         </option>
                     @endforeach
                 </select>

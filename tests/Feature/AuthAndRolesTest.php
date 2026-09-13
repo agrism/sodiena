@@ -210,6 +210,23 @@ class AuthAndRolesTest extends TestCase
         $filterResponse->assertStatus(200);
         $filterResponse->assertSee('Grid Test Event 101');
         $filterResponse->assertSee('liveriga.com');
+
+        // Admin can filter for events missing origin website
+        \App\Models\Event::create([
+            'title' => 'Missing Origin Event 999',
+            'slug' => 'missing-origin-event-999',
+            'start_at' => now()->addDays(2),
+            'fingerprint' => 'missing-origin-fp-999',
+            'status' => 'published',
+            'source_slug' => 'test-source',
+            'source_url' => null,
+            'ticket_url' => null,
+        ]);
+
+        $missingResponse = $this->actingAs($admin)->get('/admin/events?origin_host=missing');
+        $missingResponse->assertStatus(200);
+        $missingResponse->assertSee('Missing Origin Event 999');
+        $missingResponse->assertDontSee('Grid Test Event 101');
     }
 
     public function test_admin_pages_render_left_and_right_sidebars(): void

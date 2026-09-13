@@ -56,7 +56,9 @@ class EventController extends Controller
         }
 
         // Filter by Real Origin Website / Domain
-        if (!empty($originHost) && $originHost !== 'all') {
+        if ($originHost === 'missing' || $originHost === 'none') {
+            $query->whereNull('source_url')->whereNull('ticket_url');
+        } elseif (!empty($originHost) && $originHost !== 'all') {
             $query->where(function ($q) use ($originHost) {
                 $q->where('source_url', 'like', "%{$originHost}%")
                   ->orWhere('ticket_url', 'like', "%{$originHost}%");
@@ -139,6 +141,8 @@ class EventController extends Controller
                 ->sortDesc();
         });
 
+        $missingOriginCount = Event::whereNull('source_url')->whereNull('ticket_url')->count();
+
         $stats = [
             'total' => Event::count(),
             'upcoming' => Event::upcoming()->count(),
@@ -153,6 +157,7 @@ class EventController extends Controller
             'events',
             'sources',
             'originHosts',
+            'missingOriginCount',
             'categories',
             'cities',
             'stats',
