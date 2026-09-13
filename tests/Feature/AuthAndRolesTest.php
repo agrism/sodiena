@@ -164,4 +164,37 @@ class AuthAndRolesTest extends TestCase
 
         $this->assertTrue($user->fresh()->isAdmin());
     }
+
+    public function test_admin_can_access_events_grid_and_filter(): void
+    {
+        $admin = User::create([
+            'name' => 'Admin User',
+            'email' => 'admin_events@example.com',
+            'password' => Hash::make('password123'),
+        ]);
+        $admin->assignRole(Role::ADMIN);
+
+        \App\Models\Event::create([
+            'title' => 'Grid Test Event 101',
+            'slug' => 'grid-test-event-101',
+            'start_at' => now()->addDays(3),
+            'fingerprint' => 'grid-fp-101',
+            'status' => 'published',
+        ]);
+
+        // Regular user blocked
+        $regular = User::create([
+            'name' => 'Reg User',
+            'email' => 'reg_user@example.com',
+            'password' => Hash::make('password123'),
+        ]);
+        $regular->assignRole(Role::REGULAR);
+
+        $this->actingAs($regular)->get('/admin/events')->assertStatus(403);
+
+        // Admin can view and search
+        $response = $this->actingAs($admin)->get('/admin/events?search=Grid+Test');
+        $response->assertStatus(200);
+        $response->assertSee('Grid Test Event 101');
+    }
 }

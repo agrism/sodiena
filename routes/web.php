@@ -33,6 +33,9 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/sources', [EventController::class, 'sources'])->name('events.sources');
     Route::post('/sources/{source}/scrape', [EventController::class, 'triggerScrape'])->name('events.scrape');
 
+    // Events Data Grid (Excel style review)
+    Route::get('/admin/events', [\App\Http\Controllers\Admin\EventController::class, 'index'])->name('admin.events.index');
+
     // User & Permissions Registry
     Route::get('/admin/users', [AdminUserController::class, 'index'])->name('admin.users.index');
     Route::post('/admin/users', [AdminUserController::class, 'store'])->name('admin.users.store');

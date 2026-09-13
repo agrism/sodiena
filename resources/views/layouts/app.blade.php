@@ -56,6 +56,14 @@
 
                         @auth
                             @if(auth()->user()->isAdmin())
+                                <!-- Admin: Events Table (Excel style) -->
+                                <a href="{{ route('admin.events.index') }}" class="px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold transition-all {{ request()->routeIs('admin.events.*') ? 'text-purple-700 bg-purple-50 border border-purple-200' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100' }}">
+                                    <span class="flex items-center gap-1.5">
+                                        <i data-lucide="table" class="w-4 h-4 text-purple-600"></i>
+                                        <span class="hidden lg:inline">{{ __('Events Table') }}</span>
+                                    </span>
+                                </a>
+
                                 <!-- Admin: Users Registry -->
                                 <a href="{{ route('admin.users.index') }}" class="px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold transition-all {{ request()->routeIs('admin.users.*') ? 'text-purple-700 bg-purple-50 border border-purple-200' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100' }}">
                                     <span class="flex items-center gap-1.5">
