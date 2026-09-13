@@ -44,7 +44,7 @@
             </div>
             <ul class="eds-sidebar-menu space-y-0.5 px-2">
                 
-                <!-- Events Grid (Excel Table) -->
+                <!-- Events Grid Table -->
                 <li>
                     <a href="{{ route('admin.events.index') }}" 
                        class="eds-menu-link flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all {{ request()->routeIs('admin.events.*') ? 'bg-[#002855] text-white shadow-sm' : 'text-slate-700 hover:bg-slate-100 hover:text-[#002855]' }}">
@@ -52,9 +52,6 @@
                             <i data-lucide="table-2" class="w-4 h-4 {{ request()->routeIs('admin.events.*') ? 'text-cyan-300' : 'text-slate-500' }}"></i>
                             <span>Pasākumu tabula</span>
                         </div>
-                        <span class="text-[10px] px-1.5 py-0.5 rounded font-mono font-bold {{ request()->routeIs('admin.events.*') ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600' }}">
-                            Excel
-                        </span>
                     </a>
                 </li>
 
@@ -271,7 +268,7 @@
                     </div>
                     <div class="flex-1 min-w-0">
                         <div class="text-xs font-bold text-slate-900 group-hover:text-[#002855]">Pasākumu tabula</div>
-                        <div class="text-[11px] text-slate-400">Excel stila datu pārskats</div>
+                        <div class="text-[11px] text-slate-400">Visi pasākumi tabulas skatā</div>
                     </div>
                     <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400 group-hover:text-[#002855] group-hover:translate-x-0.5 transition-all"></i>
                 </a>

@@ -1,7 +1,7 @@
 @extends('layouts.admin')
 
 @section('title', 'Notikumu datu tabula (Admin) — Šodiena')
-@section('title_topbar', 'ŠODIENA.LV :: PASĀKUMU TABULA (EXCEL)')
+@section('title_topbar', 'ŠODIENA.LV :: PASĀKUMU TABULA')
 
 @section('content')
 <div class="max-w-[1700px] mx-auto px-2 sm:px-4 lg:px-6 py-6 space-y-4">
@@ -17,7 +17,7 @@
                 <span class="text-xs text-slate-500 font-semibold font-mono">/admin/events</span>
             </div>
             <h1 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight mt-1">
-                Notikumu datu reģistrs (Excel stils)
+                Notikumu datu reģistrs
             </h1>
         </div>
 
