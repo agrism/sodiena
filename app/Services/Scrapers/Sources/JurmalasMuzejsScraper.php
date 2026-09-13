@@ -43,7 +43,8 @@ class JurmalasMuzejsScraper extends BaseScraper
                     return;
                 }
 
-                $relLink = $titleNode->count() && $titleNode->nodeName() === 'a' ? $titleNode->attr('href') : '';
+                $linkNode = $node->filter('h2.event-title a, a[href*="/notikums/"]');
+                $relLink = $linkNode->count() ? $linkNode->first()->attr('href') : '';
                 $cleanUrl = $this->normalizeUrl($relLink);
 
                 $slugPart = $cleanUrl ? basename(parse_url($cleanUrl, PHP_URL_PATH)) : Str::slug($title);
