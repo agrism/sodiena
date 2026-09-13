@@ -44,7 +44,7 @@
 
     <!-- Filter Toolbar -->
     <div class="bg-white p-3.5 rounded-2xl border border-slate-300 shadow-xs">
-        <form method="GET" action="{{ route('admin.events.index') }}" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2 text-xs">
+        <form method="GET" action="{{ route('admin.events.index') }}" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2 text-xs">
             
             <!-- Search -->
             <div class="lg:col-span-2">
@@ -57,11 +57,24 @@
                     class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded text-xs focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
             </div>
 
-            <!-- Source Filter -->
+            <!-- Real Origin Website Filter -->
             <div>
-                <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1 font-mono">Avots</label>
+                <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1 font-mono">Īstā vietne</label>
+                <select name="origin_host" class="w-full px-2 py-1.5 bg-slate-50 border border-slate-300 rounded text-xs focus:outline-none">
+                    <option value="all">🌐 Visas vietnes</option>
+                    @foreach($originHosts as $host => $cnt)
+                        <option value="{{ $host }}" {{ $originHost === $host ? 'selected' : '' }}>
+                            {{ $host }} ({{ $cnt }})
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+
+            <!-- Technical Scraper Source Filter -->
+            <div>
+                <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1 font-mono">Robots / Imports</label>
                 <select name="source" class="w-full px-2 py-1.5 bg-slate-50 border border-slate-300 rounded text-xs focus:outline-none">
-                    <option value="all">🌐 Visi avoti</option>
+                    <option value="all">🤖 Visi roboti</option>
                     @foreach($sources as $src)
                         <option value="{{ $src->slug }}" {{ $sourceSlug === $src->slug ? 'selected' : '' }}>
                             {{ $src->name }}
@@ -122,7 +135,7 @@
                     Filtrēt
                 </button>
 
-                @if($search || $sourceSlug !== 'all' || $categorySlug !== 'all' || $city !== 'all' || $timeframe !== 'upcoming')
+                @if($search || $sourceSlug !== 'all' || $originHost !== 'all' || $categorySlug !== 'all' || $city !== 'all' || $timeframe !== 'upcoming')
                     <a href="{{ route('admin.events.index') }}" class="px-2 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded text-xs transition-colors" title="Notīrīt filtrus">
                         &times;
                     </a>

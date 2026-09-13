@@ -20,6 +20,7 @@ class EventController extends Controller
     {
         $search = trim((string) $request->input('search', ''));
         $sourceSlug = $request->input('source', 'all');
+        $originHost = trim((string) $request->input('origin_host', 'all'));
         $categorySlug = $request->input('category', 'all');
         $city = $request->input('city', 'all');
         $timeframe = $request->input('timeframe', 'upcoming');
@@ -49,9 +50,17 @@ class EventController extends Controller
             });
         }
 
-        // Filter by Source
+        // Filter by Technical Robot / Scraper Source
         if (!empty($sourceSlug) && $sourceSlug !== 'all') {
             $query->where('source_slug', $sourceSlug);
+        }
+
+        // Filter by Real Origin Website / Domain
+        if (!empty($originHost) && $originHost !== 'all') {
+            $query->where(function ($q) use ($originHost) {
+                $q->where('source_url', 'like', "%{$originHost}%")
+                  ->orWhere('ticket_url', 'like', "%{$originHost}%");
+            });
         }
 
         // Filter by Category
@@ -114,6 +123,22 @@ class EventController extends Controller
             ->orderBy('city')
             ->pluck('city');
 
+        // Extract list of distinct origin websites with counts
+        $originHosts = \Illuminate\Support\Facades\Cache::remember('admin_origin_hosts_list', 120, function () {
+            return Event::whereNotNull('source_url')
+                ->orWhereNotNull('ticket_url')
+                ->get(['source_url', 'ticket_url'])
+                ->flatMap(fn ($e) => [$e->source_url, $e->ticket_url])
+                ->filter()
+                ->map(function ($url) {
+                    $host = parse_url($url, PHP_URL_HOST);
+                    return $host ? preg_replace('/^www\./i', '', strtolower($host)) : null;
+                })
+                ->filter()
+                ->countBy()
+                ->sortDesc();
+        });
+
         $stats = [
             'total' => Event::count(),
             'upcoming' => Event::upcoming()->count(),
@@ -127,11 +152,13 @@ class EventController extends Controller
         return view('admin.events.index', compact(
             'events',
             'sources',
+            'originHosts',
             'categories',
             'cities',
             'stats',
             'search',
             'sourceSlug',
+            'originHost',
             'categorySlug',
             'city',
             'timeframe',

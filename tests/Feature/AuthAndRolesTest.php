@@ -204,6 +204,12 @@ class AuthAndRolesTest extends TestCase
         $response->assertSee('Īstā vietne (Avots)');
         $response->assertSee('liveriga.com');
         $response->assertSee('https://www.liveriga.com/lv/apmekle/pasakumi/izstade-test-101');
+
+        // Admin can filter by origin_host dropdown parameter
+        $filterResponse = $this->actingAs($admin)->get('/admin/events?origin_host=liveriga.com');
+        $filterResponse->assertStatus(200);
+        $filterResponse->assertSee('Grid Test Event 101');
+        $filterResponse->assertSee('liveriga.com');
     }
 
     public function test_admin_pages_render_left_and_right_sidebars(): void
