@@ -17,24 +17,27 @@
 
 <div class="eds-app-wrapper flex min-h-screen">
     
-    <!-- Left Navigation Sidebar -->
-    <aside id="adminLeftSidebar" class="eds-sidebar w-64 min-w-[16rem] max-w-[16rem] bg-white border-r border-slate-200 flex flex-col fixed lg:sticky top-0 h-screen z-50 transform -translate-x-full lg:translate-x-0 transition-transform duration-200 ease-in-out shadow-lg lg:shadow-none">
+    <!-- Left Navigation Sidebar (Closed/Offcanvas by default, opens on toggle) -->
+    <aside id="adminLeftSidebar" class="eds-sidebar w-72 min-w-[18rem] max-w-[18rem] bg-white border-r border-slate-200 flex flex-col fixed top-0 bottom-0 left-0 h-screen z-50 transform -translate-x-full transition-transform duration-200 ease-in-out shadow-2xl">
         
-        <!-- Brand Header -->
-        <div class="eds-brand-header p-4 border-b border-slate-200 bg-slate-50/50 flex flex-col items-center text-center">
-            <a href="{{ route('admin.events.index') }}" class="eds-brand-link flex flex-col items-center group">
+        <!-- Brand Header with Close Button -->
+        <div class="eds-brand-header p-4 border-b border-slate-200 bg-slate-50/50 flex items-center justify-between">
+            <a href="{{ route('admin.events.index') }}" class="eds-brand-link flex items-center gap-2 group">
                 <div class="eds-logo-container flex items-center gap-2">
-                    <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#002855] to-[#0284c7] flex items-center justify-center text-white shadow-md shadow-blue-950/20 group-hover:scale-105 transition-transform duration-150">
-                        <i data-lucide="compass" class="w-5 h-5 stroke-[2.5]"></i>
+                    <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#002855] to-[#0284c7] flex items-center justify-center text-white shadow-md shadow-blue-950/20 group-hover:scale-105 transition-transform duration-150">
+                        <i data-lucide="compass" class="w-4.5 h-4.5 stroke-[2.5]"></i>
                     </div>
                     <div class="eds-logo-text leading-none text-left">
-                        <span class="text-base font-black text-[#002855] tracking-tight">ŠODIENA</span><span class="text-base font-black text-[#0284c7]">.LV</span>
+                        <span class="text-sm font-black text-[#002855] tracking-tight">ŠODIENA</span><span class="text-sm font-black text-[#0284c7]">.LV</span>
                     </div>
                 </div>
-                <span class="eds-brand-sub text-[10px] font-extrabold uppercase tracking-wider text-slate-400 mt-2 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                    Administrācija
-                </span>
             </a>
+            <button type="button" 
+                    onclick="toggleAdminSidebar()" 
+                    class="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors cursor-pointer" 
+                    title="Aizvērt izvēlni">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
         </div>
 
         <!-- Sidebar Navigation Menu -->
@@ -111,9 +114,9 @@
         </div>
     </aside>
 
-    <!-- Mobile Sidebar Backdrop -->
+    <!-- Sidebar Backdrop -->
     <div id="adminSidebarBackdrop" 
-         class="fixed inset-0 bg-slate-950/50 z-40 hidden lg:hidden backdrop-blur-xs transition-opacity" 
+         class="fixed inset-0 bg-slate-950/50 z-40 hidden backdrop-blur-xs transition-opacity" 
          onclick="toggleAdminSidebar()"></div>
 
     <!-- Main Layout Container -->
@@ -122,13 +125,14 @@
         <!-- Admin Top Navigation Header -->
         <header class="eds-topbar sticky top-0 z-30 bg-[#002855] text-white px-4 sm:px-6 py-2.5 min-h-[56px] flex items-center justify-between shadow-md border-b border-blue-950/40">
             
-            <!-- Left: Mobile Toggle & Page Title -->
+            <!-- Left: Toggle & Page Title -->
             <div class="flex items-center gap-3 min-w-0">
                 <button type="button" 
                         onclick="toggleAdminSidebar()" 
-                        class="lg:hidden p-1.5 rounded-lg text-white hover:bg-white/10 transition-colors"
-                        title="Atvērt izvēlni">
+                        class="p-1.5 rounded-lg text-white hover:bg-white/10 transition-colors flex items-center gap-1.5 cursor-pointer border border-white/10" 
+                        title="Atvērt navigācijas izvēlni">
                     <i data-lucide="menu" class="w-5 h-5"></i>
+                    <span class="text-xs font-bold hidden sm:inline">Izvēlne</span>
                 </button>
                 
                 <h1 class="eds-topbar-title text-xs sm:text-sm md:text-base font-extrabold uppercase tracking-wide text-white truncate">
@@ -371,9 +375,11 @@
         if (isHidden) {
             sidebar.classList.remove('-translate-x-full');
             backdrop?.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
         } else {
             sidebar.classList.add('-translate-x-full');
             backdrop?.classList.add('hidden');
+            document.body.style.overflow = '';
         }
     }
 
@@ -394,7 +400,7 @@
         }
     }
 
-    // Close right offcanvas on Escape
+    // Close sidebars on Escape key
     document.addEventListener('keydown', function(event) {
         if (event.key === 'Escape') {
             const offcanvas = document.getElementById('userSidebarOffcanvas');
@@ -402,7 +408,7 @@
                 toggleUserSidebar();
             }
             const leftSidebar = document.getElementById('adminLeftSidebar');
-            if (leftSidebar && !leftSidebar.classList.contains('-translate-x-full') && window.innerWidth < 1024) {
+            if (leftSidebar && !leftSidebar.classList.contains('-translate-x-full')) {
                 toggleAdminSidebar();
             }
         }
