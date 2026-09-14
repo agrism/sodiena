@@ -119,4 +119,31 @@ class EventImageStorageServiceTest extends TestCase
         $this->assertEquals('webp', $result['extension']);
         $this->assertNotEmpty($result['body']);
     }
+
+    public function test_skips_soft_deleted_and_cancelled_events(): void
+    {
+        $fakePng = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==');
+        Http::fake([
+            'https://example.com/deleted-event.png' => Http::response($fakePng, 200, ['Content-Type' => 'image/png']),
+        ]);
+
+        $event = Event::create([
+            'title' => 'Izdzēsts pasākums',
+            'start_at' => now()->addDays(2),
+            'image_url' => 'https://example.com/deleted-event.png',
+        ]);
+        $event->delete(); // Soft delete
+
+        $service = app(EventImageStorageService::class);
+        $res = $service->mirrorEventImage($event);
+
+        $this->assertNull($res);
+        $this->assertNull($event->fresh()->internal_image_url);
+
+        // Test sync command skips it
+        $this->artisan('events:sync-images', ['--id' => $event->id])
+            ->assertSuccessful();
+
+        $this->assertNull($event->fresh()->internal_image_url);
+    }
 }

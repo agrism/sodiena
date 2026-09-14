@@ -21,6 +21,11 @@ class EventImageStorageService
             return null;
         }
 
+        // Do not download/mirror images for soft-deleted, deleted, or cancelled events
+        if ($event->trashed() || in_array($event->status, ['deleted', 'cancelled'], true)) {
+            return null;
+        }
+
         // If internal_image_url is already set and not forcing re-upload, return existing
         if (!$force && !empty($event->internal_image_url)) {
             return $event->internal_image_url;

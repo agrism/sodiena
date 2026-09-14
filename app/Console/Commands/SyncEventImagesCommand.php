@@ -37,6 +37,8 @@ class SyncEventImagesCommand extends Command
         $chunkSize = (int) $this->option('chunk');
 
         $query = Event::query()
+            ->withoutTrashed()
+            ->whereNotIn('status', ['deleted', 'cancelled'])
             ->whereNotNull('image_url')
             ->where('image_url', '!=', '')
             ->where('image_url', 'not like', '%aplis-default-og-img.jpg%');
