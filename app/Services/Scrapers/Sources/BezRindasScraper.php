@@ -659,8 +659,8 @@ class BezRindasScraper extends BaseScraper
     {
         $text = mb_strtolower($title . ' ' . ($desc ?? ''), 'UTF-8');
 
-        // 1. Kids & Family
-        if (preg_match('/(bērn|ģimen|pasaka|leļļu|atrakcij|karuselis|bērniem)/u', $text)) {
+        // 1. Kids & Family (explicit family films, kids events, fairy tales, puppet theatre)
+        if (preg_match('/(ģimenēm|ģimenes\s+(?:filma|pasākum|kino|dien|svētk)|bērniem|bērnu\s+(?:izrāde|pasākum|koncert|rīts|darbnīc)|leļļu\s+teātr|pasaka|pasakas|multfilma|karuselis|bumbu\s+basein)/u', $text)) {
             if (preg_match('/(filma|kino|izrāde|teātr)/u', $text)) {
                 return [['Ģimenēm & Bērniem', 'Teātris & Kino'], 'family'];
             }
@@ -668,7 +668,7 @@ class BezRindasScraper extends BaseScraper
         }
 
         // 2. Cinema, Movies & Theatre (High priority to catch films, comedy, drama before generic "festivāls")
-        if (preg_match('/(teātr|izrāde|kino|filma|komēdij|stand up|stand-up|humor|aktier|drāma|pirmizrād|režisor|kinoteātr|seanss|kinofestivāl|animācij|multfilm)/u', $text)) {
+        if (preg_match('/(teātr|izrāde|kino|filma|komēdij|stand up|stand-up|humor|aktier|drāma|pirmizrād|režisor|kinoteātr|seanss|kinofestivāl)/u', $text)) {
             return [['Teātris & Kino'], 'chill'];
         }
 
