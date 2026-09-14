@@ -294,4 +294,70 @@ class EventCalendarTest extends TestCase
         $this->assertEquals(3, Event::count());
         $this->assertEquals(5, Event::withTrashed()->count());
     }
+
+    public function test_admin_afiro_source_badge_visibility(): void
+    {
+        \App\Models\Role::firstOrCreate(['slug' => \App\Models\Role::ADMIN], ['name' => 'Administrators']);
+        \App\Models\Role::firstOrCreate(['slug' => \App\Models\Role::REGULAR], ['name' => 'Lietotājs']);
+
+        $admin = \App\Models\User::factory()->create();
+        $admin->assignRole(\App\Models\Role::ADMIN);
+
+        $regularUser = \App\Models\User::factory()->create();
+        $regularUser->assignRole(\App\Models\Role::REGULAR);
+
+        $afiroSource = Source::create([
+            'name' => 'Afiro Pasākumu API',
+            'slug' => 'afiro-api',
+            'url' => 'https://api.afiro.lv/events',
+            'scraper_class' => KulturasDatiScraper::class,
+            'is_active' => true,
+        ]);
+
+        $bezrindasSource = Source::create([
+            'name' => 'BezRindas.lv',
+            'slug' => 'bezrindas',
+            'url' => 'https://www.bezrindas.lv',
+            'scraper_class' => KulturasDatiScraper::class,
+            'is_active' => true,
+        ]);
+
+        $afiroEvent = Event::create([
+            'source_id' => $afiroSource->id,
+            'source_slug' => 'afiro-api',
+            'source_external_id' => 'afiro-test-item-123',
+            'title' => 'Afiro festivāls',
+            'start_at' => now()->addDays(2),
+            'status' => 'published',
+            'published_at' => now(),
+            'fingerprint' => 'test-afiro-event',
+        ]);
+
+        $otherEvent = Event::create([
+            'source_id' => $bezrindasSource->id,
+            'source_slug' => 'bezrindas',
+            'source_external_id' => 'bezrindas-456',
+            'title' => 'Bezrindas teātris',
+            'start_at' => now()->addDays(3),
+            'status' => 'published',
+            'published_at' => now(),
+            'fingerprint' => 'test-other-event',
+        ]);
+
+        // 1. Guest viewing homepage -> No Afiro admin indicator
+        $guestResponse = $this->get('/');
+        $guestResponse->assertStatus(200);
+        $guestResponse->assertDontSee('https://afiro.lv/events/afiro-test-item-123');
+
+        // 2. Regular user viewing homepage -> No Afiro admin indicator
+        $userResponse = $this->actingAs($regularUser)->get('/');
+        $userResponse->assertStatus(200);
+        $userResponse->assertDontSee('https://afiro.lv/events/afiro-test-item-123');
+
+        // 3. Admin user viewing homepage -> Red Afiro link for Afiro event and gray badge for other event
+        $adminResponse = $this->actingAs($admin)->get('/');
+        $adminResponse->assertStatus(200);
+        $adminResponse->assertSee('https://afiro.lv/events/afiro-test-item-123');
+        $adminResponse->assertSee('Nav Afiro notikums (Avots: BezRindas.lv)');
+    }
 }

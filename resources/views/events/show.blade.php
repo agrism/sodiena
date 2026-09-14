@@ -39,6 +39,33 @@
 
                 <div class="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent"></div>
 
+                <!-- Admin Source Indicator -->
+                @if(auth()->check() && auth()->user()->isAdmin())
+                    <div class="absolute top-4 right-4 z-10">
+                        @if($event->isAfiro() && $event->afiro_url)
+                            <a 
+                                href="{{ $event->afiro_url }}" 
+                                target="_blank" 
+                                rel="noopener noreferrer" 
+                                title="Atvērt Afiro notikumu: {{ $event->afiro_url }}"
+                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/95 text-red-600 border-2 border-red-500 font-black text-xs shadow-lg hover:bg-red-600 hover:text-white transition-all transform hover:scale-105"
+                            >
+                                <span class="w-4 h-4 rounded-full border-2 border-current flex items-center justify-center text-[10px] font-black">A</span>
+                                <span>Afiro</span>
+                                <i data-lucide="external-link" class="w-3 h-3"></i>
+                            </a>
+                        @else
+                            <span 
+                                title="Nav Afiro notikums (Avots: {{ $event->source?->name ?: $event->source_slug ?: 'Cits' }})"
+                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/90 text-slate-500 border border-slate-300 font-bold text-xs shadow-md"
+                            >
+                                <span class="w-4 h-4 rounded-full border border-current flex items-center justify-center text-[10px] font-bold">A</span>
+                                <span>{{ $event->source?->name ?: 'Nav Afiro' }}</span>
+                            </span>
+                        @endif
+                    </div>
+                @endif
+
                 <!-- Floating info on image -->
                 <div class="absolute bottom-6 left-6 right-6 flex flex-wrap items-center justify-between gap-3 text-white">
                     <span class="px-3.5 py-1.5 rounded-xl bg-white/95 text-slate-950 text-xs font-extrabold backdrop-blur-md shadow-lg flex items-center gap-2">

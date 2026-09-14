@@ -246,6 +246,27 @@ class Event extends Model
         return null;
     }
 
+    /**
+     * Check if event originates from Afiro API
+     */
+    public function isAfiro(): bool
+    {
+        return $this->source_slug === 'afiro-api'
+            || (isset($this->raw_data['originalLocale']) && !empty($this->source_external_id) && !str_starts_with($this->source_external_id, 'bezrindas-') && !str_starts_with($this->source_external_id, 'bilesu-') && !str_starts_with($this->source_external_id, 'gors-'));
+    }
+
+    /**
+     * Get direct Afiro event URL if applicable
+     */
+    public function getAfiroUrlAttribute(): ?string
+    {
+        if ($this->isAfiro() && !empty($this->source_external_id)) {
+            return "https://afiro.lv/events/{$this->source_external_id}";
+        }
+
+        return null;
+    }
+
     // Scopes for querying and HTMX filtering
     public function scopePublished(Builder $query): Builder
     {

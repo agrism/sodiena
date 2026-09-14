@@ -17,45 +17,72 @@
         @foreach($events as $event)
             <article class="group bg-white rounded-3xl border border-slate-200/90 hover:border-slate-300 overflow-hidden shadow-xs hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between">
                 
-                <!-- Event Image & Badges (Clickable Link) -->
-                <a href="{{ route('events.show', $event->slug) }}" class="block relative aspect-[16/10] bg-slate-100 overflow-hidden cursor-pointer group/img focus:outline-none">
-                    <img 
-                        src="{{ $event->display_image_url }}" 
-                        alt="{{ $event->title }}"
-                        loading="lazy"
-                        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out">
+                <!-- Event Image & Badges -->
+                <div class="relative aspect-[16/10] bg-slate-100 overflow-hidden group/img">
+                    <!-- Clickable Link to Event Details -->
+                    <a href="{{ route('events.show', $event->slug) }}" class="absolute inset-0 z-0 focus:outline-none" aria-label="{{ $event->title }}">
+                        <img 
+                            src="{{ $event->display_image_url }}" 
+                            alt="{{ $event->title }}"
+                            loading="lazy"
+                            class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out">
 
-                    <!-- Subtle overlay gradient -->
-                    <div class="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent"></div>
+                        <!-- Subtle overlay gradient -->
+                        <div class="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent"></div>
+                    </a>
 
                     <!-- Top Badges -->
-                    <div class="absolute top-3 left-3 right-3 flex items-center justify-between gap-2">
+                    <div class="absolute top-3 left-3 right-3 flex items-center justify-between gap-2 z-10 pointer-events-none">
                         <!-- Date Badge -->
-                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-white/95 text-slate-900 backdrop-blur-md border border-slate-200/80 shadow-md">
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-white/95 text-slate-900 backdrop-blur-md border border-slate-200/80 shadow-md pointer-events-auto">
                             <i data-lucide="calendar" class="w-3.5 h-3.5 text-emerald-600"></i>
                             {{ $event->formatted_date }}
                         </span>
 
-                        <!-- Price Badge -->
-                        @if($event->is_free)
-                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-extrabold bg-emerald-600 text-white shadow-md">
-                                {{ __('Free') }}
-                            </span>
-                        @else
-                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-white/95 text-emerald-700 backdrop-blur-md border border-emerald-200 shadow-md">
-                                {{ $event->formatted_price }}
-                            </span>
-                        @endif
+                        <div class="flex items-center gap-2 pointer-events-auto">
+                            <!-- Admin Afiro Indicator -->
+                            @if(auth()->check() && auth()->user()->isAdmin())
+                                @if($event->isAfiro() && $event->afiro_url)
+                                    <a 
+                                        href="{{ $event->afiro_url }}" 
+                                        target="_blank" 
+                                        rel="noopener noreferrer" 
+                                        title="Afiro notikums: {{ $event->afiro_url }}"
+                                        class="w-7 h-7 rounded-full bg-white/95 text-red-600 border-2 border-red-500 flex items-center justify-center font-black text-xs shadow-md hover:bg-red-600 hover:text-white hover:border-red-600 transition-all transform hover:scale-110 shrink-0"
+                                    >
+                                        A
+                                    </a>
+                                @else
+                                    <span 
+                                        title="Nav Afiro notikums (Avots: {{ $event->source?->name ?: $event->source_slug ?: 'Cits' }})"
+                                        class="w-7 h-7 rounded-full bg-white/85 text-slate-400 border border-slate-300 flex items-center justify-center font-bold text-xs shadow-xs shrink-0 cursor-default"
+                                    >
+                                        A
+                                    </span>
+                                @endif
+                            @endif
+
+                            <!-- Price Badge -->
+                            @if($event->is_free)
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-extrabold bg-emerald-600 text-white shadow-md">
+                                    {{ __('Free') }}
+                                </span>
+                            @else
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-white/95 text-emerald-700 backdrop-blur-md border border-emerald-200 shadow-md">
+                                    {{ $event->formatted_price }}
+                                </span>
+                            @endif
+                        </div>
                     </div>
 
                     <!-- City & Venue pill bottom left of image -->
-                    <div class="absolute bottom-3 left-3 right-3 flex items-center gap-2">
-                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-900/85 text-white backdrop-blur-md border border-white/10 truncate max-w-full">
+                    <div class="absolute bottom-3 left-3 right-3 flex items-center gap-2 z-10 pointer-events-none">
+                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-900/85 text-white backdrop-blur-md border border-white/10 truncate max-w-full pointer-events-auto">
                             <i data-lucide="map-pin" class="w-3 h-3 text-emerald-400 shrink-0"></i>
                             <span class="truncate">{{ $event->location?->name ?: $event->location?->city ?: 'Latvija' }}</span>
                         </span>
                     </div>
-                </a>
+                </div>
 
                 <!-- Content Area -->
                 <div class="p-5 flex flex-col flex-grow justify-between gap-4">
