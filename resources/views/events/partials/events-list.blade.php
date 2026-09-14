@@ -31,15 +31,15 @@
                         <div class="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent pointer-events-none"></div>
                     </a>
 
-                    <!-- Top Badges Row -->
-                    <div class="absolute top-3 left-3 right-3 flex items-center justify-between gap-2 z-20 pointer-events-none">
+                    <!-- Top Badges Row (Solid Z-Index, Direct Interaction) -->
+                    <div class="absolute top-3 left-3 right-3 flex items-center justify-between gap-2 z-30">
                         <!-- Date Badge -->
-                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-white/95 text-slate-900 backdrop-blur-md border border-slate-200/80 shadow-md select-none pointer-events-auto">
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-white/95 text-slate-900 backdrop-blur-md border border-slate-200/80 shadow-md select-none">
                             <i data-lucide="calendar" class="w-3.5 h-3.5 text-emerald-600"></i>
                             {{ $event->formatted_date }}
                         </span>
 
-                        <div class="flex items-center gap-2 pointer-events-auto">
+                        <div class="flex items-center gap-2">
                             <!-- Admin Afiro Indicator -->
                             @if(auth()->check() && auth()->user()->isAdmin())
                                 @if($event->isAfiro() && $event->afiro_url)
@@ -47,7 +47,7 @@
                                         href="{{ $event->afiro_url }}" 
                                         target="_blank" 
                                         rel="noopener noreferrer" 
-                                        onclick="event.stopPropagation();"
+                                        onclick="event.stopPropagation(); event.stopImmediatePropagation();"
                                         title="Atvērt Afiro notikumu: {{ $event->afiro_url }}"
                                         class="w-7 h-7 rounded-full bg-white text-red-600 border-2 border-red-500 flex items-center justify-center font-black text-xs shadow-md hover:bg-red-600 hover:text-white hover:border-red-600 transition-all transform hover:scale-110 shrink-0 cursor-pointer"
                                     >
