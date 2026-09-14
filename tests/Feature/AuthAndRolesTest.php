@@ -330,4 +330,65 @@ class AuthAndRolesTest extends TestCase
         $this->assertTrue($event->fresh()->isPublished());
         $this->assertTrue($event2->fresh()->isPublished());
     }
+
+    public function test_event_show_page_admin_publish_unpublish_controls(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole(Role::ADMIN);
+
+        $regularUser = User::factory()->create();
+        $regularUser->assignRole(Role::REGULAR);
+
+        $event = \App\Models\Event::create([
+            'title' => 'Testa Pasākums Administratoram',
+            'slug' => 'testa-pasakums-administratoram',
+            'start_at' => now()->addDays(5),
+            'status' => 'draft',
+            'published_at' => null,
+            'fingerprint' => 'test-admin-show-publish-fp',
+        ]);
+
+        // 1. Regular user gets 404 on draft event
+        $this->actingAs($regularUser)
+            ->get('/events/' . $event->slug)
+            ->assertStatus(404);
+
+        // 2. Regular user cannot toggle publish (403 forbidden)
+        $this->actingAs($regularUser)
+            ->post("/admin/events/{$event->id}/toggle-publish")
+            ->assertStatus(403);
+
+        // 3. Admin can view draft event and sees "Publicēt" button
+        $this->actingAs($admin)
+            ->get('/events/' . $event->slug)
+            ->assertStatus(200)
+            ->assertSee('Publicēt')
+            ->assertSee('Melnraksts');
+
+        // 4. Admin publishes the event via POST
+        $this->actingAs($admin)
+            ->post("/admin/events/{$event->id}/toggle-publish")
+            ->assertRedirect();
+
+        $freshEvent = $event->fresh();
+        $this->assertTrue($freshEvent->isPublished());
+        $this->assertNotNull($freshEvent->published_at);
+
+        // 5. Admin now sees "Atsaukt publicēšanu" button on show page
+        $this->actingAs($admin)
+            ->get('/events/' . $event->slug)
+            ->assertStatus(200)
+            ->assertSee('Atsaukt publicēšanu')
+            ->assertSee('Publicēts');
+
+        // 6. Admin unpublishes the event
+        $this->actingAs($admin)
+            ->post("/admin/events/{$event->id}/toggle-publish")
+            ->assertRedirect();
+
+        $unpubEvent = $event->fresh();
+        $this->assertFalse($unpubEvent->isPublished());
+        $this->assertNull($unpubEvent->published_at);
+        $this->assertEquals('draft', $unpubEvent->status);
+    }
 }

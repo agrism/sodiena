@@ -260,6 +260,58 @@
                     @endif
                 </div>
 
+                <!-- Admin Publication Controls (Visible only to administrators) -->
+                @if(auth()->check() && auth()->user()->isAdmin())
+                    <div class="pt-4 pb-1 border-t border-slate-200">
+                        <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200/90 shadow-xs space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                                    <i data-lucide="shield" class="w-3.5 h-3.5 text-purple-600"></i>
+                                    <span>{{ __('Admin vadība') }}</span>
+                                </span>
+                                
+                                @if($event->isPublished())
+                                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
+                                        <span>Publicēts</span>
+                                    </span>
+                                @else
+                                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-amber-100 text-amber-800 border border-amber-200">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-amber-600"></span>
+                                        <span>Melnraksts</span>
+                                    </span>
+                                @endif
+                            </div>
+
+                            @if(session('status'))
+                                <div class="p-2.5 rounded-xl bg-emerald-50 text-emerald-800 text-xs font-bold border border-emerald-200 flex items-center gap-2">
+                                    <i data-lucide="check" class="w-4 h-4 text-emerald-600 shrink-0"></i>
+                                    <span>{{ session('status') }}</span>
+                                </div>
+                            @endif
+
+                            <form action="{{ route('admin.events.toggle-publish', $event->id) }}" method="POST">
+                                @csrf
+                                @if($event->isPublished())
+                                    <button 
+                                        type="submit" 
+                                        class="w-full py-3 px-4 rounded-xl bg-red-600 hover:bg-red-700 text-white font-extrabold text-sm flex items-center justify-center gap-2 shadow-md shadow-red-600/20 transition-all cursor-pointer">
+                                        <i data-lucide="eye-off" class="w-4 h-4"></i>
+                                        <span>{{ __('Atsaukt publicēšanu') }}</span>
+                                    </button>
+                                @else
+                                    <button 
+                                        type="submit" 
+                                        class="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm flex items-center justify-center gap-2 shadow-md shadow-emerald-600/25 transition-all cursor-pointer">
+                                        <i data-lucide="check-circle" class="w-4 h-4"></i>
+                                        <span>{{ __('Publicēt') }}</span>
+                                    </button>
+                                @endif
+                            </form>
+                        </div>
+                    </div>
+                @endif
+
                 <!-- Informational Disclaimer Note -->
                 <div class="p-3.5 rounded-xl bg-emerald-50/70 border border-emerald-200/80 text-[11px] text-emerald-900 leading-relaxed flex items-start gap-2.5">
                     <i data-lucide="info" class="w-4 h-4 text-emerald-700 shrink-0 mt-0.5"></i>
