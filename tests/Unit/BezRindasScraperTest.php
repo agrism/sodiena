@@ -194,8 +194,8 @@ HTML;
         $this->assertCount(1, $events);
         $dto = $events->first();
 
-        // Categorization must be Teātris & Kino (chill), not Mūzika & Koncerti
-        $this->assertEquals(['Teātris & Kino'], $dto->categoryNames);
+        // Categorization must be Filmas & Kino (chill), not Mūzika & Koncerti
+        $this->assertEquals(['Filmas & Kino'], $dto->categoryNames);
         $this->assertEquals('chill', $dto->entertainmentType);
 
         // Short description should skip metadata and capture narrative text

@@ -47,11 +47,18 @@ class CategorySeeder extends Seeder
                 'order' => 5,
             ],
             [
-                'name' => 'Teātris & Kino',
+                'name' => 'Filmas & Kino',
                 'icon' => 'film',
-                'color' => 'rose',
-                'description' => 'Drāmas, komēdijas, brīvdabas kino seansi un kino festivāli',
+                'color' => 'teal',
+                'description' => 'Kino seansi, jaunākās filmas, kinofestivāli, pirmizrādes un brīvdabas kino',
                 'order' => 6,
+            ],
+            [
+                'name' => 'Teātris & Kino',
+                'icon' => 'drama',
+                'color' => 'rose',
+                'description' => 'Drāmas, komēdijas, brīvdabas izrādes un teātra festivāli',
+                'order' => 7,
             ],
             [
                 'name' => 'Gastronomija & Tirgi',

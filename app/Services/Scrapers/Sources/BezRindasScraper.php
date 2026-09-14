@@ -661,14 +661,22 @@ class BezRindasScraper extends BaseScraper
 
         // 1. Kids & Family (explicit family films, kids events, fairy tales, puppet theatre)
         if (preg_match('/(ģimenēm|ģimenes\s+(?:filma|pasākum|kino|dien|svētk)|bērniem|bērnu\s+(?:izrāde|pasākum|koncert|rīts|darbnīc)|leļļu\s+teātr|pasaka|pasakas|multfilma|karuselis|bumbu\s+basein)/u', $text)) {
-            if (preg_match('/(filma|kino|izrāde|teātr)/u', $text)) {
+            if (preg_match('/(filma|kino|kinoteātr)/u', $text)) {
+                return [['Ģimenēm & Bērniem', 'Filmas & Kino'], 'family'];
+            }
+            if (preg_match('/(izrāde|teātr)/u', $text)) {
                 return [['Ģimenēm & Bērniem', 'Teātris & Kino'], 'family'];
             }
             return [['Ģimenēm & Bērniem'], 'family'];
         }
 
-        // 2. Cinema, Movies & Theatre (High priority to catch films, comedy, drama before generic "festivāls")
-        if (preg_match('/(teātr|izrāde|kino|filma|komēdij|stand up|stand-up|humor|aktier|drāma|pirmizrād|režisor|kinoteātr|seanss|kinofestivāl)/u', $text)) {
+        // 2. Cinema & Movies
+        if (preg_match('/(kino|filma|kinoteātr|seanss|kinofestivāl|un poeta)/u', $text)) {
+            return [['Filmas & Kino'], 'chill'];
+        }
+
+        // 3. Theatre, Stage Plays & Stand-up Comedy
+        if (preg_match('/(teātr|izrāde|komēdij|stand up|stand-up|humor|aktier|drāma|pirmizrād)/u', $text)) {
             return [['Teātris & Kino'], 'chill'];
         }
 

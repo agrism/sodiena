@@ -101,7 +101,7 @@ class EventIngestionService
             $categoryIds = [];
             foreach ($dto->categoryNames as $catName) {
                 if (empty($catName)) continue;
-                $catNameTrimmed = trim($catName);
+                $catNameTrimmed = $this->normalizeCategoryName($catName);
                 $catSlug = Str::slug($catNameTrimmed);
 
                 $category = Category::firstOrCreate(
@@ -598,6 +598,18 @@ class EventIngestionService
             return trim($m[1]);
         }
         return null;
+    }
+
+    public function normalizeCategoryName(string $name): string
+    {
+        $clean = trim($name);
+        $lower = mb_strtolower($clean, 'UTF-8');
+
+        if (in_array($lower, ['kino', 'kino & filmas', 'filmas & kino', 'filmas', 'kino un filmas', 'cinema', 'movies', 'film'])) {
+            return 'Filmas & Kino';
+        }
+
+        return $clean;
     }
 }
 
