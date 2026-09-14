@@ -391,4 +391,55 @@ class AuthAndRolesTest extends TestCase
         $this->assertNull($unpubEvent->published_at);
         $this->assertEquals('draft', $unpubEvent->status);
     }
+
+    public function test_admin_can_update_event_category_and_entertainment_type(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole(Role::ADMIN);
+
+        $regularUser = User::factory()->create();
+        $regularUser->assignRole(Role::REGULAR);
+
+        $cat1 = \App\Models\Category::create([
+            'name' => 'Mūzika & Koncerti',
+            'slug' => 'muzika-koncerti',
+        ]);
+
+        $cat2 = \App\Models\Category::create([
+            'name' => 'Teātris & Kino',
+            'slug' => 'teatris-kino',
+        ]);
+
+        $event = \App\Models\Event::create([
+            'title' => 'Dzejdaris Filma',
+            'slug' => 'dzejdaris-filma',
+            'start_at' => now()->addDays(2),
+            'entertainment_type' => 'concert',
+            'status' => 'published',
+            'published_at' => now(),
+            'fingerprint' => 'test-dzejdaris-fp',
+        ]);
+        $event->categories()->attach($cat1);
+
+        // 1. Regular user cannot update category (403)
+        $this->actingAs($regularUser)
+            ->post("/admin/events/{$event->id}/category", [
+                'category_id' => $cat2->id,
+                'entertainment_type' => 'chill',
+            ])
+            ->assertStatus(403);
+
+        // 2. Admin can update category and entertainment type
+        $this->actingAs($admin)
+            ->post("/admin/events/{$event->id}/category", [
+                'category_id' => $cat2->id,
+                'entertainment_type' => 'chill',
+            ])
+            ->assertRedirect();
+
+        $fresh = $event->fresh();
+        $this->assertEquals('chill', $fresh->entertainment_type);
+        $this->assertTrue($fresh->categories->contains('id', $cat2->id));
+        $this->assertFalse($fresh->categories->contains('id', $cat1->id));
+    }
 }

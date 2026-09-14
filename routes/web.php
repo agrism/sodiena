@@ -37,6 +37,7 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     // Events Data Grid (Excel style review) & Publication Management
     Route::get('/admin/events', [\App\Http\Controllers\Admin\EventController::class, 'index'])->name('admin.events.index');
     Route::post('/admin/events/{event}/toggle-publish', [\App\Http\Controllers\Admin\EventController::class, 'togglePublish'])->name('admin.events.toggle-publish');
+    Route::post('/admin/events/{event}/category', [\App\Http\Controllers\Admin\EventController::class, 'updateCategory'])->name('admin.events.update-category');
     Route::post('/admin/events/bulk-publish', [\App\Http\Controllers\Admin\EventController::class, 'bulkPublish'])->name('admin.events.bulk-publish');
 
     // User & Permissions Registry

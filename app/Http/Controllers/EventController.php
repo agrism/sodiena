@@ -117,7 +117,9 @@ class EventController extends Controller
             ->take(3)
             ->get();
 
-        return view('events.show', compact('event', 'relatedEvents'));
+        $allCategories = Category::orderBy('name')->get();
+
+        return view('events.show', compact('event', 'relatedEvents', 'allCategories'));
     }
 
     /**

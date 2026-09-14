@@ -248,6 +248,42 @@ class EventController extends Controller
     }
 
     /**
+     * Update event category and entertainment type from admin view
+     */
+    public function updateCategory(Event $event, Request $request)
+    {
+        $validated = $request->validate([
+            'category_id' => 'nullable|exists:categories,id',
+            'category_ids' => 'nullable|array',
+            'category_ids.*' => 'exists:categories,id',
+            'entertainment_type' => 'nullable|string|max:50',
+        ]);
+
+        if ($request->has('category_id') && !empty($validated['category_id'])) {
+            $event->categories()->sync([$validated['category_id']]);
+        } elseif ($request->has('category_ids')) {
+            $event->categories()->sync($validated['category_ids'] ?? []);
+        }
+
+        if ($request->has('entertainment_type')) {
+            $event->update([
+                'entertainment_type' => !empty($validated['entertainment_type']) ? $validated['entertainment_type'] : null,
+            ]);
+        }
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Kategorija un izklaides veids veiksmīgi atjaunināti!',
+                'categories' => $event->fresh()->categories->pluck('name'),
+                'entertainment_type' => $event->fresh()->localized_entertainment_type,
+            ]);
+        }
+
+        return redirect()->back()->with('status', 'Kategorija un izklaides veids veiksmīgi atjaunināti!');
+    }
+
+    /**
      * Bulk publish or unpublish selected events
      */
     public function bulkPublish(Request $request)

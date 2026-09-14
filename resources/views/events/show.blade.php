@@ -260,10 +260,10 @@
                     @endif
                 </div>
 
-                <!-- Admin Publication Controls (Visible only to administrators) -->
+                <!-- Admin Publication & Category Controls (Visible only to administrators) -->
                 @if(auth()->check() && auth()->user()->isAdmin())
                     <div class="pt-4 pb-1 border-t border-slate-200">
-                        <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200/90 shadow-xs space-y-3">
+                        <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200/90 shadow-xs space-y-3.5">
                             <div class="flex items-center justify-between">
                                 <span class="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
                                     <i data-lucide="shield" class="w-3.5 h-3.5 text-purple-600"></i>
@@ -290,23 +290,75 @@
                                 </div>
                             @endif
 
+                            <!-- Publish / Unpublish Button -->
                             <form action="{{ route('admin.events.toggle-publish', $event->id) }}" method="POST">
                                 @csrf
                                 @if($event->isPublished())
                                     <button 
                                         type="submit" 
-                                        class="w-full py-3 px-4 rounded-xl bg-red-600 hover:bg-red-700 text-white font-extrabold text-sm flex items-center justify-center gap-2 shadow-md shadow-red-600/20 transition-all cursor-pointer">
-                                        <i data-lucide="eye-off" class="w-4 h-4"></i>
+                                        class="w-full py-2.5 px-4 rounded-xl bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-md shadow-red-600/20 transition-all cursor-pointer">
+                                        <i data-lucide="eye-off" class="w-3.5 h-3.5"></i>
                                         <span>{{ __('Atsaukt publicēšanu') }}</span>
                                     </button>
                                 @else
                                     <button 
                                         type="submit" 
-                                        class="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm flex items-center justify-center gap-2 shadow-md shadow-emerald-600/25 transition-all cursor-pointer">
-                                        <i data-lucide="check-circle" class="w-4 h-4"></i>
+                                        class="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-md shadow-emerald-600/25 transition-all cursor-pointer">
+                                        <i data-lucide="check-circle" class="w-3.5 h-3.5"></i>
                                         <span>{{ __('Publicēt') }}</span>
                                     </button>
                                 @endif
+                            </form>
+
+                            <!-- Category and Entertainment Type Selector Form -->
+                            <form action="{{ route('admin.events.update-category', $event->id) }}" method="POST" class="pt-3 border-t border-slate-200/80 space-y-2.5">
+                                @csrf
+                                <div>
+                                    <label for="admin-category-select" class="block text-[11px] font-bold text-slate-600 mb-1 flex items-center justify-between">
+                                        <span>{{ __('Galvenā kategorija') }}:</span>
+                                        <span class="text-[10px] font-normal text-slate-400">Automātiski saglabā</span>
+                                    </label>
+                                    <div class="relative">
+                                        <select 
+                                            id="admin-category-select" 
+                                            name="category_id" 
+                                            onchange="this.form.submit()" 
+                                            class="w-full appearance-none bg-white text-slate-800 text-xs font-bold py-2 pl-3 pr-8 rounded-xl border border-slate-300 hover:border-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer shadow-xs">
+                                            @if(isset($allCategories))
+                                                @foreach($allCategories as $cat)
+                                                    <option value="{{ $cat->id }}" {{ $event->categories->contains('id', $cat->id) ? 'selected' : '' }}>
+                                                        {{ $cat->name }}
+                                                    </option>
+                                                @endforeach
+                                            @endif
+                                        </select>
+                                        <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label for="admin-type-select" class="block text-[11px] font-bold text-slate-600 mb-1 flex items-center justify-between">
+                                        <span>{{ __('Izklaides veids / birka') }}:</span>
+                                        <span class="text-[10px] font-normal text-slate-400">Automātiski saglabā</span>
+                                    </label>
+                                    <div class="relative">
+                                        <select 
+                                            id="admin-type-select" 
+                                            name="entertainment_type" 
+                                            onchange="this.form.submit()" 
+                                            class="w-full appearance-none bg-white text-slate-800 text-xs font-bold py-2 pl-3 pr-8 rounded-xl border border-slate-300 hover:border-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer shadow-xs">
+                                            <option value="" {{ empty($event->entertainment_type) ? 'selected' : '' }}>— Nav norādīts —</option>
+                                            <option value="chill" {{ $event->entertainment_type === 'chill' ? 'selected' : '' }}>Kino / Teātris / Atpūta</option>
+                                            <option value="concert" {{ $event->entertainment_type === 'concert' ? 'selected' : '' }}>Koncerts</option>
+                                            <option value="exhibition" {{ $event->entertainment_type === 'exhibition' ? 'selected' : '' }}>Izstāde</option>
+                                            <option value="workshop" {{ $event->entertainment_type === 'workshop' ? 'selected' : '' }}>Meistarklase / Seminārs</option>
+                                            <option value="family" {{ $event->entertainment_type === 'family' ? 'selected' : '' }}>Ģimenei / Bērniem</option>
+                                            <option value="active" {{ $event->entertainment_type === 'active' ? 'selected' : '' }}>Sports / Aktīvā atpūta</option>
+                                            <option value="party" {{ $event->entertainment_type === 'party' ? 'selected' : '' }}>Ballīte / Festivāls</option>
+                                        </select>
+                                        <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                                    </div>
+                                </div>
                             </form>
                         </div>
                     </div>
