@@ -95,21 +95,6 @@
                     @endif
                 </div>
 
-                @php
-                    $cleanShort = trim(preg_replace('/[\s\.\…]+$/u', '', $event->short_description ?? ''));
-                    $cleanDesc = trim(preg_replace('/[\s\.\…]+$/u', '', $event->description ?? ''));
-                    $isAutoSnippet = !empty($cleanShort) && (
-                        $cleanShort === $cleanDesc ||
-                        str_starts_with($cleanDesc, $cleanShort) ||
-                        (mb_strlen($cleanShort) >= 30 && mb_substr($cleanShort, 0, 30) === mb_substr($cleanDesc, 0, 30))
-                    );
-                @endphp
-                @if(!empty($event->short_description) && !$isAutoSnippet)
-                    <p class="text-base sm:text-lg font-medium text-slate-700 leading-relaxed bg-slate-50 p-4 sm:p-5 rounded-2xl border border-slate-200/60">
-                        {{ $event->short_description }}
-                    </p>
-                @endif
-
                 <div class="prose prose-slate max-w-none text-slate-700 leading-relaxed text-sm sm:text-base">
                     {!! $event->formatted_description_html !!}
                 </div>
