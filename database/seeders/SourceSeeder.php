@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Source;
 use App\Services\Scrapers\Sources\AfiroApiScraper;
+use App\Services\Scrapers\Sources\BezRindasScraper;
 use App\Services\Scrapers\Sources\BilesuParadizeScraper;
 use App\Services\Scrapers\Sources\BilesuServissScraper;
 use App\Services\Scrapers\Sources\DzejasDienasScraper;
@@ -18,6 +19,13 @@ class SourceSeeder extends Seeder
     public function run(): void
     {
         $sources = [
+            [
+                'name' => 'BezRindas.lv (Visi pasākumi)',
+                'slug' => 'bezrindas',
+                'url' => 'https://www.bezrindas.lv/lv/visi-pasakumi',
+                'scraper_class' => BezRindasScraper::class,
+                'is_active' => true,
+            ],
             [
                 'name' => 'Afiro Pasākumu API (Latvija & Rīga)',
                 'slug' => 'afiro-api',
