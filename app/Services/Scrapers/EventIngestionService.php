@@ -686,11 +686,20 @@ class EventIngestionService
         }
 
         $lower = mb_strtolower($text, 'UTF-8');
-        $enHits = preg_match_all('/\b(the|and|in|during|guided|tour|exhibition|history|tickets|with|for|are|not|allowed|open|daily|adults|students|building|palace|museum)\b/u', $lower);
-        $lvChars = preg_match_all('/[āčēģīķļņšūž]/u', $lower);
+        $enHits = preg_match_all('/\b(the|and|in|is|are|of|to|with|for|during|from|we|you|please|will|not|have|can|this|that|on|at|by|tours?|exhibition|history|tickets?|visitors?|open|daily|adults?|students?|building|palace|museum)\b/u', $lower);
+        $lvHits = preg_match_all('/\b(un|ir|par|ar|pie|no|vai|lai|mēs|jūs|kas|tiek|katru|dienu|lūdzu|cena|ieeja|biļetes|pēc|līdz|vieta|laiks|gads|gadā|stūra|māja|muzejs|skatāma|norise|iekļauts|apmeklēt)\b/u', $lower);
+        
+        $ruHits = preg_match_all('/[\p{Cyrillic}]/u', $text);
+        if ($ruHits > 30 && $ruHits > $enHits && $ruHits > $lvHits) {
+            return 'ru';
+        }
 
-        if ($enHits > 5 && $lvChars < 4) {
+        if ($enHits > 8 && $enHits > $lvHits * 2) {
             return 'en';
+        }
+
+        if ($lvHits > $enHits) {
+            return 'lv';
         }
 
         return 'lv';
