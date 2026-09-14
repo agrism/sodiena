@@ -33,6 +33,7 @@ class Event extends Model
         'currency',
         'ticket_url',
         'image_url',
+        'internal_image_url',
         'source_url',
         'source_external_id',
         'fingerprint',
@@ -156,6 +157,10 @@ class Event extends Model
 
     public function getDisplayImageUrlAttribute(): string
     {
+        if (!empty($this->internal_image_url)) {
+            return $this->internal_image_url;
+        }
+
         if (!empty($this->image_url) && !str_contains($this->image_url, 'aplis-default-og-img.jpg')) {
             return $this->image_url;
         }

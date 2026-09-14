@@ -266,6 +266,10 @@ class EventIngestionService
                     'raw_data' => array_merge($existingEvent->raw_data ?? [], $dto->rawData),
                 ];
 
+                if ($finalImageUrl !== $existingEvent->image_url) {
+                    $updateData['internal_image_url'] = null;
+                }
+
                 if ($locale === 'lv' || empty($existingEvent->title)) {
                     $updateData['title'] = $dto->title ?: $existingEvent->title;
                     $updateData['description'] = $dto->description ?: $existingEvent->description;

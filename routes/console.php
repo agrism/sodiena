@@ -15,3 +15,7 @@ Artisan::command('inspire', function () {
     ->dailyAt('00:00')
     ->withoutOverlapping();
 
+\Illuminate\Support\Facades\Schedule::command('events:sync-images')
+    ->dailyAt('04:30')
+    ->withoutOverlapping();
+
