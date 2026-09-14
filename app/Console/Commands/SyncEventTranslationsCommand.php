@@ -37,14 +37,16 @@ class SyncEventTranslationsCommand extends Command
 
         foreach ($events as $event) {
             $existingTranslations = $event->translations->keyBy('locale');
-            $existingLocales = $existingTranslations->keys()->toArray();
+            $targetLocales = ['lv', 'en', 'ru'];
+            $missingLocales = array_diff($targetLocales, $existingTranslations->keys()->toArray());
 
             // 1. Check if 'lv' translation actually contains English text
             $lvTrans = $existingTranslations->get('lv');
+            $lvIsEnglish = false;
             if ($lvTrans && !empty($lvTrans->description)) {
-                $lang = $this->detectLanguage($lvTrans->title . ' ' . $lvTrans->description);
+                $lang = $ingestionService->detectTextLanguage($lvTrans->title . ' ' . $lvTrans->description);
                 if ($lang === 'en') {
-                    // This is an English text mistakenly placed in 'lv'
+                    $lvIsEnglish = true;
                     if (!$dryRun) {
                         // Ensure 'en' translation exists with this text
                         if (!$existingTranslations->has('en')) {
@@ -61,16 +63,13 @@ class SyncEventTranslationsCommand extends Command
                 }
             }
 
-            // 2. Find missing locales among ['lv', 'en', 'ru']
-            $targetLocales = ['lv', 'en', 'ru'];
-            $missingLocales = array_diff($targetLocales, $event->translations()->pluck('locale')->toArray());
-
-            if (empty($missingLocales)) {
+            // If no missing locales and 'lv' is not in English, nothing to inherit
+            if (empty($missingLocales) && !$lvIsEnglish) {
                 continue;
             }
 
-            // 3. Search for sibling with full translations
-            $sibling = $this->findSiblingWithTranslations($event, $ingestionService);
+            // 2. Search for sibling with full translations
+            $sibling = $ingestionService->findSiblingWithTranslations($event);
 
             if ($sibling) {
                 $copiedAny = false;
@@ -101,15 +100,24 @@ class SyncEventTranslationsCommand extends Command
                 // If 'lv' was originally English, overwrite 'lv' with the sibling's real Latvian translation
                 $lvSibTrans = $sibling->translations->firstWhere('locale', 'lv');
                 $curLv = $event->translations()->where('locale', 'lv')->first();
-                if ($curLv && $lvSibTrans && $this->detectLanguage($curLv->description) === 'en') {
-                    if (!$dryRun) {
-                        $curLv->update([
-                            'title' => $lvSibTrans->title,
-                            'description' => $lvSibTrans->description,
-                            'short_description' => $lvSibTrans->short_description,
-                        ]);
+                if ($curLv && $lvSibTrans && !empty($lvSibTrans->description)) {
+                    $curLang = $ingestionService->detectTextLanguage($curLv->description);
+                    $sibLang = $ingestionService->detectTextLanguage($lvSibTrans->description);
+                    if ($curLang === 'en' && $sibLang === 'lv') {
+                        $this->line("  -> Event #{$event->id} ({$event->title}) overwriting [lv] with real LV text from Event #{$sibling->id}");
+                        if (!$dryRun) {
+                            $curLv->update([
+                                'title' => $lvSibTrans->title,
+                                'description' => $lvSibTrans->description,
+                                'short_description' => $lvSibTrans->short_description,
+                            ]);
+                            $event->update([
+                                'description' => $lvSibTrans->description,
+                                'short_description' => $lvSibTrans->short_description,
+                            ]);
+                        }
+                        $copiedAny = true;
                     }
-                    $copiedAny = true;
                 }
 
                 if ($copiedAny) {
@@ -120,61 +128,5 @@ class SyncEventTranslationsCommand extends Command
 
         $this->info("Translation synchronization completed. Updated {$updatedCount} events.");
         return self::SUCCESS;
-    }
-
-    protected function findSiblingWithTranslations(Event $event, EventIngestionService $ingestionService): ?Event
-    {
-        $cleanTitle = trim(preg_replace('/[^\p{L}\p{N}\s]+/u', ' ', mb_strtolower($event->title, 'UTF-8')));
-        $words = array_values(array_filter(explode(' ', $cleanTitle), fn ($w) => mb_strlen($w, 'UTF-8') > 2));
-        
-        $siblings = Event::with('translations')
-            ->has('translations', '>=', 2)
-            ->where('id', '!=', $event->id)
-            ->where(function ($q) use ($event) {
-                if ($event->location_id) {
-                    $q->where('location_id', $event->location_id);
-                }
-            })
-            ->latest('id')
-            ->limit(30)
-            ->get();
-
-        foreach ($siblings as $candidate) {
-            $candTitle = trim(preg_replace('/[^\p{L}\p{N}\s]+/u', ' ', mb_strtolower($candidate->title, 'UTF-8')));
-            $candWords = array_values(array_filter(explode(' ', $candTitle), fn ($w) => mb_strlen($w, 'UTF-8') > 2));
-
-            $common = array_intersect($words, $candWords);
-            if (count($common) >= 2) {
-                return $candidate;
-            }
-        }
-
-        return null;
-    }
-
-    protected function detectLanguage(?string $text): string
-    {
-        if (empty($text)) {
-            return 'lv';
-        }
-
-        $lower = mb_strtolower($text, 'UTF-8');
-        $enHits = preg_match_all('/\b(the|and|in|is|are|of|to|with|for|during|from|we|you|please|will|not|have|can|this|that|on|at|by|tours?|exhibition|history|tickets?|visitors?|open|daily|adults?|students?|building|palace|museum)\b/u', $lower);
-        $lvHits = preg_match_all('/\b(un|ir|par|ar|pie|no|vai|lai|mēs|jūs|kas|tiek|katru|dienu|lūdzu|cena|ieeja|biļetes|pēc|līdz|vieta|laiks|gads|gadā|stūra|māja|muzejs|skatāma|norise|iekļauts|apmeklēt)\b/u', $lower);
-        
-        $ruHits = preg_match_all('/[\p{Cyrillic}]/u', $text);
-        if ($ruHits > 30 && $ruHits > $enHits && $ruHits > $lvHits) {
-            return 'ru';
-        }
-
-        if ($enHits > 8 && $enHits > $lvHits * 2) {
-            return 'en';
-        }
-
-        if ($lvHits > $enHits) {
-            return 'lv';
-        }
-
-        return 'lv';
     }
 }

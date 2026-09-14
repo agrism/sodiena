@@ -616,20 +616,36 @@ class EventIngestionService
         return $clean;
     }
 
-    public function inheritSiblingTranslations(Event $event): void
-    {
-        $existingTranslations = $event->translations()->get()->keyBy('locale');
-        $targetLocales = ['lv', 'en', 'ru'];
-        $missingLocales = array_diff($targetLocales, $existingTranslations->keys()->toArray());
 
-        if (empty($missingLocales)) {
-            return;
+    public function getMeaningfulTitleTokens(string $title): array
+    {
+        $clean = preg_replace('/[^\p{L}\s]+/u', ' ', mb_strtolower($title, 'UTF-8'));
+        $stopwords = [
+            'un', 'par', 'ar', 'pie', 'uz', 'no', 'vai', 'lai', 'kas', 'kur', 'kad', 'kā', 'ir', 'būt', 'arī', 'tiek', 'jeb',
+            'the', 'and', 'or', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from', 'is', 'are', 'was', 'were', 'an', 'a',
+            'и', 'в', 'во', 'на', 'с', 'со', 'по', 'к', 'ко', 'у', 'о', 'об', 'для', 'от', 'до', 'из', 'или', 'как', 'это', 'что'
+        ];
+
+        $words = explode(' ', $clean);
+        $meaningful = [];
+        foreach ($words as $w) {
+            $w = trim($w);
+            if (mb_strlen($w, 'UTF-8') >= 3 && !in_array($w, $stopwords, true)) {
+                $meaningful[] = $w;
+            }
         }
 
-        $cleanTitle = trim(preg_replace('/[^\p{L}\p{N}\s]+/u', ' ', mb_strtolower($event->title, 'UTF-8')));
-        $words = array_values(array_filter(explode(' ', $cleanTitle), fn ($w) => mb_strlen($w, 'UTF-8') > 2));
+        return array_values(array_unique($meaningful));
+    }
 
-        $sibling = Event::with('translations')
+    public function findSiblingWithTranslations(Event $event): ?Event
+    {
+        $tokens = $this->getMeaningfulTitleTokens($event->title);
+        if (empty($tokens)) {
+            return null;
+        }
+
+        $candidates = Event::with('translations')
             ->has('translations', '>=', 2)
             ->where('id', '!=', $event->id)
             ->where(function ($q) use ($event) {
@@ -637,41 +653,80 @@ class EventIngestionService
                     $q->where('location_id', $event->location_id);
                 }
             })
-            ->latest('id')
-            ->limit(30)
-            ->get()
-            ->first(function ($cand) use ($words) {
-                $candTitle = trim(preg_replace('/[^\p{L}\p{N}\s]+/u', ' ', mb_strtolower($cand->title, 'UTF-8')));
-                $candWords = array_values(array_filter(explode(' ', $candTitle), fn ($w) => mb_strlen($w, 'UTF-8') > 2));
-                $common = array_intersect($words, $candWords);
-                return count($common) >= 2;
-            });
+            ->get();
 
-        if ($sibling) {
-            foreach ($missingLocales as $loc) {
-                $sibTrans = $sibling->translations->firstWhere('locale', $loc);
-                if ($sibTrans && !empty($sibTrans->description)) {
-                    EventTranslation::updateOrCreate(
-                        [
-                            'event_id' => $event->id,
-                            'locale' => $loc,
-                        ],
-                        [
-                            'title' => $sibTrans->title,
-                            'slug' => Str::slug($sibTrans->title) . '-' . substr(md5($event->id . $loc), 0, 6),
-                            'description' => $sibTrans->description,
-                            'short_description' => $sibTrans->short_description,
-                        ]
-                    );
-                }
+        $bestCandidate = null;
+        $bestScore = 0;
+
+        foreach ($candidates as $cand) {
+            $candTokens = $this->getMeaningfulTitleTokens($cand->title);
+            if (empty($candTokens)) {
+                continue;
             }
 
-            // If current 'lv' translation is actually in English, update 'lv' with sibling's real Latvian translation
-            $curLv = $event->translations()->where('locale', 'lv')->first();
-            $sibLv = $sibling->translations->firstWhere('locale', 'lv');
-            if ($curLv && $sibLv && $this->detectTextLanguage($curLv->description) === 'en') {
+            $common = array_intersect($tokens, $candTokens);
+            $commonCount = count($common);
+
+            if ($commonCount >= 2) {
+                $overlapScore = $commonCount / max(count($tokens), count($candTokens));
+                if ($overlapScore > $bestScore && $overlapScore >= 0.35) {
+                    $bestScore = $overlapScore;
+                    $bestCandidate = $cand;
+                }
+            } elseif ($commonCount >= 1 && count($tokens) <= 3 && count($candTokens) <= 3) {
+                similar_text(mb_strtolower($event->title, 'UTF-8'), mb_strtolower($cand->title, 'UTF-8'), $simPercent);
+                if ($simPercent >= 70 && ($simPercent / 100) > $bestScore) {
+                    $bestScore = $simPercent / 100;
+                    $bestCandidate = $cand;
+                }
+            }
+        }
+
+        return $bestCandidate;
+    }
+
+    public function inheritSiblingTranslations(Event $event): void
+    {
+        $sibling = $this->findSiblingWithTranslations($event);
+
+        if (!$sibling) {
+            return;
+        }
+
+        $targetLocales = ['lv', 'en', 'ru'];
+
+        foreach ($targetLocales as $loc) {
+            $existingTrans = $event->translations()->where('locale', $loc)->first();
+            $sibTrans = $sibling->translations->firstWhere('locale', $loc);
+
+            if (!$existingTrans && $sibTrans && !empty($sibTrans->description)) {
+                EventTranslation::create([
+                    'event_id' => $event->id,
+                    'locale' => $loc,
+                    'title' => $sibTrans->title,
+                    'slug' => Str::slug($sibTrans->title) . '-' . substr(md5($event->id . $loc), 0, 6),
+                    'description' => $sibTrans->description,
+                    'short_description' => $sibTrans->short_description,
+                ]);
+            }
+        }
+
+        // If current 'lv' translation is in English and sibling has a real Latvian 'lv' translation, replace it
+        $curLv = $event->translations()->where('locale', 'lv')->first();
+        $sibLv = $sibling->translations->firstWhere('locale', 'lv');
+        if ($curLv && $sibLv && !empty($sibLv->description)) {
+            $curLvLang = $this->detectTextLanguage($curLv->description);
+            $sibLvLang = $this->detectTextLanguage($sibLv->description);
+
+            if ($curLvLang === 'en' && $sibLvLang === 'lv') {
                 $curLv->update([
                     'title' => $sibLv->title,
+                    'description' => $sibLv->description,
+                    'short_description' => $sibLv->short_description,
+                ]);
+
+                // Also update main event text to Latvian
+                $event->update([
                     'description' => $sibLv->description,
                     'short_description' => $sibLv->short_description,
                 ]);
