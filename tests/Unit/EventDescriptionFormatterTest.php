@@ -46,4 +46,27 @@ class EventDescriptionFormatterTest extends TestCase
         $this->assertStringContainsString('Papildu informācija:', $html);
         $this->assertStringNotContainsString('Biļetes:', $html);
     }
+
+    public function test_formats_metadata_attributes_cleanly(): void
+    {
+        $raw = "Un poeta\nRežisors: Simón Mesa Soto\nAktieri: Ubeimar Rios, Rebeca Andrade\nValsts: Kolumbija, Vācija, 2025.\nGarums: 123 min.\nŽanrs: Komēdija, Drāma\nVecuma ierobežojums: 16+\n\nŠķīries, rūpju pilns, pusmūžā, ar nopietnu dzeršanas atkarību?";
+        $html = $this->formatter->format($raw);
+
+        // Metadata attributes should be rendered with strong tags, not as h4 green-border section headings
+        $this->assertStringContainsString('<strong class="font-bold text-slate-900">Režisors:</strong> Simón Mesa Soto', $html);
+        $this->assertStringContainsString('<strong class="font-bold text-slate-900">Aktieri:</strong> Ubeimar Rios, Rebeca Andrade', $html);
+        $this->assertStringContainsString('<strong class="font-bold text-slate-900">Garums:</strong> 123 min.', $html);
+        $this->assertStringContainsString('<strong class="font-bold text-slate-900">Vecuma ierobežojums:</strong> 16+', $html);
+        $this->assertStringNotContainsString('border-emerald-500 pl-3">Vecuma ierobežojums', $html);
+        $this->assertStringContainsString('Šķīries, rūpju pilns', $html);
+    }
+
+    public function test_embeds_youtube_video_responsively(): void
+    {
+        $raw = "Anotācija par filmu.\nhttps://www.youtube.com/watch?v=yataczbXXss";
+        $html = $this->formatter->format($raw);
+
+        $this->assertStringContainsString('youtube-nocookie.com/embed/yataczbXXss', $html);
+        $this->assertStringContainsString('aspect-video', $html);
+    }
 }

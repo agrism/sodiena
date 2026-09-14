@@ -148,4 +148,64 @@ HTML;
         $this->assertEquals('Cēsis', $event->location->city);
         $this->assertEquals('2026-11-12 20:00:00', $event->start_at->toDateTimeString());
     }
+
+    public function test_bezrindas_parses_movie_and_extracts_clean_description_and_categories(): void
+    {
+        $scraper = new BezRindasScraper();
+        $sampleHtml = <<<HTML
+        <!DOCTYPE html>
+        <html>
+        <body>
+            <h1 class="title-text">Dzejdaris</h1>
+            <div class="description-table">
+                Pasākuma "Dzejdaris" organizators: <a href="/lv/organizatori/kino-galerija-sia">Kino galerija, SIA</a>
+            </div>
+            <div class="description">
+                <p><strong><a href="https://www.imdb.com/title/tt36544524/">Un poeta</a></strong></p>
+                <p>Režisors: <strong>Simón Mesa Soto</strong></p>
+                <p>Aktieri: <strong>Ubeimar Rios, Rebeca Andrade</strong></p>
+                <p>Garums: <strong>123 min.</strong></p>
+                <p>Žanrs: <strong>Komēdija, Drāma</strong></p>
+                <p>Vecuma ierobežojums: <strong>16+</strong></p>
+                <p>Šķīries, rūpju pilns, pusmūžā, ar nopietnu dzeršanas atkarību? Kad skumjas un melanholija tuvojas Oskaram, viņš sāk strādāt par skolotāju un atrod jaunu dzejnieci.</p>
+                <p><em>Filma spāņu valodā ar subtitriem latviešu valodā.</em></p>
+                <p><iframe src="https://www.youtube.com/embed/yataczbXXss?t=12s"></iframe></p>
+            </div>
+            <div class="description" style="border-top: 1px solid #EFEFF0;">
+                <div>Pasākumā aizliegts ienest/ievest:</div>
+                <img src="/bag.png" />
+            </div>
+            <div class="box-group">
+                <div class="unit box" data-eventfrom="20261005" data-eventto="20261005">
+                    <div class="event-info-oneliner"><span class="icon-calendar">5. oktobris, 18:00</span></div>
+                    <div class="event-info-oneliner"><span class="icon-location"><b><a href="/lv/vietas/k-suns">K.Suns kinoteātris</a></b></span></div>
+                    <div class="max_price">7.50 €</div>
+                    <a id="event-details-link" href="https://www.bezrindas.lv/lv/dzejdaris/16487/9911/">Pirkt</a>
+                </div>
+            </div>
+        </body>
+        </html>
+HTML;
+
+        $pageCrawler = new Crawler($sampleHtml);
+        $events = collect();
+        $scraper->parseEventPage($pageCrawler, 'https://www.bezrindas.lv/lv/dzejdaris/16487/', [], $events);
+
+        $this->assertCount(1, $events);
+        $dto = $events->first();
+
+        // Categorization must be Teātris & Kino (chill), not Mūzika & Koncerti
+        $this->assertEquals(['Teātris & Kino'], $dto->categoryNames);
+        $this->assertEquals('chill', $dto->entertainmentType);
+
+        // Short description should skip metadata and capture narrative text
+        $this->assertStringStartsWith('Šķīries, rūpju pilns, pusmūžā', $dto->shortDescription);
+        $this->assertStringNotContainsString('Režisors: Simón', $dto->shortDescription);
+
+        // Description should include metadata and YouTube link cleanly formatted
+        $this->assertStringContainsString('Režisors: Simón Mesa Soto', $dto->description);
+        $this->assertStringContainsString('Organizators: Kino galerija, SIA', $dto->description);
+        $this->assertStringContainsString('https://www.youtube.com/watch?v=yataczbXXss', $dto->description);
+        $this->assertStringNotContainsString('Pasākumā aizliegts ienest', $dto->description);
+    }
 }

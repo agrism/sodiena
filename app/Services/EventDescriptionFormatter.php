@@ -7,25 +7,36 @@ class EventDescriptionFormatter
     /**
      * Common Latvian and English event headings.
      */
+    /**
+     * Common Latvian and English event headings for major sections.
+     */
     protected array $headings = [
-        'Plenēra norises laiks:', 'Plenēra norises vieta:', 'Plenēra mērķi:', 'Plenēra mērķis:',
-        'Plenēra dalībnieku pietiekšanās:', 'Plenēra dalībnieku pieteikšanās:', 'Dalībnieku pieteikšanās:',
-        'Galvenie darbības virzieni:', 'Galvenie virzieni:', 'Darbības virzieni:',
-        'Izstādes atklāšana:', 'Izstāde apskatāma:', 'Izstāde atvērta:', 'Apskatāma:', 'Atklāšana:',
+        'Par izrādi:', 'Par izrādi', 'Par filmu:', 'Par filmu', 'Par pasākumu:', 'Par pasākumu',
+        'Par koncertu:', 'Par koncertu', 'Par izstādi:', 'Par izstādi', 'Par festivālu:', 'Par festivālu',
         'Vakara programmā:', 'Pasākuma programma:', 'PROGRAMMĀ:', 'Programma:', 'PROGRAMMA:', 'Pasākumu plāns:',
+        'Izstādes atklāšana:', 'Izstāde apskatāma:', 'Izstāde atvērta:', 'Apskatāma:', 'Atklāšana:',
+        'Galvenie darbības virzieni:', 'Galvenie virzieni:', 'Darbības virzieni:',
+        'Dalībnieku pieteikšanās:', 'Pieteikšanās:', 'Reģistrācija:',
+        'Svarīgi:', 'Uzmanību:', 'Ievērībai:', 'Piezīme:', 'Kāpēc piedalīties:', 'Atlaides:',
         'Vairāk informācijas:', 'Papildu informācija:', 'Papildus informācija:',
-        'Plašāka informācija:', 'Sīkāka informācija:', 'Informācija:',
-        'Ieejas maksa:', 'Ieeja:', 'Biļešu cenas:', 'Biļetes:', 'Biļešu cena:',
-        'Cena:', 'Cenas:', 'Dalības maksa:', 'Bezmaksas ieeja:',
-        'Norises vieta:', 'Vieta:', 'Adrese:', 'Norises laiks:', 'Laiks:',
-        'Piedalās:', 'Dalībnieki:', 'Mākslinieki:', 'Organizē:', 'Rīkotājs:', 'Kurators:', 'Kuratore:',
-        'Svarīgi:', 'Uzmanību:', 'Ievērībai:', 'Piezīme:',
-        'Darba laiks:', 'Darba laiki:', 'Pieteikšanās:', 'Reģistrācija:', 'Pieteikties līdz:', 'Kontakti:',
-        'Kāpēc piedalīties:', 'Atlaides:', 'Par pasākumu:', 'Par izstādi:',
-        'Par koncertu:', 'Par izrādi:', 'Par festivālu:', 'Par filmu:',
-        'Pasākumu drīkst apmeklēt:', 'Pasākuma valoda:', 'Pasākuma ilgums:',
-        'Ieeja pasākumā:', 'Vieta cilvēkam ar invaliditāti:', 'Vecuma ierobežojums:',
-        'Valoda:', 'Ilgums:', 'Cena studentiem:'
+        'Plašāka informācija:', 'Sīkāka informācija:', 'Informācija:', 'Kontakti:',
+    ];
+
+    /**
+     * Common key-value metadata attributes (styled compactly with bold labels).
+     */
+    protected array $attributeLabels = [
+        'Režisors:', 'Režisore:', 'Aktieri:', 'Lomās:', 'Piedalās:', 'Mākslinieki:', 'Dalībnieki:',
+        'Valsts:', 'Garums:', 'Ilgums:', 'Pasākuma ilgums:', 'Žanrs:', 'Žanri:',
+        'Vecuma ierobežojums:', 'Vecums:', 'Pasākumu drīkst apmeklēt:',
+        'Valoda:', 'Valodas:', 'Pasākuma valoda:', 'Subtitri:',
+        'Vieta cilvēkam ar invaliditāti:', 'Vieta cilvēkam ar invaliditāti ratiņkrēslā:',
+        'Ieeja pasākumā:', 'Ieejas maksa:', 'Biļešu cena:', 'Biļešu cenas:', 'Cena:', 'Cenas:', 'Dalības maksa:', 'Cena studentiem:', 'Bezmaksas ieeja:',
+        'Organizators:', 'Rīkotājs:', 'Kurators:', 'Kuratore:', 'Organizē:',
+        'Diriģents:', 'Diriģente:', 'Scenārijs:', 'Horeogrāfija:', 'Scenogrāfija:', 'Tērpu mākslinieks:', 'Tērpu māksliniece:',
+        'Norises vieta:', 'Norises laiks:', 'Plenēra norises laiks:', 'Plenēra norises vieta:',
+        'Plenēra mērķi:', 'Plenēra mērķis:', 'Plenēra dalībnieku pieteikšanās:', 'Plenēra dalībnieku pietiekšanās:',
+        'Darba laiks:', 'Darba laiki:', 'Pieteikties līdz:', 'Adrese:', 'Vieta:', 'Laiks:',
     ];
 
     /**
@@ -49,8 +60,10 @@ class EventDescriptionFormatter
         // 1. Decode HTML entities
         $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
-        // Convert existing <br> tags if any
+        // Convert existing <br> and paragraph closing tags to newlines
         $text = preg_replace('/<br\s*\/?>/i', "\n", $text);
+        $text = preg_replace('/<\/(?:p|div|li|tr|h[1-6])>/i', "\n\n", $text);
+        $text = strip_tags($text, '<a><b><strong><i><em><iframe>');
 
         // 2. Clean tracking parameters from URLs (e.g. utm_source=afiro)
         $text = preg_replace('/(\?|\&)utm_[a-zA-Z0-9_]+=[^&\s\"\'<>]*/u', '', $text);
@@ -63,10 +76,12 @@ class EventDescriptionFormatter
             $text = preg_replace('/\b(?:Biļetes|Biļešu cenas|Biļešu cena):\s*(?=https?:\/\/(?:www\.)?(?:liveriga\.com|afiro\.lv|riga\.lv|latvia\.travel))/ui', "Papildu informācija: ", $text);
         }
 
-        // 3. Break before common section headings
-        foreach ($this->headings as $heading) {
-            $pattern = '/(?<=\S|\b)\s*(' . preg_quote($heading, '/') . ')/u';
-            $text = preg_replace($pattern, "\n\n$1\n", $text);
+        // 3. Break before common section headings and attribute labels
+        $breakKeys = array_merge($this->headings, $this->attributeLabels);
+        usort($breakKeys, fn($a, $b) => mb_strlen($b) <=> mb_strlen($a));
+        foreach ($breakKeys as $key) {
+            $pattern = '/(?<=\S|\b)\s*(' . preg_quote($key, '/') . ')/u';
+            $text = preg_replace($pattern, "\n\n$1 ", $text);
         }
 
         // 4. Break before emojis & bullet symbols
@@ -99,6 +114,19 @@ class EventDescriptionFormatter
         $inList = false;
 
         foreach ($items as $line) {
+            // Check for standalone YouTube URL / iframe video
+            if (preg_match('/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_\-]{11})/i', $line, $ym)) {
+                $youtubeId = $ym[1];
+                if ($inList) {
+                    $html .= "</ul>\n";
+                    $inList = false;
+                }
+                $html .= '<div class="my-6 rounded-2xl overflow-hidden aspect-video shadow-md border border-slate-200">'
+                    . '<iframe class="w-full h-full" src="https://www.youtube-nocookie.com/embed/' . htmlspecialchars($youtubeId, ENT_QUOTES, 'UTF-8') . '" title="Video" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>'
+                    . '</div>' . "\n";
+                continue;
+            }
+
             // Check if line is a section heading
             $isHeading = false;
             foreach ($this->headings as $heading) {
@@ -116,6 +144,25 @@ class EventDescriptionFormatter
                 $html .= '<h4 class="text-base sm:text-lg font-bold text-slate-900 mt-7 mb-3 flex items-center gap-2 border-l-4 border-emerald-500 pl-3">'
                     . $this->renderLineHtml($line)
                     . '</h4>' . "\n";
+                continue;
+            }
+
+            // Check if line is a metadata key-value attribute
+            $matchedAttr = $this->matchAttributeLine($line);
+            if ($matchedAttr !== null) {
+                if ($inList) {
+                    $html .= "</ul>\n";
+                    $inList = false;
+                }
+                [$attrKey, $attrVal] = $matchedAttr;
+                if (!empty($attrVal)) {
+                    $html .= '<p class="mb-1.5 text-slate-700 leading-relaxed"><strong class="font-bold text-slate-900">'
+                        . htmlspecialchars($attrKey, ENT_QUOTES, 'UTF-8') . ':</strong> '
+                        . $this->renderLineHtml($attrVal) . '</p>' . "\n";
+                } else {
+                    $html .= '<p class="mb-1.5 text-slate-700 leading-relaxed"><strong class="font-bold text-slate-900">'
+                        . htmlspecialchars($attrKey, ENT_QUOTES, 'UTF-8') . ':</strong></p>' . "\n";
+                }
                 continue;
             }
 
@@ -184,6 +231,32 @@ class EventDescriptionFormatter
         }
 
         return trim($html);
+    }
+
+    /**
+     * Check if a line matches a key-value attribute
+     */
+    protected function matchAttributeLine(string $line): ?array
+    {
+        foreach ($this->attributeLabels as $attr) {
+            if (mb_stripos($line, $attr) === 0) {
+                $val = trim(mb_substr($line, mb_strlen($attr)));
+                return [rtrim($attr, ':'), $val];
+            }
+        }
+
+        // Generic key-value check (e.g. "Režisors: Jānis Bērziņš", "Lomās: ...")
+        if (preg_match('/^([A-ZĀČĒĢĪĶĻŅŠŪŽ][a-zA-Z0-9āčēģīķļņšūž\s\/\(\)\-]{1,28}):\s*(.+)$/u', $line, $m)) {
+            $key = trim($m[1]);
+            $val = trim($m[2]);
+
+            // Avoid catching URLs, days, or known full section headings
+            if (!str_contains($key, 'http') && !in_array($key . ':', $this->headings) && !in_array($key, $this->headings)) {
+                return [$key, $val];
+            }
+        }
+
+        return null;
     }
 
     /**

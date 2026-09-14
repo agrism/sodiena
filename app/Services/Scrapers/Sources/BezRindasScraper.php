@@ -155,10 +155,7 @@ class BezRindasScraper extends BaseScraper
         }
 
         // Description
-        $description = null;
-        if ($pageCrawler->filter('.description')->count()) {
-            $description = $this->cleanText($pageCrawler->filter('.description')->first()->text(''));
-        }
+        $description = $this->extractFormattedDescription($pageCrawler);
 
         // Category and Entertainment type inference
         [$categories, $entertainmentType] = $this->detectCategoryAndType($title, $description);
@@ -312,7 +309,7 @@ class BezRindasScraper extends BaseScraper
             startAt: $startAt,
             endAt: $endAt,
             description: $description,
-            shortDescription: $description ? Str::limit($description, 180) : null,
+            shortDescription: $this->extractShortDescription($description),
             venueName: $locName ?: 'Rīga',
             city: $city,
             categoryNames: $categories,
@@ -363,7 +360,7 @@ class BezRindasScraper extends BaseScraper
             title: $title,
             startAt: $startAt,
             description: $description,
-            shortDescription: $description ? Str::limit($description, 180) : null,
+            shortDescription: $this->extractShortDescription($description),
             venueName: $locName,
             city: $city,
             categoryNames: $categories,
@@ -379,6 +376,141 @@ class BezRindasScraper extends BaseScraper
                 'card_date' => $dateText,
             ]
         );
+    }
+
+    /**
+     * Extract structured description from event page, preserving paragraphs and formatting.
+     */
+    public function extractFormattedDescription(Crawler $pageCrawler): ?string
+    {
+        // 1. Check for main description container
+        $descNodes = $pageCrawler->filter('.description');
+        if ($descNodes->count() === 0) {
+            return null;
+        }
+
+        // The first .description is the main text (subsequent .description often contain prohibited items icon list)
+        $mainNode = $descNodes->first();
+
+        // Extract embedded YouTube trailer if present
+        $youtubeUrl = null;
+        if ($mainNode->filter('iframe')->count()) {
+            $iframeSrc = $mainNode->filter('iframe')->first()->attr('src');
+            if (!empty($iframeSrc) && (str_contains($iframeSrc, 'youtube') || str_contains($iframeSrc, 'youtu.be'))) {
+                if (preg_match('/(?:embed\/|watch\?v=|youtu\.be\/)([a-zA-Z0-9_\-]{11})/i', $iframeSrc, $ym)) {
+                    $youtubeUrl = "https://www.youtube.com/watch?v={$ym[1]}";
+                }
+            }
+        }
+
+        // Get raw HTML
+        $rawHtml = $mainNode->html('');
+        if (empty(trim($rawHtml))) {
+            return null;
+        }
+
+        // Decode HTML entities
+        $html = html_entity_decode($rawHtml, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        // Convert breaks & block closing tags to newlines
+        $html = preg_replace('/<br\s*\/?>/i', "\n", $html);
+        $html = preg_replace('/<\/(?:p|div|li|tr|h[1-6])>/i', "\n\n", $html);
+
+        // Strip HTML tags
+        $text = strip_tags($html);
+
+        // Clean non-breaking spaces & tabs
+        $text = str_replace(["\xC2\xA0", "&nbsp;", "\t"], ' ', $text);
+        $text = preg_replace('/[^\S\r\n]+/u', ' ', $text);
+
+        // Split into lines and filter empty / boilerplate lines
+        $lines = preg_split('/\r?\n/', $text);
+        $cleanedLines = [];
+
+        foreach ($lines as $line) {
+            $line = trim($line, " \t\n\r\0\x0B\xC2\xA0");
+            if ($line === '' || $line === '•' || $line === '.' || $line === '-') {
+                continue;
+            }
+            // Ignore boilerplate prohibited items header
+            if (mb_stripos($line, 'Pasākumā aizliegts ienest') !== false) {
+                continue;
+            }
+            $cleanedLines[] = $line;
+        }
+
+        // Extract organizer from .description-table if present
+        if ($pageCrawler->filter('.description-table')->count()) {
+            $orgText = $this->cleanText($pageCrawler->filter('.description-table')->first()->text(''));
+            if (!empty($orgText) && preg_match('/organizators:\s*(.+)$/ui', $orgText, $om)) {
+                $orgName = trim($om[1]);
+                $alreadyInDesc = false;
+                foreach ($cleanedLines as $cl) {
+                    if (mb_stripos($cl, $orgName) !== false) {
+                        $alreadyInDesc = true;
+                        break;
+                    }
+                }
+                if (!$alreadyInDesc && !empty($orgName)) {
+                    $cleanedLines[] = "Organizators: {$orgName}";
+                }
+            }
+        }
+
+        // Append YouTube URL if found and not already in text
+        if ($youtubeUrl) {
+            $hasYt = false;
+            foreach ($cleanedLines as $cl) {
+                if (str_contains($cl, $youtubeUrl)) {
+                    $hasYt = true;
+                    break;
+                }
+            }
+            if (!$hasYt) {
+                $cleanedLines[] = $youtubeUrl;
+            }
+        }
+
+        return !empty($cleanedLines) ? implode("\n\n", $cleanedLines) : null;
+    }
+
+    /**
+     * Extract a concise summary snippet from the narrative text, ignoring metadata headers.
+     */
+    public function extractShortDescription(?string $description): ?string
+    {
+        if (empty($description)) {
+            return null;
+        }
+
+        $paragraphs = preg_split('/\r?\n+/', trim($description));
+        $metaPrefixes = [
+            'režisors', 'režisore', 'aktieri', 'lomās', 'valsts', 'garums', 'ilgums',
+            'žanrs', 'žanri', 'vecuma ierobežojums', 'vecums', 'pasākuma valoda', 'valoda',
+            'organizators', 'rīkotājs', 'ieeja', 'biļetes', 'biļešu cena', 'cena', 'http'
+        ];
+
+        foreach ($paragraphs as $paragraph) {
+            $p = trim($paragraph);
+            if (mb_strlen($p) < 40) {
+                continue;
+            }
+
+            $isMeta = false;
+            $lower = mb_strtolower($p, 'UTF-8');
+            foreach ($metaPrefixes as $prefix) {
+                if (str_starts_with($lower, $prefix)) {
+                    $isMeta = true;
+                    break;
+                }
+            }
+
+            if (!$isMeta) {
+                return Str::limit($p, 190);
+            }
+        }
+
+        return Str::limit($description, 180);
     }
 
     /**
@@ -527,32 +659,52 @@ class BezRindasScraper extends BaseScraper
     {
         $text = mb_strtolower($title . ' ' . ($desc ?? ''), 'UTF-8');
 
-        if (preg_match('/(koncert|mūzik|muzika|jazz|džezs|orķestr|koris|dziesm|festivāl|grupa|solist|vokāl|ģitār|klavier)/u', $text)) {
-            return [['Mūzika & Koncerti'], 'concert'];
-        }
-
-        if (preg_match('/(teātr|izrāde|kino|filma|komēdij|stand up|stand-up|humor|aktier|drāma|pirmizrād)/u', $text)) {
-            return [['Teātris & Kino'], 'chill'];
-        }
-
-        if (preg_match('/(bērn|ģimen|pasaka|leļļu|atrakcij|animācij)/u', $text)) {
+        // 1. Kids & Family
+        if (preg_match('/(bērn|ģimen|pasaka|leļļu|atrakcij|karuselis|bērniem)/u', $text)) {
+            if (preg_match('/(filma|kino|izrāde|teātr)/u', $text)) {
+                return [['Ģimenēm & Bērniem', 'Teātris & Kino'], 'family'];
+            }
             return [['Ģimenēm & Bērniem'], 'family'];
         }
 
-        if (preg_match('/(izstāde|muzej|māksl|ekspozīcij|glezn|tūre|tour|guided|vēstur)/u', $text)) {
+        // 2. Cinema, Movies & Theatre (High priority to catch films, comedy, drama before generic "festivāls")
+        if (preg_match('/(teātr|izrāde|kino|filma|komēdij|stand up|stand-up|humor|aktier|drāma|pirmizrād|režisor|kinoteātr|seanss|kinofestivāl|animācij|multfilm)/u', $text)) {
+            return [['Teātris & Kino'], 'chill'];
+        }
+
+        // 3. Music & Concerts
+        if (preg_match('/(koncert|mūzik|muzika|jazz|džezs|orķestr|koris|dziesm|dzied|grupa|solist|vokāl|ģitār|klavier|simfonij|filharmon|oper|operet|roks|pops|dziesmu|jam session|soundtrack)/u', $text)) {
+            return [['Mūzika & Koncerti'], 'concert'];
+        }
+
+        // 4. Exhibitions, Art & Museums
+        if (preg_match('/(izstāde|muzej|māksl|ekspozīcij|glezn|tūre|tour|guided|vēstur|ekskursij|galerij|glezniecīb|keramik|tēlniecīb)/u', $text)) {
             return [['Kultūra & Māksla'], 'exhibition'];
         }
 
-        if (preg_match('/(meistarklas|seminār|lekcij|darbnīc|kursi|apmācīb|diskusij)/u', $text)) {
+        // 5. Education, Workshops, Masterclasses
+        if (preg_match('/(meistarklas|seminār|lekcij|darbnīc|kursi|apmācīb|diskusij|konferenc)/u', $text)) {
             return [['Izglītība & Semināri'], 'workshop'];
         }
 
-        if (preg_match('/(sports|maratons|skrējiens|turnīrs|čempionāts|futbols|basketbols|hokejs|joga)/u', $text)) {
-            return [['Sports & Pārgājieni'], 'active'];
+        // 6. Sports & Active
+        if (preg_match('/(sports|maratons|skrējiens|turnīrs|čempionāts|futbols|basketbols|hokejs|joga|pārgājiens|velobrauciens|orientēšan)/u', $text)) {
+            return [['Sports & Aktīvā atpūta'], 'active'];
         }
 
-        if (preg_match('/(party|ballīte|disko|klubs|nakts|dejas)/u', $text)) {
+        // 7. Nightlife, Parties & Clubs
+        if (preg_match('/(party|ballīte|disko|klubs|nakts|dejas|dīdžej|\bdj\b)/u', $text)) {
+            return [['Naktsdzīve & Ballītes'], 'party'];
+        }
+
+        // 8. Festivals & Celebrations
+        if (preg_match('/(festivāl|svētki|svinīb|gadskārt|jāņi|līgo)/u', $text)) {
             return [['Festivāli & Svētki'], 'party'];
+        }
+
+        // 9. Food & Markets
+        if (preg_match('/(tirgus|tirdziņš|degustācij|gastronom|vīna|alus|street food|ēdien|kulinār)/u', $text)) {
+            return [['Gastronomija & Tirgi'], 'chill'];
         }
 
         return [['Kultūra & Māksla'], 'chill'];
