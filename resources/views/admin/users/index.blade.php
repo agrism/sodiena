@@ -71,7 +71,7 @@
         $isUserRoleActive = ($roleFilter !== 'all');
         $hasUserActiveFilters = ($isUserSearchActive || $isUserRoleActive);
     @endphp
-    <div class="bg-white p-4 rounded-2xl border {{ $hasUserActiveFilters ? 'border-red-300 ring-1 ring-red-200 bg-red-50/10' : 'border-slate-200/90' }} shadow-xs">
+    <div class="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-xs">
         <form method="GET" action="{{ route('admin.users.index') }}" class="flex flex-col sm:flex-row gap-3">
             <div class="relative flex-grow">
                 <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none {{ $isUserSearchActive ? 'text-red-500' : 'text-slate-400' }}">
@@ -82,14 +82,14 @@
                     name="search" 
                     value="{{ $search }}" 
                     placeholder="{{ __('Search by name or email...') }}" 
-                    class="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm focus:outline-none transition-all {{ $isUserSearchActive ? 'bg-red-50 border-2 border-red-500 text-red-950 font-bold focus:ring-2 focus:ring-red-500 focus:bg-white shadow-xs' : 'bg-slate-50 border border-slate-200 text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:bg-white' }}">
+                    class="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm focus:outline-none transition-all {{ $isUserSearchActive ? 'admin-filter-active' : 'bg-slate-50 border border-slate-200 text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:bg-white' }}">
             </div>
 
             <div class="flex items-center gap-2">
                 <select 
                     name="role" 
                     onchange="this.form.submit()"
-                    class="px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold focus:outline-none transition-all {{ $isUserRoleActive ? 'bg-red-50 border-2 border-red-500 text-red-950 font-bold focus:ring-2 focus:ring-red-500 shadow-xs' : 'bg-slate-50 border border-slate-200 text-slate-700 focus:ring-2 focus:ring-emerald-500' }}">
+                    class="px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold focus:outline-none transition-all {{ $isUserRoleActive ? 'admin-filter-active' : 'bg-slate-50 border border-slate-200 text-slate-700 focus:ring-2 focus:ring-emerald-500' }}">
                     <option value="all" {{ $roleFilter === 'all' ? 'selected' : '' }}>{{ __('All Roles') }}</option>
                     <option value="admin" {{ $roleFilter === 'admin' ? 'selected' : '' }}>{{ __('Administrators') }}</option>
                     <option value="regular" {{ $roleFilter === 'regular' ? 'selected' : '' }}>{{ __('Regular Users') }}</option>
@@ -104,7 +104,7 @@
                 @if($hasUserActiveFilters)
                     <a 
                         href="{{ route('admin.users.index') }}" 
-                        class="px-3.5 py-2.5 rounded-xl bg-red-100 hover:bg-red-200 text-red-700 border border-red-300 text-xs sm:text-sm font-bold transition-all shadow-xs"
+                        class="px-3.5 py-2.5 rounded-xl admin-filter-reset-active text-xs sm:text-sm font-bold transition-all shadow-xs"
                         title="{{ __('Reset') }}">
                         {{ __('Reset') }}
                     </a>

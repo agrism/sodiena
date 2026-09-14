@@ -56,7 +56,7 @@
 
         $hasActiveFilters = ($isSearchActive || $isPublishedActive || $isOriginActive || $isSourceActive || $isCategoryActive || $isCityActive || $isLocationActive || $isTimeframeActive || $isPerPageActive);
     @endphp
-    <div class="bg-white p-3.5 rounded-2xl border {{ $hasActiveFilters ? 'border-red-300 ring-1 ring-red-200 bg-red-50/10' : 'border-slate-300' }} shadow-xs">
+    <div class="bg-white p-3.5 rounded-2xl border border-slate-300 shadow-xs">
         <form method="GET" action="{{ route('admin.events.index') }}" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-9 gap-2 text-xs">
             
             <!-- Preserve active sorting across filter submissions -->
@@ -65,7 +65,7 @@
 
             <!-- Search -->
             <div class="sm:col-span-2 md:col-span-2 lg:col-span-2 xl:col-span-2">
-                <label class="block text-[10px] font-bold uppercase mb-1 font-mono {{ $isSearchActive ? 'text-red-600 font-black flex items-center gap-1' : 'text-slate-500' }}">
+                <label class="block text-[10px] font-bold uppercase mb-1 font-mono {{ $isSearchActive ? 'admin-filter-label-active flex items-center gap-1' : 'text-slate-500' }}">
                     @if($isSearchActive) <span class="w-1.5 h-1.5 rounded-full bg-red-600"></span> @endif
                     Meklēt tekstā / ID / Vietā
                 </label>
@@ -74,16 +74,16 @@
                     name="search" 
                     value="{{ $search }}" 
                     placeholder="Nosaukums, apraksts, vieta, ID..." 
-                    class="w-full px-2.5 py-1.5 rounded text-xs transition-colors {{ $isSearchActive ? 'bg-red-50 border-2 border-red-500 text-red-950 font-bold focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500 shadow-xs' : 'bg-slate-50 border border-slate-300 text-slate-800 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500' }}">
+                    class="w-full px-2.5 py-1.5 rounded text-xs transition-colors {{ $isSearchActive ? 'admin-filter-active' : 'bg-slate-50 border border-slate-300 text-slate-800 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500' }}">
             </div>
 
             <!-- Publication Status Filter -->
             <div>
-                <label class="block text-[10px] font-bold uppercase mb-1 font-mono {{ $isPublishedActive ? 'text-red-600 font-black flex items-center gap-1' : 'text-slate-500' }}">
+                <label class="block text-[10px] font-bold uppercase mb-1 font-mono {{ $isPublishedActive ? 'admin-filter-label-active flex items-center gap-1' : 'text-slate-500' }}">
                     @if($isPublishedActive) <span class="w-1.5 h-1.5 rounded-full bg-red-600"></span> @endif
                     Publicēts
                 </label>
-                <select name="published" class="w-full px-2 py-1.5 rounded text-xs transition-colors {{ $isPublishedActive ? 'bg-red-50 border-2 border-red-500 text-red-950 font-bold focus:outline-none focus:ring-2 focus:ring-red-500 shadow-xs' : 'bg-slate-50 border border-slate-300 text-slate-800 focus:outline-none font-medium' }}">
+                <select name="published" class="w-full px-2 py-1.5 rounded text-xs transition-colors {{ $isPublishedActive ? 'admin-filter-active' : 'bg-slate-50 border border-slate-300 text-slate-800 focus:outline-none font-medium' }}">
                     <option value="all">🌐 Visi statusi</option>
                     <option value="published" {{ $published === 'published' ? 'selected' : '' }} class="font-bold text-emerald-700">
                         🟢 Tikai publicēti ({{ number_format($stats['published'], 0, '.', ' ') }})
@@ -96,11 +96,11 @@
 
             <!-- Real Origin Website Filter -->
             <div>
-                <label class="block text-[10px] font-bold uppercase mb-1 font-mono {{ $isOriginActive ? 'text-red-600 font-black flex items-center gap-1' : 'text-slate-500' }}">
+                <label class="block text-[10px] font-bold uppercase mb-1 font-mono {{ $isOriginActive ? 'admin-filter-label-active flex items-center gap-1' : 'text-slate-500' }}">
                     @if($isOriginActive) <span class="w-1.5 h-1.5 rounded-full bg-red-600"></span> @endif
                     Īstā vietne
                 </label>
-                <select name="origin_host" class="w-full px-2 py-1.5 rounded text-xs transition-colors {{ $isOriginActive ? 'bg-red-50 border-2 border-red-500 text-red-950 font-bold focus:outline-none focus:ring-2 focus:ring-red-500 shadow-xs' : 'bg-slate-50 border border-slate-300 text-slate-800 focus:outline-none' }}">
+                <select name="origin_host" class="w-full px-2 py-1.5 rounded text-xs transition-colors {{ $isOriginActive ? 'admin-filter-active' : 'bg-slate-50 border border-slate-300 text-slate-800 focus:outline-none' }}">
                     <option value="all">🌐 Visas vietnes</option>
                     <option value="missing" {{ $originHost === 'missing' ? 'selected' : '' }} class="font-bold text-amber-700">
                         ⚠️ Nav vietnes / tukšs ({{ number_format($missingOriginCount, 0, '.', ' ') }})
@@ -115,11 +115,11 @@
 
             <!-- Technical Scraper Source Filter -->
             <div>
-                <label class="block text-[10px] font-bold uppercase mb-1 font-mono {{ $isSourceActive ? 'text-red-600 font-black flex items-center gap-1' : 'text-slate-500' }}">
+                <label class="block text-[10px] font-bold uppercase mb-1 font-mono {{ $isSourceActive ? 'admin-filter-label-active flex items-center gap-1' : 'text-slate-500' }}">
                     @if($isSourceActive) <span class="w-1.5 h-1.5 rounded-full bg-red-600"></span> @endif
                     Robots / Imports
                 </label>
-                <select name="source" class="w-full px-2 py-1.5 rounded text-xs transition-colors {{ $isSourceActive ? 'bg-red-50 border-2 border-red-500 text-red-950 font-bold focus:outline-none focus:ring-2 focus:ring-red-500 shadow-xs' : 'bg-slate-50 border border-slate-300 text-slate-800 focus:outline-none' }}">
+                <select name="source" class="w-full px-2 py-1.5 rounded text-xs transition-colors {{ $isSourceActive ? 'admin-filter-active' : 'bg-slate-50 border border-slate-300 text-slate-800 focus:outline-none' }}">
                     <option value="all">🤖 Visi roboti</option>
                     @foreach($sources as $src)
                         <option value="{{ $src->slug }}" {{ $sourceSlug === $src->slug ? 'selected' : '' }}>
@@ -131,11 +131,11 @@
 
             <!-- Category Filter -->
             <div>
-                <label class="block text-[10px] font-bold uppercase mb-1 font-mono {{ $isCategoryActive ? 'text-red-600 font-black flex items-center gap-1' : 'text-slate-500' }}">
+                <label class="block text-[10px] font-bold uppercase mb-1 font-mono {{ $isCategoryActive ? 'admin-filter-label-active flex items-center gap-1' : 'text-slate-500' }}">
                     @if($isCategoryActive) <span class="w-1.5 h-1.5 rounded-full bg-red-600"></span> @endif
                     Kategorija
                 </label>
-                <select name="category" class="w-full px-2 py-1.5 rounded text-xs transition-colors {{ $isCategoryActive ? 'bg-red-50 border-2 border-red-500 text-red-950 font-bold focus:outline-none focus:ring-2 focus:ring-red-500 shadow-xs' : 'bg-slate-50 border border-slate-300 text-slate-800 focus:outline-none' }}">
+                <select name="category" class="w-full px-2 py-1.5 rounded text-xs transition-colors {{ $isCategoryActive ? 'admin-filter-active' : 'bg-slate-50 border border-slate-300 text-slate-800 focus:outline-none' }}">
                     <option value="all">🏷️ Visas kategorijas</option>
                     @foreach($categories as $cat)
                         <option value="{{ $cat->slug }}" {{ $categorySlug === $cat->slug ? 'selected' : '' }}>
@@ -147,11 +147,11 @@
 
             <!-- City Filter -->
             <div>
-                <label class="block text-[10px] font-bold uppercase mb-1 font-mono {{ $isCityActive ? 'text-red-600 font-black flex items-center gap-1' : 'text-slate-500' }}">
+                <label class="block text-[10px] font-bold uppercase mb-1 font-mono {{ $isCityActive ? 'admin-filter-label-active flex items-center gap-1' : 'text-slate-500' }}">
                     @if($isCityActive) <span class="w-1.5 h-1.5 rounded-full bg-red-600"></span> @endif
                     Pilsēta
                 </label>
-                <select name="city" class="w-full px-2 py-1.5 rounded text-xs transition-colors {{ $isCityActive ? 'bg-red-50 border-2 border-red-500 text-red-950 font-bold focus:outline-none focus:ring-2 focus:ring-red-500 shadow-xs' : 'bg-slate-50 border border-slate-300 text-slate-800 focus:outline-none' }}">
+                <select name="city" class="w-full px-2 py-1.5 rounded text-xs transition-colors {{ $isCityActive ? 'admin-filter-active' : 'bg-slate-50 border border-slate-300 text-slate-800 focus:outline-none' }}">
                     <option value="all">📍 Visas pilsētas</option>
                     @foreach($cities as $c)
                         <option value="{{ $c }}" {{ $city === $c ? 'selected' : '' }}>
@@ -164,7 +164,7 @@
             <!-- Location / Venue Filter (Vieta) with Live Text Search -->
             <div class="relative" id="locationComboboxWrapper">
                 <div class="flex items-center justify-between mb-1">
-                    <label class="block text-[10px] font-bold uppercase font-mono {{ $isLocationActive ? 'text-red-600 font-black flex items-center gap-1' : 'text-slate-500' }}">
+                    <label class="block text-[10px] font-bold uppercase font-mono {{ $isLocationActive ? 'admin-filter-label-active flex items-center gap-1' : 'text-slate-500' }}">
                         @if($isLocationActive) <span class="w-1.5 h-1.5 rounded-full bg-red-600"></span> @endif
                         Vieta
                     </label>
@@ -191,7 +191,7 @@
                     type="button" 
                     id="locComboboxBtn"
                     onclick="toggleLocationDropdown()"
-                    class="w-full px-2 py-1.5 rounded text-xs text-left flex items-center justify-between focus:outline-none transition-colors cursor-pointer {{ $isLocationActive ? 'bg-red-50 border-2 border-red-500 text-red-950 font-bold shadow-xs focus:ring-2 focus:ring-red-500' : 'bg-slate-50 hover:bg-slate-100 border border-slate-300 text-slate-800 focus:ring-1 focus:ring-emerald-500 focus:bg-white' }}">
+                    class="w-full px-2 py-1.5 rounded text-xs text-left flex items-center justify-between focus:outline-none transition-colors cursor-pointer {{ $isLocationActive ? 'admin-filter-active' : 'bg-slate-50 hover:bg-slate-100 border border-slate-300 text-slate-800 focus:ring-1 focus:ring-emerald-500 focus:bg-white' }}">
                     <span id="locComboboxLabel" class="truncate {{ $isLocationActive ? 'font-bold text-red-950' : 'font-medium text-slate-800' }}">
                         @if($locationId === 'missing')
                             ⚠️ Nav vietas / tukšs
@@ -272,12 +272,12 @@
             <!-- Timeframe & Actions -->
             <div class="sm:col-span-2 md:col-span-2 lg:col-span-2 xl:col-span-1 flex flex-col justify-between">
                 <div>
-                    <label class="block text-[10px] font-bold uppercase mb-1 font-mono {{ ($isTimeframeActive || $isPerPageActive) ? 'text-red-600 font-black flex items-center gap-1' : 'text-slate-500' }}">
+                    <label class="block text-[10px] font-bold uppercase mb-1 font-mono {{ ($isTimeframeActive || $isPerPageActive) ? 'admin-filter-label-active flex items-center gap-1' : 'text-slate-500' }}">
                         @if($isTimeframeActive || $isPerPageActive) <span class="w-1.5 h-1.5 rounded-full bg-red-600"></span> @endif
                         Laiks / Ieraksti
                     </label>
                     <div class="grid grid-cols-2 gap-1">
-                        <select name="timeframe" class="w-full px-1.5 py-1.5 rounded text-[11px] focus:outline-none transition-colors {{ $isTimeframeActive ? 'bg-red-50 border-2 border-red-500 text-red-950 font-bold shadow-xs' : 'bg-slate-50 border border-slate-300 text-slate-800' }}">
+                        <select name="timeframe" class="w-full px-1.5 py-1.5 rounded text-[11px] focus:outline-none transition-colors {{ $isTimeframeActive ? 'admin-filter-active' : 'bg-slate-50 border border-slate-300 text-slate-800' }}">
                             <option value="upcoming" {{ $timeframe === 'upcoming' ? 'selected' : '' }}>Aktuālie</option>
                             <option value="today" {{ $timeframe === 'today' ? 'selected' : '' }}>Šodien</option>
                             <option value="this_week" {{ $timeframe === 'this_week' ? 'selected' : '' }}>Šonedēļ</option>
@@ -285,7 +285,7 @@
                             <option value="past" {{ $timeframe === 'past' ? 'selected' : '' }}>Pagājušie</option>
                             <option value="all" {{ $timeframe === 'all' ? 'selected' : '' }}>Visi</option>
                         </select>
-                        <select name="per_page" class="w-full px-1 py-1.5 rounded text-[11px] focus:outline-none font-mono transition-colors {{ $isPerPageActive ? 'bg-red-50 border-2 border-red-500 text-red-950 font-bold shadow-xs' : 'bg-slate-50 border border-slate-300 text-slate-800' }}">
+                        <select name="per_page" class="w-full px-1 py-1.5 rounded text-[11px] focus:outline-none font-mono transition-colors {{ $isPerPageActive ? 'admin-filter-active' : 'bg-slate-50 border border-slate-300 text-slate-800' }}">
                             <option value="25" {{ $perPage === 25 ? 'selected' : '' }}>25/lp</option>
                             <option value="50" {{ $perPage === 50 ? 'selected' : '' }}>50/lp</option>
                             <option value="100" {{ $perPage === 100 ? 'selected' : '' }}>100/lp</option>
@@ -306,7 +306,7 @@
                     </button>
 
                     @if($hasActiveFilters)
-                        <a href="{{ route('admin.events.index') }}" class="px-2 py-1.5 bg-red-100 hover:bg-red-200 text-red-700 border border-red-300 font-extrabold rounded text-xs transition-colors shadow-xs" title="Notīrīt visus aktīvos filtrus">
+                        <a href="{{ route('admin.events.index') }}" class="px-2 py-1.5 admin-filter-reset-active rounded text-xs transition-colors shadow-xs" title="Notīrīt visus aktīvos filtrus">
                             &times;
                         </a>
                     @endif

@@ -120,3 +120,33 @@ html, body {
     transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/* Admin Active Filter Element Highlight */
+.admin-filter-active {
+    background-color: #fef2f2 !important;
+    border: 2px solid #ef4444 !important;
+    color: #450a0a !important;
+    font-weight: 700 !important;
+    box-shadow: 0 1px 2px 0 rgba(239, 68, 68, 0.15) !important;
+}
+
+.admin-filter-active:focus {
+    outline: none !important;
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.4) !important;
+}
+
+.admin-filter-label-active {
+    color: #dc2626 !important;
+    font-weight: 800 !important;
+}
+
+.admin-filter-reset-active {
+    background-color: #fee2e2 !important;
+    border: 1px solid #fca5a5 !important;
+    color: #b91c1c !important;
+    font-weight: 800 !important;
+}
+
+.admin-filter-reset-active:hover {
+    background-color: #fecaca !important;
+}
+
