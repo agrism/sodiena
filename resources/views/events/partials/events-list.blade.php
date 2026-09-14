@@ -32,9 +32,9 @@
                     </a>
 
                     <!-- Top Badges -->
-                    <div class="absolute top-3 left-3 right-3 flex items-center justify-between gap-2 z-10 pointer-events-none">
+                    <div class="absolute top-3 left-3 right-3 flex items-center justify-between gap-2 z-20 pointer-events-none">
                         <!-- Date Badge -->
-                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-white/95 text-slate-900 backdrop-blur-md border border-slate-200/80 shadow-md pointer-events-auto">
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-white/95 text-slate-900 backdrop-blur-md border border-slate-200/80 shadow-md pointer-events-auto select-none">
                             <i data-lucide="calendar" class="w-3.5 h-3.5 text-emerald-600"></i>
                             {{ $event->formatted_date }}
                         </span>
@@ -47,15 +47,16 @@
                                         href="{{ $event->afiro_url }}" 
                                         target="_blank" 
                                         rel="noopener noreferrer" 
-                                        title="Afiro notikums: {{ $event->afiro_url }}"
-                                        class="w-7 h-7 rounded-full bg-white/95 text-red-600 border-2 border-red-500 flex items-center justify-center font-black text-xs shadow-md hover:bg-red-600 hover:text-white hover:border-red-600 transition-all transform hover:scale-110 shrink-0"
+                                        onclick="event.stopPropagation();"
+                                        title="Atvērt Afiro notikumu: {{ $event->afiro_url }}"
+                                        class="relative z-30 w-7 h-7 rounded-full bg-white text-red-600 border-2 border-red-500 flex items-center justify-center font-black text-xs shadow-md hover:bg-red-600 hover:text-white hover:border-red-600 transition-all transform hover:scale-110 shrink-0 cursor-pointer"
                                     >
                                         A
                                     </a>
                                 @else
                                     <span 
                                         title="Nav Afiro notikums (Avots: {{ $event->source?->name ?: $event->source_slug ?: 'Cits' }})"
-                                        class="w-7 h-7 rounded-full bg-white/85 text-slate-400 border border-slate-300 flex items-center justify-center font-bold text-xs shadow-xs shrink-0 cursor-default"
+                                        class="w-7 h-7 rounded-full bg-white/85 text-slate-400 border border-slate-300 flex items-center justify-center font-bold text-xs shadow-xs shrink-0 cursor-default select-none"
                                     >
                                         A
                                     </span>
@@ -64,11 +65,11 @@
 
                             <!-- Price Badge -->
                             @if($event->is_free)
-                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-extrabold bg-emerald-600 text-white shadow-md">
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-extrabold bg-emerald-600 text-white shadow-md select-none">
                                     {{ __('Free') }}
                                 </span>
                             @else
-                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-white/95 text-emerald-700 backdrop-blur-md border border-emerald-200 shadow-md">
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-white/95 text-emerald-700 backdrop-blur-md border border-emerald-200 shadow-md select-none">
                                     {{ $event->formatted_price }}
                                 </span>
                             @endif
