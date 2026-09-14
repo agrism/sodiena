@@ -207,4 +207,22 @@ class EventCalendarTest extends TestCase
         $this->get('/events/' . $publishedEvent->slug)->assertStatus(200);
         $this->get('/events/' . $draftEvent->slug)->assertStatus(404);
     }
+
+    public function test_new_events_have_null_published_at_and_draft_status_by_default(): void
+    {
+        $event = Event::create([
+            'title' => 'Jauns Ievākts Notikums',
+            'start_at' => now()->addDays(2),
+        ]);
+
+        $this->assertNull($event->published_at);
+        $this->assertEquals('draft', $event->status);
+        $this->assertFalse($event->isPublished());
+        $this->assertDatabaseHas('events', [
+            'id' => $event->id,
+            'status' => 'draft',
+            'published_at' => null,
+        ]);
+        $this->assertFalse(Event::published()->where('id', $event->id)->exists());
+    }
 }

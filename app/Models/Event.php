@@ -56,6 +56,14 @@ class Event extends Model
         'raw_data' => 'array',
     ];
 
+    protected $attributes = [
+        'status' => 'draft',
+        'published_at' => null,
+        'all_day' => false,
+        'is_free' => false,
+        'currency' => 'EUR',
+    ];
+
     protected static function booted(): void
     {
         static::creating(function ($event) {
