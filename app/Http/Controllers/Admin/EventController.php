@@ -24,6 +24,7 @@ class EventController extends Controller
         $categorySlug = $request->input('category', 'all');
         $city = $request->input('city', 'all');
         $locationId = $request->input('location_id', 'all');
+        $published = $request->input('published', 'all');
         $timeframe = $request->input('timeframe', 'upcoming');
         $sortBy = $request->input('sort_by', 'start_at');
         $sortDir = strtolower($request->input('sort_dir', 'asc')) === 'desc' ? 'desc' : 'asc';
@@ -48,6 +49,18 @@ class EventController extends Controller
                       $locQ->where('name', 'like', "%{$search}%")
                            ->orWhere('city', 'like', "%{$search}%");
                   });
+            });
+        }
+
+        // Filter by Publication Status
+        $now = now();
+        if ($published === 'published') {
+            $query->whereNotNull('published_at')->where('published_at', '<=', $now)->where('status', 'published');
+        } elseif ($published === 'unpublished') {
+            $query->where(function ($q) use ($now) {
+                $q->whereNull('published_at')
+                  ->orWhere('published_at', '>', $now)
+                  ->orWhere('status', '!=', 'published');
             });
         }
 
@@ -88,7 +101,6 @@ class EventController extends Controller
         }
 
         // Filter by Timeframe
-        $now = now();
         match ($timeframe) {
             'all' => null, // No time restriction
             'upcoming' => $query->where(function ($q) use ($now) {
@@ -115,7 +127,7 @@ class EventController extends Controller
         };
 
         // Sorting
-        $allowedSorts = ['id', 'start_at', 'title', 'price_min', 'views_count', 'created_at', 'location', 'venue', 'city'];
+        $allowedSorts = ['id', 'start_at', 'title', 'price_min', 'views_count', 'created_at', 'published_at', 'location', 'venue', 'city'];
         if ($sortBy === 'location' || $sortBy === 'venue') {
             $query->leftJoin('locations', 'events.location_id', '=', 'locations.id')
                   ->select('events.*')
@@ -176,10 +188,11 @@ class EventController extends Controller
 
         $stats = [
             'total' => Event::count(),
-            'upcoming' => Event::upcoming()->count(),
-            'past' => Event::where('start_at', '<', $now)->where(function ($q) use ($now) {
-                $q->whereNull('end_at')->orWhere('end_at', '<', $now);
+            'published' => Event::published()->count(),
+            'unpublished' => Event::where(function ($q) use ($now) {
+                $q->whereNull('published_at')->orWhere('published_at', '>', $now)->orWhere('status', '!=', 'published');
             })->count(),
+            'upcoming' => Event::upcoming()->count(),
             'today' => Event::forDateFilter('today')->count(),
             'filtered' => $events->total(),
         ];
@@ -200,10 +213,70 @@ class EventController extends Controller
             'originHost',
             'categorySlug',
             'city',
+            'published',
             'timeframe',
             'sortBy',
             'sortDir',
             'perPage'
         ));
+    }
+
+    /**
+     * Toggle event publication status (admin click / checkbox)
+     */
+    public function togglePublish(Event $event, Request $request)
+    {
+        if ($event->isPublished()) {
+            $event->unpublish();
+            $isPublished = false;
+        } else {
+            $event->publish();
+            $isPublished = true;
+        }
+
+        if ($request->wantsJson() || $request->header('HX-Request') || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'id' => $event->id,
+                'is_published' => $isPublished,
+                'published_at' => $event->published_at ? $event->published_at->format('d.m.Y H:i') : null,
+                'message' => $isPublished ? 'Pasākums nopublicēts!' : 'Pasākums noņemts no publikācijas (melnraksts).',
+            ]);
+        }
+
+        return redirect()->back()->with('status', $isPublished ? 'Pasākums nopublicēts!' : 'Pasākums noņemts no publikācijas.');
+    }
+
+    /**
+     * Bulk publish or unpublish selected events
+     */
+    public function bulkPublish(Request $request)
+    {
+        $action = $request->input('action', 'publish');
+        $eventIds = $request->input('event_ids', []);
+
+        if (empty($eventIds) || !is_array($eventIds)) {
+            return redirect()->back()->with('error', 'Lūdzu, izvēlieties vismaz vienu pasākumu.');
+        }
+
+        if ($action === 'publish') {
+            Event::whereIn('id', $eventIds)->update([
+                'published_at' => now(),
+                'status' => 'published',
+            ]);
+            $msg = count($eventIds) . ' pasākumi veiksmīgi nopublicēti!';
+        } else {
+            Event::whereIn('id', $eventIds)->update([
+                'published_at' => null,
+                'status' => 'draft',
+            ]);
+            $msg = count($eventIds) . ' pasākumi noņemti no publikācijas!';
+        }
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json(['success' => true, 'message' => $msg]);
+        }
+
+        return redirect()->back()->with('status', $msg);
     }
 }

@@ -27,14 +27,14 @@
                 <span class="text-slate-400 uppercase font-bold">Kopā:</span>
                 <span class="font-extrabold text-slate-900 ml-1">{{ number_format($stats['total'], 0, '.', ' ') }}</span>
             </div>
-            <div class="px-3 py-1.5 bg-emerald-50 border border-emerald-300 text-emerald-900 rounded-lg">
-                <span class="text-emerald-700 uppercase font-bold">Nākotnes:</span>
-                <span class="font-extrabold ml-1">{{ number_format($stats['upcoming'], 0, '.', ' ') }}</span>
-            </div>
-            <div class="px-3 py-1.5 bg-amber-50 border border-amber-300 text-amber-900 rounded-lg">
-                <span class="text-amber-700 uppercase font-bold">Šodien:</span>
-                <span class="font-extrabold ml-1">{{ number_format($stats['today'], 0, '.', ' ') }}</span>
-            </div>
+            <a href="{{ request()->fullUrlWithQuery(['published' => 'published']) }}" class="px-3 py-1.5 bg-emerald-50 border border-emerald-300 text-emerald-900 rounded-lg hover:bg-emerald-100 transition-colors {{ $published === 'published' ? 'ring-2 ring-emerald-500 font-black' : '' }}">
+                <span class="text-emerald-700 uppercase font-bold">🟢 Publicēti:</span>
+                <span class="font-extrabold ml-1">{{ number_format($stats['published'], 0, '.', ' ') }}</span>
+            </a>
+            <a href="{{ request()->fullUrlWithQuery(['published' => 'unpublished']) }}" class="px-3 py-1.5 bg-amber-50 border border-amber-300 text-amber-900 rounded-lg hover:bg-amber-100 transition-colors {{ $published === 'unpublished' ? 'ring-2 ring-amber-500 font-black' : '' }}">
+                <span class="text-amber-700 uppercase font-bold">⏳ Nepublicēti:</span>
+                <span class="font-extrabold ml-1">{{ number_format($stats['unpublished'], 0, '.', ' ') }}</span>
+            </a>
             <div class="px-3 py-1.5 bg-blue-50 border border-blue-300 text-blue-900 rounded-lg">
                 <span class="text-blue-700 uppercase font-bold">Atlasīti:</span>
                 <span class="font-extrabold ml-1">{{ number_format($stats['filtered'], 0, '.', ' ') }}</span>
@@ -59,6 +59,20 @@
                     value="{{ $search }}" 
                     placeholder="Nosaukums, apraksts, vieta, ID..." 
                     class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded text-xs focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+            </div>
+
+            <!-- Publication Status Filter -->
+            <div>
+                <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1 font-mono">Publicēts</label>
+                <select name="published" class="w-full px-2 py-1.5 bg-slate-50 border border-slate-300 rounded text-xs focus:outline-none font-medium">
+                    <option value="all">🌐 Visi statusi</option>
+                    <option value="published" {{ $published === 'published' ? 'selected' : '' }} class="font-bold text-emerald-700">
+                        🟢 Tikai publicēti ({{ number_format($stats['published'], 0, '.', ' ') }})
+                    </option>
+                    <option value="unpublished" {{ $published === 'unpublished' ? 'selected' : '' }} class="font-bold text-amber-700">
+                        ⏳ Nepublicēti / melnraksti ({{ number_format($stats['unpublished'], 0, '.', ' ') }})
+                    </option>
+                </select>
             </div>
 
             <!-- Real Origin Website Filter -->
@@ -98,19 +112,6 @@
                     @foreach($categories as $cat)
                         <option value="{{ $cat->slug }}" {{ $categorySlug === $cat->slug ? 'selected' : '' }}>
                             {{ $cat->name }}
-                        </option>
-                    @endforeach
-                </select>
-            </div>
-
-            <!-- City Filter -->
-            <div>
-                <label class="block text-[10px] font-bold uppercase text-slate-500 mb-1 font-mono">Pilsēta</label>
-                <select name="city" class="w-full px-2 py-1.5 bg-slate-50 border border-slate-300 rounded text-xs focus:outline-none">
-                    <option value="all">📍 Visas pilsētas</option>
-                    @foreach($cities as $c)
-                        <option value="{{ $c }}" {{ $city === $c ? 'selected' : '' }}>
-                            {{ $c }}
                         </option>
                     @endforeach
                 </select>
@@ -161,7 +162,6 @@
                     id="locDropdownPanel" 
                     class="hidden absolute left-0 sm:right-auto w-72 sm:w-80 md:w-96 top-full mt-1 bg-white border border-slate-300 rounded-xl shadow-2xl z-50 p-2.5 text-xs font-sans">
                     
-                    <!-- Search Input Inside Dropdown -->
                     <div class="relative mb-2">
                         <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5 pointer-events-none"></i>
                         <input 
@@ -179,7 +179,6 @@
                         </button>
                     </div>
 
-                    <!-- Quick Action: Reset to All -->
                     <div class="mb-1 pb-1 border-b border-slate-100 flex items-center justify-between">
                         <button 
                             type="button" 
@@ -197,7 +196,6 @@
                         @endif
                     </div>
 
-                    <!-- Options List with Live Search Filtering -->
                     <div id="locOptionsList" class="max-h-56 overflow-y-auto space-y-0.5 font-sans divide-y divide-slate-50">
                         @foreach($locations as $loc)
                             <button 
@@ -218,7 +216,6 @@
                         @endforeach
                     </div>
 
-                    <!-- No Results Message -->
                     <div id="locNoResults" class="hidden py-4 text-center text-slate-400 text-xs">
                         Nav atrasta neviena vieta
                     </div>
@@ -254,11 +251,11 @@
                 </div>
 
                 <div class="flex items-center gap-1 mt-1.5">
-                    <button type="submit" class="flex-grow px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded text-xs transition-colors">
+                    <button type="submit" class="flex-grow px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded text-xs transition-colors cursor-pointer">
                         Filtrēt
                     </button>
 
-                    @if($search || $sourceSlug !== 'all' || $originHost !== 'all' || $categorySlug !== 'all' || $city !== 'all' || $locationId !== 'all' || $timeframe !== 'upcoming')
+                    @if($search || $sourceSlug !== 'all' || $originHost !== 'all' || $categorySlug !== 'all' || $city !== 'all' || $locationId !== 'all' || $published !== 'all' || $timeframe !== 'upcoming')
                         <a href="{{ route('admin.events.index') }}" class="px-2 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded text-xs transition-colors" title="Notīrīt filtrus">
                             &times;
                         </a>
@@ -269,6 +266,39 @@
         </form>
     </div>
 
+    <!-- Floating Bulk Actions Bar -->
+    <div id="bulkActionBar" class="hidden sticky top-4 z-40 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-xl border border-slate-700 flex items-center justify-between gap-4 animate-in fade-in slide-in-from-top duration-200">
+        <div class="flex items-center gap-2">
+            <span class="w-6 h-6 rounded-full bg-emerald-500 text-slate-950 font-black text-xs flex items-center justify-center" id="selectedCountBadge">0</span>
+            <span class="text-xs font-bold font-mono">izvēlēti pasākumi</span>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <button 
+                type="button" 
+                onclick="submitBulkAction('publish')"
+                class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs">
+                <i data-lucide="check-circle" class="w-3.5 h-3.5"></i>
+                <span>Publicēt atlasītos</span>
+            </button>
+
+            <button 
+                type="button" 
+                onclick="submitBulkAction('unpublish')"
+                class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs">
+                <i data-lucide="eye-off" class="w-3.5 h-3.5"></i>
+                <span>Noņemt no publikācijas</span>
+            </button>
+
+            <button 
+                type="button" 
+                onclick="clearAllSelections()"
+                class="text-xs text-slate-400 hover:text-white px-2 py-1 transition-colors">
+                Atcelt
+            </button>
+        </div>
+    </div>
+
     <!-- Excel-Style Spreadsheet Table Grid -->
     <div class="bg-white rounded-2xl border border-slate-300 shadow-sm overflow-hidden">
         <div class="overflow-x-auto max-h-[75vh]">
@@ -277,9 +307,22 @@
                 <!-- Sticky Header -->
                 <thead class="sticky top-0 z-10 bg-slate-100 border-b-2 border-slate-300 font-mono text-[11px] font-bold text-slate-700 shadow-xs select-none">
                     <tr>
+                        <th class="py-2.5 px-3 border-r border-slate-300 w-10 text-center">
+                            <input 
+                                type="checkbox" 
+                                id="masterSelectAll" 
+                                onclick="toggleSelectAll(this)"
+                                title="Izvēlēties visus lapas pasākumus"
+                                class="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer">
+                        </th>
                         <th class="py-2.5 px-3 border-r border-slate-300 w-16 text-center">
                             <a href="{{ request()->fullUrlWithQuery(['sort_by' => 'id', 'sort_dir' => ($sortBy === 'id' && $sortDir === 'asc') ? 'desc' : 'asc']) }}" class="flex items-center justify-center gap-1 hover:text-emerald-700">
                                 ID {!! $sortBy === 'id' ? ($sortDir === 'asc' ? '▲' : '▼') : '' !!}
+                            </a>
+                        </th>
+                        <th class="py-2.5 px-3 border-r border-slate-300 w-36 text-center">
+                            <a href="{{ request()->fullUrlWithQuery(['sort_by' => 'published_at', 'sort_dir' => ($sortBy === 'published_at' && $sortDir === 'asc') ? 'desc' : 'asc']) }}" class="flex items-center justify-center gap-1 hover:text-emerald-700">
+                                Publicēts {!! $sortBy === 'published_at' ? ($sortDir === 'asc' ? '▲' : '▼') : '' !!}
                             </a>
                         </th>
                         <th class="py-2.5 px-3 border-r border-slate-300 w-44">
@@ -314,11 +357,37 @@
                 <!-- Table Rows -->
                 <tbody class="divide-y divide-slate-200 font-mono text-[11px] leading-tight">
                     @forelse($events as $event)
-                        <tr class="hover:bg-amber-50/60 {{ $loop->even ? 'bg-slate-50/40' : 'bg-white' }} transition-colors group">
+                        <tr id="event-row-{{ $event->id }}" class="hover:bg-amber-50/60 {{ $loop->even ? 'bg-slate-50/40' : 'bg-white' }} transition-colors group">
                             
+                            <!-- Checkbox -->
+                            <td class="py-2 px-3 border-r border-slate-200 text-center">
+                                <input 
+                                    type="checkbox" 
+                                    value="{{ $event->id }}" 
+                                    class="event-row-checkbox rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                                    onchange="updateBulkBar()">
+                            </td>
+
                             <!-- ID -->
                             <td class="py-2 px-3 border-r border-slate-200 text-center font-bold text-slate-500">
                                 #{{ $event->id }}
+                            </td>
+
+                            <!-- Published Status & Instant Toggle -->
+                            <td class="py-2 px-3 border-r border-slate-200 text-center whitespace-nowrap" id="pub-cell-{{ $event->id }}">
+                                <button 
+                                    type="button" 
+                                    onclick="toggleEventPublish({{ $event->id }}, this)"
+                                    class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-extrabold border transition-all cursor-pointer {{ $event->isPublished() ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100' : 'bg-slate-100 text-slate-600 border-slate-300 hover:bg-slate-200 hover:text-slate-900' }}"
+                                    title="Noklikšķiniet, lai mainītu publicēšanas statusu">
+                                    <span class="w-2 h-2 rounded-full {{ $event->isPublished() ? 'bg-emerald-600 animate-pulse' : 'bg-slate-400' }}"></span>
+                                    <span>{{ $event->isPublished() ? 'Publicēts' : 'Nepublicēts' }}</span>
+                                </button>
+                                @if($event->published_at)
+                                    <span class="block text-[9px] text-slate-400 font-mono mt-0.5">
+                                        {{ $event->published_at->format('d.m.Y H:i') }}
+                                    </span>
+                                @endif
                             </td>
 
                             <!-- Start Date & Time -->
@@ -437,12 +506,12 @@
                                 <div class="flex items-center justify-center gap-1.5">
                                     @if($event->ticket_url)
                                         <a href="{{ $event->ticket_url }}" target="_blank" rel="noopener noreferrer" class="p-1 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded" title="Biļešu saite: {{ $event->ticket_url }}">
-                                            <i data-lucide="ticket" class="w-3.5 h-3.5"></i>
+                                             <i data-lucide="ticket" class="w-3.5 h-3.5"></i>
                                         </a>
                                     @endif
                                     @if($event->source_url)
                                         <a href="{{ $event->source_url }}" target="_blank" rel="noopener noreferrer" class="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded" title="Oriģinālā saite: {{ $event->source_url }}">
-                                            <i data-lucide="globe" class="w-3.5 h-3.5"></i>
+                                             <i data-lucide="globe" class="w-3.5 h-3.5"></i>
                                         </a>
                                     @endif
                                     <a href="{{ route('events.show', $event->slug) }}" target="_blank" class="p-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded" title="Atvērt lapu">
@@ -454,7 +523,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="11" class="py-12 text-center text-slate-400 font-sans">
+                            <td colspan="13" class="py-12 text-center text-slate-400 font-sans">
                                 <i data-lucide="inbox" class="w-8 h-8 mx-auto stroke-1 text-slate-300"></i>
                                 <p class="mt-2 text-sm font-semibold">Nav atrasts neviens notikums pēc norādītajiem filtriem.</p>
                             </td>
@@ -477,6 +546,115 @@
 
 @push('scripts')
 <script>
+    const csrfToken = '{{ csrf_token() }}';
+
+    function toggleSelectAll(masterCheckbox) {
+        const checkboxes = document.querySelectorAll('.event-row-checkbox');
+        checkboxes.forEach(cb => {
+            cb.checked = masterCheckbox.checked;
+        });
+        updateBulkBar();
+    }
+
+    function updateBulkBar() {
+        const checked = document.querySelectorAll('.event-row-checkbox:checked');
+        const bulkBar = document.getElementById('bulkActionBar');
+        const badge = document.getElementById('selectedCountBadge');
+        if (bulkBar && badge) {
+            badge.textContent = checked.length;
+            if (checked.length > 0) {
+                bulkBar.classList.remove('hidden');
+            } else {
+                bulkBar.classList.add('hidden');
+            }
+        }
+    }
+
+    function clearAllSelections() {
+        const master = document.getElementById('masterSelectAll');
+        if (master) master.checked = false;
+        document.querySelectorAll('.event-row-checkbox').forEach(cb => cb.checked = false);
+        updateBulkBar();
+    }
+
+    async function toggleEventPublish(eventId, btnElement) {
+        if (!eventId || !btnElement) return;
+
+        btnElement.disabled = true;
+        btnElement.classList.add('opacity-50');
+
+        try {
+            const response = await fetch(`/admin/events/${eventId}/toggle-publish`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken,
+                    'Accept': 'application/json',
+                }
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                const cell = document.getElementById(`pub-cell-${eventId}`);
+                if (cell) {
+                    const isPub = data.is_published;
+                    cell.innerHTML = `
+                        <button 
+                            type="button" 
+                            onclick="toggleEventPublish(${eventId}, this)"
+                            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-extrabold border transition-all cursor-pointer ${isPub ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100' : 'bg-slate-100 text-slate-600 border-slate-300 hover:bg-slate-200 hover:text-slate-900'}"
+                            title="Noklikšķiniet, lai mainītu publicēšanas statusu">
+                            <span class="w-2 h-2 rounded-full ${isPub ? 'bg-emerald-600 animate-pulse' : 'bg-slate-400'}"></span>
+                            <span>${isPub ? 'Publicēts' : 'Nepublicēts'}</span>
+                        </button>
+                        ${data.published_at ? `<span class="block text-[9px] text-slate-400 font-mono mt-0.5">${data.published_at}</span>` : ''}
+                    `;
+                }
+            }
+        } catch (e) {
+            console.error('Publish toggle failed:', e);
+            alert('Neizdevās nomainīt publicēšanas statusu. Lūdzu, mēģiniet vēlreiz.');
+        } finally {
+            btnElement.disabled = false;
+            btnElement.classList.remove('opacity-50');
+        }
+    }
+
+    async function submitBulkAction(action) {
+        const checkedBoxes = Array.from(document.querySelectorAll('.event-row-checkbox:checked'));
+        const ids = checkedBoxes.map(cb => cb.value);
+
+        if (ids.length === 0) return;
+
+        const actionText = action === 'publish' ? 'nopublicēt' : 'noņemt no publikācijas';
+        if (!confirm(`Vai tiešām vēlaties ${actionText} ${ids.length} atlasītos pasākumus?`)) {
+            return;
+        }
+
+        try {
+            const response = await fetch('{{ route("admin.events.bulk-publish") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken,
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: action,
+                    event_ids: ids,
+                })
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                window.location.reload();
+            }
+        } catch (e) {
+            console.error('Bulk action failed:', e);
+            alert('Neizdevās veikt masveida darbību.');
+        }
+    }
+
     function toggleLocationDropdown() {
         const panel = document.getElementById('locDropdownPanel');
         if (!panel) return;
@@ -559,7 +737,6 @@
                     panel?.classList.add('hidden');
                 } else if (e.key === 'Enter') {
                     e.preventDefault();
-                    // Select first visible item
                     const firstVisible = Array.from(document.querySelectorAll('.loc-option-item')).find(item => item.style.display !== 'none');
                     if (firstVisible) {
                         firstVisible.click();
@@ -568,7 +745,6 @@
             });
         }
 
-        // Close dropdown when clicking outside
         document.addEventListener('click', function (e) {
             const container = document.getElementById('locationComboboxWrapper');
             const panel = document.getElementById('locDropdownPanel');
@@ -579,4 +755,3 @@
     });
 </script>
 @endpush
-

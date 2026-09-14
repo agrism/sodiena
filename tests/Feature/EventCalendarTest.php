@@ -36,6 +36,7 @@ class EventCalendarTest extends TestCase
             'start_at' => now()->addDays(2),
             'fingerprint' => 'test-fingerprint-1',
             'status' => 'published',
+            'published_at' => now(),
         ]);
         $event->categories()->attach($category);
 
@@ -64,6 +65,7 @@ class EventCalendarTest extends TestCase
             'start_at' => now()->addDays(5),
             'fingerprint' => 'test-fingerprint-2',
             'status' => 'published',
+            'published_at' => now(),
             'price_min' => 10,
             'price_max' => 25,
         ]);
@@ -133,6 +135,7 @@ class EventCalendarTest extends TestCase
             'start_at' => $now->copy()->subYears(2),
             'end_at' => $now->copy()->addMonths(6),
             'status' => 'published',
+            'published_at' => $now,
             'fingerprint' => 'test-fp-past-exhibition',
         ]);
 
@@ -142,6 +145,7 @@ class EventCalendarTest extends TestCase
             'slug' => 'ritdienas-teatris',
             'start_at' => $now->copy()->addDay()->setTime(19, 0),
             'status' => 'published',
+            'published_at' => $now,
             'fingerprint' => 'test-fp-tomorrow-event',
         ]);
 
@@ -151,6 +155,7 @@ class EventCalendarTest extends TestCase
             'slug' => 'sodienas-koncerts',
             'start_at' => $now->copy()->setTime(18, 0),
             'status' => 'published',
+            'published_at' => $now,
             'fingerprint' => 'test-fp-today-event',
         ]);
 
@@ -160,6 +165,7 @@ class EventCalendarTest extends TestCase
             'slug' => 'nakamas-nedelas-festivals',
             'start_at' => $now->copy()->addDays(7)->setTime(12, 0),
             'status' => 'published',
+            'published_at' => $now,
             'fingerprint' => 'test-fp-next-week-event',
         ]);
 
@@ -171,5 +177,34 @@ class EventCalendarTest extends TestCase
         $this->assertEquals($pastExhibition->id, $upcomingEvents[3]->id, 'Past-started ongoing exhibition must come after discrete upcoming events');
 
         $this->assertStringStartsWith('Līdz ', $pastExhibition->formatted_date);
+    }
+
+    public function test_only_published_events_are_visible_to_customers(): void
+    {
+        $publishedEvent = Event::create([
+            'title' => 'Apstiprināts Pasākums',
+            'slug' => 'apstiprinats-pasakums',
+            'start_at' => now()->addDays(3),
+            'status' => 'published',
+            'published_at' => now(),
+            'fingerprint' => 'test-published-event',
+        ]);
+
+        $draftEvent = Event::create([
+            'title' => 'Melnraksts Pasākums',
+            'slug' => 'melnraksts-pasakums',
+            'start_at' => now()->addDays(4),
+            'status' => 'draft',
+            'published_at' => null,
+            'fingerprint' => 'test-draft-event',
+        ]);
+
+        $response = $this->get('/');
+        $response->assertSee('Apstiprināts Pasākums');
+        $response->assertDontSee('Melnraksts Pasākums');
+
+        // Single show page check
+        $this->get('/events/' . $publishedEvent->slug)->assertStatus(200);
+        $this->get('/events/' . $draftEvent->slug)->assertStatus(404);
     }
 }

@@ -84,12 +84,20 @@ class EventController extends Controller
      */
     public function show(string $slug): View
     {
-        $event = Event::with(['categories.translations', 'location.translations', 'source', 'translations'])
-            ->where('slug', $slug)
-            ->orWhereHas('translations', function ($q) use ($slug) {
-                $q->where('slug', $slug);
-            })
-            ->firstOrFail();
+        $query = Event::with(['categories.translations', 'location.translations', 'source', 'translations'])
+            ->where(function ($q) use ($slug) {
+                $q->where('slug', $slug)
+                  ->orWhereHas('translations', function ($tq) use ($slug) {
+                      $tq->where('slug', $slug);
+                  });
+            });
+
+        // Non-admins can only see published events
+        if (!auth()->check() || !auth()->user()->isAdmin()) {
+            $query->published();
+        }
+
+        $event = $query->firstOrFail();
 
         $event->increment('views_count');
 

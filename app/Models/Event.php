@@ -37,6 +37,7 @@ class Event extends Model
         'fingerprint',
         'entertainment_type',
         'status',
+        'published_at',
         'is_featured',
         'views_count',
         'raw_data',
@@ -45,6 +46,7 @@ class Event extends Model
     protected $casts = [
         'start_at' => 'datetime',
         'end_at' => 'datetime',
+        'published_at' => 'datetime',
         'all_day' => 'boolean',
         'is_free' => 'boolean',
         'price_min' => 'float',
@@ -238,7 +240,32 @@ class Event extends Model
     // Scopes for querying and HTMX filtering
     public function scopePublished(Builder $query): Builder
     {
-        return $query->where('status', 'published');
+        return $query->whereNotNull('published_at')
+                     ->where('published_at', '<=', now())
+                     ->where('status', 'published');
+    }
+
+    public function isPublished(): bool
+    {
+        return $this->published_at !== null && $this->published_at->lte(now()) && $this->status === 'published';
+    }
+
+    public function publish(): self
+    {
+        $this->update([
+            'published_at' => now(),
+            'status' => 'published',
+        ]);
+        return $this;
+    }
+
+    public function unpublish(): self
+    {
+        $this->update([
+            'published_at' => null,
+            'status' => 'draft',
+        ]);
+        return $this;
     }
 
     public function scopeUpcoming(Builder $query): Builder

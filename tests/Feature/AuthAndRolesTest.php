@@ -272,4 +272,62 @@ class AuthAndRolesTest extends TestCase
         $response->assertSee('superadmin@example.com');
         $response->assertSee('Administrators');
     }
+
+    public function test_admin_can_toggle_and_bulk_publish_events(): void
+    {
+        $admin = User::create([
+            'name' => 'Publisher Admin',
+            'email' => 'publisher@example.com',
+            'password' => Hash::make('password123'),
+        ]);
+        $admin->assignRole(Role::ADMIN);
+
+        $event = \App\Models\Event::create([
+            'title' => 'Draft Event Toggle',
+            'slug' => 'draft-event-toggle',
+            'start_at' => now()->addDays(5),
+            'status' => 'draft',
+            'published_at' => null,
+            'fingerprint' => 'toggle-fp-1',
+        ]);
+
+        $this->assertFalse($event->isPublished());
+
+        // Toggle publish via AJAX/JSON
+        $response = $this->actingAs($admin)
+            ->postJson("/admin/events/{$event->id}/toggle-publish");
+
+        $response->assertStatus(200);
+        $response->assertJson(['success' => true, 'is_published' => true]);
+        $this->assertTrue($event->fresh()->isPublished());
+
+        // Toggle back to unpublish
+        $response2 = $this->actingAs($admin)
+            ->postJson("/admin/events/{$event->id}/toggle-publish");
+
+        $response2->assertStatus(200);
+        $response2->assertJson(['success' => true, 'is_published' => false]);
+        $this->assertFalse($event->fresh()->isPublished());
+
+        // Bulk publish
+        $event2 = \App\Models\Event::create([
+            'title' => 'Draft Event Bulk 2',
+            'slug' => 'draft-event-bulk-2',
+            'start_at' => now()->addDays(6),
+            'status' => 'draft',
+            'published_at' => null,
+            'fingerprint' => 'toggle-fp-2',
+        ]);
+
+        $bulkRes = $this->actingAs($admin)
+            ->postJson('/admin/events/bulk-publish', [
+                'action' => 'publish',
+                'event_ids' => [$event->id, $event2->id],
+            ]);
+
+        $bulkRes->assertStatus(200);
+        $bulkRes->assertJson(['success' => true]);
+        $this->assertTrue($event->fresh()->isPublished());
+        $this->assertTrue($event2->fresh()->isPublished());
+    }
 }
