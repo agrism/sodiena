@@ -121,4 +121,55 @@ class EventCalendarTest extends TestCase
         $response->assertHeader('X-Frame-Options', 'SAMEORIGIN');
         $response->assertHeaderMissing('X-Powered-By');
     }
+
+    public function test_events_rendered_in_order_sooner_to_later(): void
+    {
+        $now = now();
+
+        // 1. Ongoing exhibition started 2 years ago, ending next year
+        $pastExhibition = Event::create([
+            'title' => 'Sena Izstāde No Pagātnes',
+            'slug' => 'sena-izstade',
+            'start_at' => $now->copy()->subYears(2),
+            'end_at' => $now->copy()->addMonths(6),
+            'status' => 'published',
+            'fingerprint' => 'test-fp-past-exhibition',
+        ]);
+
+        // 2. Event happening tomorrow
+        $tomorrowEvent = Event::create([
+            'title' => 'Rītdienas Teātra Izrāde',
+            'slug' => 'ritdienas-teatris',
+            'start_at' => $now->copy()->addDay()->setTime(19, 0),
+            'status' => 'published',
+            'fingerprint' => 'test-fp-tomorrow-event',
+        ]);
+
+        // 3. Event happening today
+        $todayEvent = Event::create([
+            'title' => 'Šodienas Lielais Koncerts',
+            'slug' => 'sodienas-koncerts',
+            'start_at' => $now->copy()->setTime(18, 0),
+            'status' => 'published',
+            'fingerprint' => 'test-fp-today-event',
+        ]);
+
+        // 4. Event next week
+        $nextWeekEvent = Event::create([
+            'title' => 'Nākamās Nedēļas Festivāls',
+            'slug' => 'nakamas-nedelas-festivals',
+            'start_at' => $now->copy()->addDays(7)->setTime(12, 0),
+            'status' => 'published',
+            'fingerprint' => 'test-fp-next-week-event',
+        ]);
+
+        $upcomingEvents = Event::upcoming()->get();
+
+        $this->assertEquals($todayEvent->id, $upcomingEvents[0]->id, 'Today event must be first');
+        $this->assertEquals($tomorrowEvent->id, $upcomingEvents[1]->id, 'Tomorrow event must be second');
+        $this->assertEquals($nextWeekEvent->id, $upcomingEvents[2]->id, 'Next week event must be third');
+        $this->assertEquals($pastExhibition->id, $upcomingEvents[3]->id, 'Past-started ongoing exhibition must come after discrete upcoming events');
+
+        $this->assertStringStartsWith('Līdz ', $pastExhibition->formatted_date);
+    }
 }

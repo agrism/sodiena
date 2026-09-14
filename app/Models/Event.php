@@ -243,12 +243,17 @@ class Event extends Model
 
     public function scopeUpcoming(Builder $query): Builder
     {
-        return $query->published()->where(function ($q) {
-            $q->where('start_at', '>=', now())
+        $todayStart = now()->startOfDay();
+
+        return $query->published()->where(function ($q) use ($todayStart) {
+            $q->where('start_at', '>=', $todayStart)
               ->orWhere(function ($sub) {
                   $sub->whereNotNull('end_at')->where('end_at', '>=', now());
               });
-        })->orderBy('start_at', 'asc');
+        })->orderByRaw(
+            'CASE WHEN start_at >= ? THEN 0 ELSE 1 END ASC, CASE WHEN start_at >= ? THEN start_at ELSE end_at END ASC, id ASC',
+            [$todayStart, $todayStart]
+        );
     }
 
     public function scopeFilterBySource(Builder $query, ?string $sourceSlug): Builder
@@ -266,6 +271,8 @@ class Event extends Model
             try {
                 $target = Carbon::parse($exactDate);
                 $targetDateStr = $target->toDateString();
+                $targetStart = $target->copy()->startOfDay();
+                $targetEnd = $target->copy()->endOfDay();
 
                 return $query->published()->where(function ($q) use ($targetDateStr) {
                     $q->whereDate('start_at', '<=', $targetDateStr)
@@ -276,7 +283,10 @@ class Event extends Model
                                      ->whereDate('start_at', $targetDateStr);
                               });
                       });
-                })->orderBy('start_at', 'asc');
+                })->orderByRaw(
+                    'CASE WHEN start_at >= ? AND start_at <= ? THEN 0 ELSE 1 END ASC, CASE WHEN start_at >= ? THEN start_at ELSE end_at END ASC, id ASC',
+                    [$targetStart, $targetEnd, $targetStart]
+                );
             } catch (\Throwable $e) {
                 // Fallback to period
             }
@@ -290,38 +300,81 @@ class Event extends Model
 
         return match ($period) {
             'today' => $query->published()
-                ->whereDate('start_at', '<=', $now->copy()->endOfDay())
                 ->where(function ($q) use ($now) {
-                    $q->whereDate('end_at', '>=', $now->copy()->startOfDay())
-                      ->orWhereNull('end_at');
+                    $todayStr = $now->toDateString();
+                    $q->whereDate('start_at', $todayStr)
+                      ->orWhere(function ($sub) use ($todayStr) {
+                          $sub->whereDate('start_at', '<=', $todayStr)
+                              ->whereDate('end_at', '>=', $todayStr);
+                      });
                 })
-                ->where('start_at', '>=', $now->copy()->startOfDay())
-                ->orderBy('start_at', 'asc'),
+                ->orderByRaw(
+                    'CASE WHEN start_at >= ? AND start_at <= ? THEN 0 ELSE 1 END ASC, CASE WHEN start_at >= ? THEN start_at ELSE end_at END ASC, id ASC',
+                    [$now->copy()->startOfDay(), $now->copy()->endOfDay(), $now->copy()->startOfDay()]
+                ),
 
             'tomorrow' => $query->published()
-                ->whereDate('start_at', $now->copy()->addDay()->toDateString())
-                ->orderBy('start_at', 'asc'),
+                ->where(function ($q) use ($now) {
+                    $tomStr = $now->copy()->addDay()->toDateString();
+                    $q->whereDate('start_at', $tomStr)
+                      ->orWhere(function ($sub) use ($tomStr) {
+                          $sub->whereDate('start_at', '<=', $tomStr)
+                              ->whereDate('end_at', '>=', $tomStr);
+                      });
+                })
+                ->orderByRaw(
+                    'CASE WHEN start_at >= ? AND start_at <= ? THEN 0 ELSE 1 END ASC, CASE WHEN start_at >= ? THEN start_at ELSE end_at END ASC, id ASC',
+                    [$now->copy()->addDay()->startOfDay(), $now->copy()->addDay()->endOfDay(), $now->copy()->addDay()->startOfDay()]
+                ),
 
             'weekend' => $query->published()
-                ->whereBetween('start_at', [
-                    $now->copy()->next(Carbon::SATURDAY)->startOfDay(),
-                    $now->copy()->next(Carbon::SUNDAY)->endOfDay(),
-                ])
-                ->orderBy('start_at', 'asc'),
+                ->where(function ($q) use ($now) {
+                    $sat = $now->copy()->next(Carbon::SATURDAY)->startOfDay();
+                    $sun = $now->copy()->next(Carbon::SUNDAY)->endOfDay();
+                    $q->whereBetween('start_at', [$sat, $sun])
+                      ->orWhere(function ($sub) use ($sat, $sun) {
+                          $sub->where('start_at', '<=', $sun)
+                              ->where('end_at', '>=', $sat);
+                      });
+                })
+                ->orderByRaw(
+                    'CASE WHEN start_at >= ? AND start_at <= ? THEN 0 ELSE 1 END ASC, CASE WHEN start_at >= ? THEN start_at ELSE end_at END ASC, id ASC',
+                    [
+                        $now->copy()->next(Carbon::SATURDAY)->startOfDay(),
+                        $now->copy()->next(Carbon::SUNDAY)->endOfDay(),
+                        $now->copy()->next(Carbon::SATURDAY)->startOfDay()
+                    ]
+                ),
 
             'this_week' => $query->published()
-                ->whereBetween('start_at', [
-                    $now->copy()->startOfWeek(),
-                    $now->copy()->endOfWeek(),
-                ])
-                ->orderBy('start_at', 'asc'),
+                ->where(function ($q) use ($now) {
+                    $start = $now->copy()->startOfWeek();
+                    $end = $now->copy()->endOfWeek();
+                    $q->whereBetween('start_at', [$start, $end])
+                      ->orWhere(function ($sub) use ($start, $end) {
+                          $sub->where('start_at', '<=', $end)
+                              ->where('end_at', '>=', $start);
+                      });
+                })
+                ->orderByRaw(
+                    'CASE WHEN start_at >= ? AND start_at <= ? THEN 0 ELSE 1 END ASC, CASE WHEN start_at >= ? THEN start_at ELSE end_at END ASC, id ASC',
+                    [$now->copy()->startOfWeek(), $now->copy()->endOfWeek(), $now->copy()->startOfWeek()]
+                ),
 
             'this_month' => $query->published()
-                ->whereBetween('start_at', [
-                    $now->copy()->startOfMonth(),
-                    $now->copy()->endOfMonth(),
-                ])
-                ->orderBy('start_at', 'asc'),
+                ->where(function ($q) use ($now) {
+                    $start = $now->copy()->startOfMonth();
+                    $end = $now->copy()->endOfMonth();
+                    $q->whereBetween('start_at', [$start, $end])
+                      ->orWhere(function ($sub) use ($start, $end) {
+                          $sub->where('start_at', '<=', $end)
+                              ->where('end_at', '>=', $start);
+                      });
+                })
+                ->orderByRaw(
+                    'CASE WHEN start_at >= ? AND start_at <= ? THEN 0 ELSE 1 END ASC, CASE WHEN start_at >= ? THEN start_at ELSE end_at END ASC, id ASC',
+                    [$now->copy()->startOfMonth(), $now->copy()->endOfMonth(), $now->copy()->startOfMonth()]
+                ),
 
             default => $query->upcoming(),
         };
@@ -550,7 +603,9 @@ class Event extends Model
         }
 
         $start = $this->start_at;
+        $end = $this->end_at;
         $locale = app()->getLocale();
+        $now = now();
 
         $monthsLv = [
             1 => 'janv.', 2 => 'febr.', 3 => 'marts', 4 => 'apr.',
@@ -576,8 +631,27 @@ class Event extends Model
             default => $monthsLv,
         };
 
+        // If the event started in the past (before today) but is still ongoing until a future date:
+        if ($start->lt($now->copy()->startOfDay()) && $end && $end->gte($now)) {
+            $endMonth = $monthMap[(int)$end->format('n')] ?? $end->format('M');
+            $untilPrefix = match($locale) {
+                'en' => 'Until ',
+                'ru' => 'До ',
+                default => 'Līdz ',
+            };
+
+            if ($end->format('Y') !== $now->format('Y')) {
+                return $untilPrefix . $end->format('d. ') . $endMonth . ' ' . $end->format('Y');
+            }
+            return $untilPrefix . $end->format('d. ') . $endMonth;
+        }
+
         $month = $monthMap[(int)$start->format('n')] ?? $start->format('M');
         $dateFormatted = $start->format('d. ') . $month;
+
+        if ($start->format('Y') > $now->format('Y')) {
+            $dateFormatted .= ' ' . $start->format('Y');
+        }
 
         if ($this->all_day) {
             return $dateFormatted;
