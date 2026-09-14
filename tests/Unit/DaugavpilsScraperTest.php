@@ -140,4 +140,21 @@ class DaugavpilsScraperTest extends TestCase
         $this->assertEquals('Daugavpils', $event->location->city);
         $this->assertEquals('Latgale', $event->location->region);
     }
+
+    public function test_daugavpils_skips_non_events(): void
+    {
+        $scraper = new DaugavpilsScraper();
+
+        $this->assertTrue($scraper->isNonEvent('Ielaušanās spēle “Tradīciju lāde”', 'https://www.daugavpils.lv/afisa/ielausanas-spele-0107'));
+        $this->assertTrue($scraper->isNonEvent('GADA PASĀKUMU KALENDĀRS', 'https://www.daugavpils.lv/afisa/gada-kalendars'));
+        $this->assertTrue($scraper->isNonEvent('Ielu remonta darbi', 'https://www.daugavpils.lv/afisa/remonta-darbi'));
+        $this->assertTrue($scraper->isNonEvent('Tiešsaistes pieraksts pie pašvaldības speciālistiem', 'https://www.daugavpils.lv/afisa/pieraksts'));
+        $this->assertTrue($scraper->isNonEvent('Programmas „Impulss” remigrācijas veicināšanas konkursa 2. kārta'));
+        $this->assertTrue($scraper->isNonEvent('PASĀKUMI DAUGAVPILĪ 11.09.- 17.09.'));
+
+        // Real events should not be skipped
+        $this->assertFalse($scraper->isNonEvent('Baltkrievu tautas ieražu svētki “Bagačs”'));
+        $this->assertFalse($scraper->isNonEvent('Break-dance turnīrs "Skill Deal 2026"'));
+        $this->assertFalse($scraper->isNonEvent('Optibet Hokeja Līga | RĪGAS HS/DINABURGA pret HK Zemgale/LBTU'));
+    }
 }

@@ -58,7 +58,7 @@ class DaugavpilsScraper extends BaseScraper
 
                 $titleNode = $node->filter('.event-text h3, h3');
                 $title = $this->cleanText($titleNode->count() ? $titleNode->text() : $linkNode->attr('title'));
-                if (empty($title)) {
+                if (empty($title) || $this->isNonEvent($title, $cleanUrl)) {
                     return;
                 }
 
@@ -303,5 +303,32 @@ class DaugavpilsScraper extends BaseScraper
         if (str_contains($text, 'ball') || str_contains($text, 'festivāl') || str_contains($text, 'disko')) return 'party';
 
         return 'chill';
+    }
+
+    public function isNonEvent(string $title, ?string $url = null): bool
+    {
+        $lower = mb_strtolower(trim($title));
+        $urlLower = $url ? strtolower($url) : '';
+
+        $blacklistedPatterns = [
+            'ielaušanās spēle',
+            'gada pasākumu kalendārs',
+            'ielu remonta darbi',
+            'remonta darbi',
+            'tiešsaistes pieraksts',
+            'pašvaldības speciālist',
+            'konkursa 2. kārta',
+            'konkursa 1. kārta',
+            'remigrācijas veicināšanas',
+            'pasākumi daugavpilī',
+        ];
+
+        foreach ($blacklistedPatterns as $pattern) {
+            if (str_contains($lower, $pattern) || str_contains($urlLower, $pattern)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
