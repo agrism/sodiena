@@ -225,4 +225,73 @@ class EventCalendarTest extends TestCase
         ]);
         $this->assertFalse(Event::published()->where('id', $event->id)->exists());
     }
+
+    public function test_prune_past_events_soft_deletes_events_before_today(): void
+    {
+        $now = now();
+        $yesterday = $now->copy()->subDay()->startOfDay()->addHours(14);
+        $yesterdayEnded = $now->copy()->subDay()->startOfDay()->addHours(20);
+
+        // 1. Event from yesterday with no end_at (ended yesterday) -> Should be soft deleted
+        $pastEvent1 = Event::create([
+            'title' => 'Vakardienas Pasākums Bez Beigu Datuma',
+            'start_at' => $yesterday,
+            'status' => 'published',
+            'published_at' => $now,
+            'fingerprint' => 'test-past-event-1',
+        ]);
+
+        // 2. Event from 3 days ago with end_at yesterday -> Should be soft deleted
+        $pastEvent2 = Event::create([
+            'title' => 'Vakardien Beigusies Izstāde',
+            'start_at' => $now->copy()->subDays(3),
+            'end_at' => $yesterdayEnded,
+            'status' => 'published',
+            'published_at' => $now,
+            'fingerprint' => 'test-past-event-2',
+        ]);
+
+        // 3. Event today -> Should NOT be deleted
+        $todayEvent = Event::create([
+            'title' => 'Šodienas Pasākums',
+            'start_at' => $now->copy()->setTime(18, 0),
+            'status' => 'published',
+            'published_at' => $now,
+            'fingerprint' => 'test-today-event',
+        ]);
+
+        // 4. Ongoing exhibition started 2 weeks ago, ending next week -> Should NOT be deleted
+        $ongoingEvent = Event::create([
+            'title' => 'Notiekoša Izstāde',
+            'start_at' => $now->copy()->subDays(14),
+            'end_at' => $now->copy()->addDays(7),
+            'status' => 'published',
+            'published_at' => $now,
+            'fingerprint' => 'test-ongoing-event',
+        ]);
+
+        // 5. Future event -> Should NOT be deleted
+        $futureEvent = Event::create([
+            'title' => 'Nākotnes Koncerts',
+            'start_at' => $now->copy()->addDays(5),
+            'status' => 'published',
+            'published_at' => $now,
+            'fingerprint' => 'test-future-event',
+        ]);
+
+        // Run the artisan command
+        $this->artisan('events:prune-past')
+            ->assertSuccessful();
+
+        // Assert soft deletions
+        $this->assertSoftDeleted('events', ['id' => $pastEvent1->id]);
+        $this->assertSoftDeleted('events', ['id' => $pastEvent2->id]);
+        $this->assertNotSoftDeleted('events', ['id' => $todayEvent->id]);
+        $this->assertNotSoftDeleted('events', ['id' => $ongoingEvent->id]);
+        $this->assertNotSoftDeleted('events', ['id' => $futureEvent->id]);
+
+        // Assert standard queries exclude soft-deleted events
+        $this->assertEquals(3, Event::count());
+        $this->assertEquals(5, Event::withTrashed()->count());
+    }
 }

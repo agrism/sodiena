@@ -130,13 +130,14 @@ class EventIngestionService
             // Check by external source ID first
             $existingEvent = null;
             if ($dto->sourceExternalId) {
-                $existingEvent = Event::where('source_id', $source->id)
+                $existingEvent = Event::withTrashed()
+                    ->where('source_id', $source->id)
                     ->where('source_external_id', $dto->sourceExternalId)
                     ->first();
             }
 
             if (!$existingEvent) {
-                $existingEvent = Event::where('fingerprint', $fingerprint)->first();
+                $existingEvent = Event::withTrashed()->where('fingerprint', $fingerprint)->first();
             }
 
             // Fuzzy similarity check for same date and similar title / stems / descriptions
@@ -228,6 +229,17 @@ class EventIngestionService
             }
 
             if ($existingEvent) {
+                if ($existingEvent->trashed()) {
+                    $isUpcoming = ($dto->startAt && $dto->startAt >= now()->startOfDay())
+                        || ($dto->endAt && $dto->endAt >= now()->startOfDay())
+                        || ($existingEvent->start_at && $existingEvent->start_at >= now()->startOfDay())
+                        || ($existingEvent->end_at && $existingEvent->end_at >= now()->startOfDay());
+
+                    if ($isUpcoming) {
+                        $existingEvent->restore();
+                    }
+                }
+
                 // Image handling: if new scraper provides an image, use it.
                 // If existing event has a known generic placeholder image (like aplis-default-og-img.jpg) and dto doesn't have an image, clear it to null.
                 $finalImageUrl = $dto->imageUrl;

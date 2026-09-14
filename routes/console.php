@@ -11,3 +11,7 @@ Artisan::command('inspire', function () {
     ->dailyAt('04:00')
     ->withoutOverlapping();
 
+\Illuminate\Support\Facades\Schedule::command('events:prune-past')
+    ->dailyAt('00:00')
+    ->withoutOverlapping();
+
