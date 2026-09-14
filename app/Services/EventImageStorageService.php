@@ -86,7 +86,15 @@ class EventImageStorageService
                 return null;
             }
 
-            $extension = $this->extensionFromMimeType($mimeType, $url);
+            // Optimize and convert to WebP for maximum web performance
+            $optimized = $this->optimizeImage($body, $mimeType);
+            if ($optimized) {
+                $body = $optimized['body'];
+                $mimeType = $optimized['mimeType'];
+                $extension = $optimized['extension'];
+            } else {
+                $extension = $this->extensionFromMimeType($mimeType, $url);
+            }
 
             // Generate structured file path: events/YYYY-MM/{id_or_random}_{hash}.{ext}
             $dateFolder = ($event && $event->start_at) ? $event->start_at->format('Y-m') : now()->format('Y-m');
@@ -95,7 +103,7 @@ class EventImageStorageService
             $fileName = "{$identifier}_{$contentHash}.{$extension}";
             $s3Path = "events/{$dateFolder}/{$fileName}";
 
-            // Upload to S3 with public read access and mime type header
+            // Upload to S3 with public read access, mime type header and 1-year cache control
             $stored = Storage::disk($this->disk)->put($s3Path, $body, [
                 'visibility' => 'public',
                 'ContentType' => $mimeType,
@@ -115,6 +123,112 @@ class EventImageStorageService
             ]);
             return null;
         }
+    }
+
+    /**
+     * Optimize image binary and convert to modern WebP format for fast web delivery.
+     *
+     * @return array{body: string, mimeType: string, extension: string}|null
+     */
+    public function optimizeImage(string $binaryData, string $mimeType, int $maxWidth = 1200, int $maxHeight = 1200, int $quality = 82): ?array
+    {
+        // Don't convert SVG vector images
+        if (str_contains($mimeType, 'svg')) {
+            return null;
+        }
+
+        if (!extension_loaded('gd') || !function_exists('imagewebp')) {
+            return null;
+        }
+
+        try {
+            // Read EXIF orientation before manipulating image if JPEG
+            $orientation = null;
+            if (function_exists('exif_read_data') && str_contains($mimeType, 'jpeg')) {
+                $stream = fopen('php://memory', 'r+');
+                if ($stream) {
+                    fwrite($stream, $binaryData);
+                    rewind($stream);
+                    $exif = @exif_read_data($stream);
+                    fclose($stream);
+                    $orientation = $exif['Orientation'] ?? null;
+                }
+            }
+
+            $img = @imagecreatefromstring($binaryData);
+            if (!$img) {
+                return null;
+            }
+
+            // Fix orientation if needed
+            if ($orientation) {
+                switch ($orientation) {
+                    case 3:
+                        $rotated = imagerotate($img, 180, 0);
+                        if ($rotated !== false) {
+                            imagedestroy($img);
+                            $img = $rotated;
+                        }
+                        break;
+                    case 6:
+                        $rotated = imagerotate($img, -90, 0);
+                        if ($rotated !== false) {
+                            imagedestroy($img);
+                            $img = $rotated;
+                        }
+                        break;
+                    case 8:
+                        $rotated = imagerotate($img, 90, 0);
+                        if ($rotated !== false) {
+                            imagedestroy($img);
+                            $img = $rotated;
+                        }
+                        break;
+                }
+            }
+
+            $origW = imagesx($img);
+            $origH = imagesy($img);
+
+            if ($origW <= 0 || $origH <= 0) {
+                imagedestroy($img);
+                return null;
+            }
+
+            // Calculate resized dimensions if larger than bounds (never upscale)
+            $ratio = min($maxWidth / max($origW, 1), $maxHeight / max($origH, 1), 1.0);
+            $newW = (int) round($origW * $ratio);
+            $newH = (int) round($origH * $ratio);
+
+            if ($newW !== $origW || $newH !== $origH) {
+                $resized = imagecreatetruecolor($newW, $newH);
+                imagealphablending($resized, false);
+                imagesavealpha($resized, true);
+                imagecopyresampled($resized, $img, 0, 0, 0, 0, $newW, $newH, $origW, $origH);
+                imagedestroy($img);
+                $img = $resized;
+            } else {
+                imagealphablending($img, false);
+                imagesavealpha($img, true);
+            }
+
+            ob_start();
+            $saved = imagewebp($img, null, $quality);
+            $webpData = ob_get_clean();
+            imagedestroy($img);
+
+            if ($saved && !empty($webpData)) {
+                return [
+                    'body' => $webpData,
+                    'mimeType' => 'image/webp',
+                    'extension' => 'webp',
+                ];
+            }
+        } catch (\Throwable $e) {
+            Log::warning("WebP optimization failed, falling back to original: " . $e->getMessage());
+        }
+
+        return null;
     }
 
     /**

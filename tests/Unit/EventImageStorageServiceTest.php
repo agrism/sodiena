@@ -104,6 +104,19 @@ class EventImageStorageServiceTest extends TestCase
         $event->refresh();
         $this->assertNotNull($event->internal_image_url);
         $this->assertStringContainsString((string)$event->id, $event->internal_image_url);
-        $this->assertStringEndsWith('.jpg', $event->internal_image_url);
+        $this->assertStringEndsWith('.webp', $event->internal_image_url);
+    }
+
+    public function test_optimize_image_converts_png_and_jpeg_to_webp(): void
+    {
+        $fakePng = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==');
+        $service = app(EventImageStorageService::class);
+
+        $result = $service->optimizeImage($fakePng, 'image/png');
+
+        $this->assertNotNull($result);
+        $this->assertEquals('image/webp', $result['mimeType']);
+        $this->assertEquals('webp', $result['extension']);
+        $this->assertNotEmpty($result['body']);
     }
 }
