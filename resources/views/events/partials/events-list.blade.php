@@ -17,8 +17,8 @@
         @foreach($events as $event)
             <article class="group bg-white rounded-3xl border border-slate-200/90 hover:border-slate-300 overflow-hidden shadow-xs hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between">
                 
-                <!-- Event Image & Badges -->
-                <div class="relative aspect-[16/10] bg-slate-100 overflow-hidden">
+                <!-- Event Image & Badges (Clickable Link) -->
+                <a href="{{ route('events.show', $event->slug) }}" class="block relative aspect-[16/10] bg-slate-100 overflow-hidden cursor-pointer group/img focus:outline-none">
                     <img 
                         src="{{ $event->display_image_url }}" 
                         alt="{{ $event->title }}"
@@ -49,13 +49,13 @@
                     </div>
 
                     <!-- City & Venue pill bottom left of image -->
-                    <div class="absolute bottom-3 left-3 right-3 flex items-center gap-2 pointer-events-none">
+                    <div class="absolute bottom-3 left-3 right-3 flex items-center gap-2">
                         <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-900/85 text-white backdrop-blur-md border border-white/10 truncate max-w-full">
                             <i data-lucide="map-pin" class="w-3 h-3 text-emerald-400 shrink-0"></i>
                             <span class="truncate">{{ $event->location?->name ?: $event->location?->city ?: 'Latvija' }}</span>
                         </span>
                     </div>
-                </div>
+                </a>
 
                 <!-- Content Area -->
                 <div class="p-5 flex flex-col flex-grow justify-between gap-4">
