@@ -68,37 +68,120 @@ html, body {
 .flatpickr-calendar {
     font-family: var(--font-sans) !important;
     border-radius: 1.25rem !important;
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.08) !important;
     border: 1px solid #e2e8f0 !important;
-    padding: 0.6rem !important;
+    padding: 0.75rem !important;
     background: #ffffff !important;
+    box-sizing: content-box !important;
+    width: 308px !important;
 }
-.flatpickr-day.selected, .flatpickr-day.startRange, .flatpickr-day.endRange, .flatpickr-day.selected.inRange, .flatpickr-day.selected:focus, .flatpickr-day.selected:hover, .flatpickr-day.selected.prevMonthDay, .flatpickr-day.selected.nextMonthDay {
+.flatpickr-calendar:before,
+.flatpickr-calendar:after {
+    border-bottom-color: #ffffff !important;
+}
+.flatpickr-innerContainer {
+    display: flex !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+    justify-content: center !important;
+    width: 100% !important;
+}
+.flatpickr-rContainer {
+    display: inline-block !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+    width: 100% !important;
+}
+.flatpickr-weekdays {
+    height: 32px !important;
+    width: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    margin-bottom: 2px !important;
+}
+span.flatpickr-weekday {
+    font-weight: 700 !important;
+    font-size: 0.8rem !important;
+    color: #64748b !important;
+}
+.flatpickr-days {
+    width: 308px !important;
+    display: flex !important;
+    justify-content: center !important;
+}
+.dayContainer {
+    width: 308px !important;
+    min-width: 308px !important;
+    max-width: 308px !important;
+    padding: 0 !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    justify-content: space-around !important;
+}
+.flatpickr-day {
+    max-width: 38px !important;
+    height: 38px !important;
+    line-height: 38px !important;
+    margin: 2px 0 !important;
+    border-radius: 0.625rem !important;
+    font-size: 0.9rem !important;
+    font-weight: 500 !important;
+    color: #1e293b !important;
+    border: 1px solid transparent !important;
+    transition: all 0.12s ease-in-out !important;
+}
+.flatpickr-day.prevMonthDay,
+.flatpickr-day.nextMonthDay {
+    color: #cbd5e1 !important;
+    background: transparent !important;
+    border-color: transparent !important;
+}
+.flatpickr-day.selected,
+.flatpickr-day.startRange,
+.flatpickr-day.endRange,
+.flatpickr-day.selected.inRange,
+.flatpickr-day.selected:focus,
+.flatpickr-day.selected:hover,
+.flatpickr-day.selected.prevMonthDay,
+.flatpickr-day.selected.nextMonthDay {
     background: #059669 !important;
     border-color: #059669 !important;
     color: #ffffff !important;
     font-weight: 700 !important;
-    border-radius: 0.75rem !important;
+    box-shadow: 0 4px 6px -1px rgba(5, 150, 105, 0.25) !important;
 }
-.flatpickr-day:hover {
+.flatpickr-day:hover:not(.selected) {
     background: #ecfdf5 !important;
     border-color: #a7f3d0 !important;
     color: #065f46 !important;
-    border-radius: 0.75rem !important;
 }
 .flatpickr-day.today {
     border-color: #059669 !important;
-    border-radius: 0.75rem !important;
+    font-weight: 700 !important;
+    color: #059669 !important;
+}
+.flatpickr-day.today.selected {
+    color: #ffffff !important;
+}
+.flatpickr-months {
+    padding-bottom: 4px !important;
 }
 .flatpickr-months .flatpickr-month {
     color: #0f172a !important;
     font-weight: 700 !important;
     fill: #0f172a !important;
+    height: 36px !important;
+}
+.flatpickr-current-month {
+    font-size: 1.05rem !important;
+    font-weight: 700 !important;
+    padding-top: 4px !important;
 }
 .flatpickr-current-month .flatpickr-monthDropdown-months {
     font-weight: 700 !important;
 }
-.flatpickr-months .flatpickr-prev-month:hover svg, .flatpickr-months .flatpickr-next-month:hover svg {
+.flatpickr-months .flatpickr-prev-month:hover svg,
+.flatpickr-months .flatpickr-next-month:hover svg {
     fill: #059669 !important;
 }
 
