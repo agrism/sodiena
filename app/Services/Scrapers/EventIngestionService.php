@@ -289,7 +289,11 @@ class EventIngestionService
                 );
 
                 if (!empty($categoryIds)) {
-                    $existingEvent->categories()->syncWithoutDetaching($categoryIds);
+                    if ($existingEvent->source_id === $source->id) {
+                        $existingEvent->categories()->sync($categoryIds);
+                    } else {
+                        $existingEvent->categories()->syncWithoutDetaching($categoryIds);
+                    }
                 }
 
                 return 'updated';
