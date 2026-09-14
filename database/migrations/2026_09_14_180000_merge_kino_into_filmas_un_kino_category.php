@@ -50,8 +50,6 @@ return new class extends Migration
                     DB::table('category_event')->insert([
                         'category_id' => $targetCategory->id,
                         'event_id' => $eventId,
-                        'created_at' => now(),
-                        'updated_at' => now(),
                     ]);
                 }
             }
