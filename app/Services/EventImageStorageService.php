@@ -160,6 +160,11 @@ class EventImageStorageService
                 return null;
             }
 
+            // If image is palette-based (e.g. 8-bit indexed PNG), convert to truecolor for WebP support
+            if (!imageistruecolor($img)) {
+                imagepalettetotruecolor($img);
+            }
+
             // Fix orientation if needed
             if ($orientation) {
                 switch ($orientation) {
