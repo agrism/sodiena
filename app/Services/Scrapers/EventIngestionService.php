@@ -296,6 +296,8 @@ class EventIngestionService
                     }
                 }
 
+                $this->inheritSiblingTranslations($existingEvent);
+
                 return 'updated';
             }
 
@@ -339,6 +341,8 @@ class EventIngestionService
             if (!empty($categoryIds)) {
                 $event->categories()->sync($categoryIds);
             }
+
+            $this->inheritSiblingTranslations($event);
 
             return 'created';
         });
@@ -610,6 +614,86 @@ class EventIngestionService
         }
 
         return $clean;
+    }
+
+    public function inheritSiblingTranslations(Event $event): void
+    {
+        $existingTranslations = $event->translations()->get()->keyBy('locale');
+        $targetLocales = ['lv', 'en', 'ru'];
+        $missingLocales = array_diff($targetLocales, $existingTranslations->keys()->toArray());
+
+        if (empty($missingLocales)) {
+            return;
+        }
+
+        $cleanTitle = trim(preg_replace('/[^\p{L}\p{N}\s]+/u', ' ', mb_strtolower($event->title, 'UTF-8')));
+        $words = array_values(array_filter(explode(' ', $cleanTitle), fn ($w) => mb_strlen($w, 'UTF-8') > 2));
+
+        $sibling = Event::with('translations')
+            ->has('translations', '>=', 2)
+            ->where('id', '!=', $event->id)
+            ->where(function ($q) use ($event) {
+                if ($event->location_id) {
+                    $q->where('location_id', $event->location_id);
+                }
+            })
+            ->latest('id')
+            ->limit(30)
+            ->get()
+            ->first(function ($cand) use ($words) {
+                $candTitle = trim(preg_replace('/[^\p{L}\p{N}\s]+/u', ' ', mb_strtolower($cand->title, 'UTF-8')));
+                $candWords = array_values(array_filter(explode(' ', $candTitle), fn ($w) => mb_strlen($w, 'UTF-8') > 2));
+                $common = array_intersect($words, $candWords);
+                return count($common) >= 2;
+            });
+
+        if ($sibling) {
+            foreach ($missingLocales as $loc) {
+                $sibTrans = $sibling->translations->firstWhere('locale', $loc);
+                if ($sibTrans && !empty($sibTrans->description)) {
+                    EventTranslation::updateOrCreate(
+                        [
+                            'event_id' => $event->id,
+                            'locale' => $loc,
+                        ],
+                        [
+                            'title' => $sibTrans->title,
+                            'slug' => Str::slug($sibTrans->title) . '-' . substr(md5($event->id . $loc), 0, 6),
+                            'description' => $sibTrans->description,
+                            'short_description' => $sibTrans->short_description,
+                        ]
+                    );
+                }
+            }
+
+            // If current 'lv' translation is actually in English, update 'lv' with sibling's real Latvian translation
+            $curLv = $event->translations()->where('locale', 'lv')->first();
+            $sibLv = $sibling->translations->firstWhere('locale', 'lv');
+            if ($curLv && $sibLv && $this->detectTextLanguage($curLv->description) === 'en') {
+                $curLv->update([
+                    'title' => $sibLv->title,
+                    'description' => $sibLv->description,
+                    'short_description' => $sibLv->short_description,
+                ]);
+            }
+        }
+    }
+
+    public function detectTextLanguage(?string $text): string
+    {
+        if (empty($text)) {
+            return 'lv';
+        }
+
+        $lower = mb_strtolower($text, 'UTF-8');
+        $enHits = preg_match_all('/\b(the|and|in|during|guided|tour|exhibition|history|tickets|with|for|are|not|allowed|open|daily|adults|students|building|palace|museum)\b/u', $lower);
+        $lvChars = preg_match_all('/[āčēģīķļņšūž]/u', $lower);
+
+        if ($enHits > 5 && $lvChars < 4) {
+            return 'en';
+        }
+
+        return 'lv';
     }
 }
 
