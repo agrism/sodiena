@@ -7,16 +7,16 @@
 <div class="max-w-7xl xl:max-w-[1400px] 2xl:max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
     
     <!-- Breadcrumb & Back Link -->
-    <div class="mb-6 flex items-center justify-between">
-        <a href="{{ route('events.index') }}" class="inline-flex items-center gap-2 text-xs sm:text-sm font-bold text-slate-500 hover:text-emerald-700 transition-colors">
+    <div class="mb-4 sm:mb-6 flex flex-wrap items-center justify-between gap-2.5">
+        <a href="{{ route('events.index') }}" class="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-slate-500 hover:text-emerald-700 transition-colors shrink-0">
             <i data-lucide="arrow-left" class="w-4 h-4"></i>
-            {{ __('Back to all events') }}
+            <span>{{ __('Back to all events') }}</span>
         </a>
 
         <!-- Categories -->
-        <div class="flex items-center gap-2">
+        <div class="flex flex-wrap items-center gap-1.5 sm:gap-2">
             @foreach($event->categories as $category)
-                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-800 border border-slate-200 shadow-xs">
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full text-[11px] sm:text-xs font-bold bg-slate-100 text-slate-800 border border-slate-200 shadow-xs">
                     <i data-lucide="{{ $category->icon ?: 'tag' }}" class="w-3.5 h-3.5 text-emerald-600"></i>
                     {{ $category->name }}
                 </span>
@@ -28,7 +28,7 @@
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
         
         <!-- Left Column: Hero Image & Description -->
-        <div class="lg:col-span-8 space-y-8">
+        <div class="lg:col-span-8 space-y-8 min-w-0">
             
             <!-- Hero Image Banner -->
             <div class="relative rounded-3xl overflow-hidden bg-slate-900 border border-slate-200/90 shadow-md aspect-[16/9] sm:aspect-[2/1] md:aspect-[21/9] max-h-[480px]">
@@ -41,14 +41,14 @@
 
                 <!-- Admin Source Indicator -->
                 @if(auth()->check() && auth()->user()->isAdmin())
-                    <div class="absolute top-4 right-4 z-10">
+                    <div class="absolute top-3 right-3 sm:top-4 sm:right-4 z-10">
                         @if($event->isAfiro() && $event->afiro_url)
                             <a 
                                 href="{{ $event->afiro_url }}" 
                                 target="_blank" 
                                 rel="noopener noreferrer" 
                                 title="Atvērt Afiro notikumu: {{ $event->afiro_url }}"
-                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/95 text-red-600 border-2 border-red-500 font-black text-xs shadow-lg hover:bg-red-600 hover:text-white transition-all transform hover:scale-105"
+                                class="inline-flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full bg-white/95 text-red-600 border-2 border-red-500 font-black text-xs shadow-lg hover:bg-red-600 hover:text-white transition-all transform hover:scale-105"
                             >
                                 <span class="w-4 h-4 rounded-full border-2 border-current flex items-center justify-center text-[10px] font-black">A</span>
                                 <span>Afiro</span>
@@ -57,7 +57,7 @@
                         @else
                             <span 
                                 title="Nav Afiro notikums (Avots: {{ $event->source?->name ?: $event->source_slug ?: 'Cits' }})"
-                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/90 text-slate-500 border border-slate-300 font-bold text-xs shadow-md"
+                                class="inline-flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full bg-white/90 text-slate-500 border border-slate-300 font-bold text-xs shadow-md"
                             >
                                 <span class="w-4 h-4 rounded-full border border-current flex items-center justify-center text-[10px] font-bold">A</span>
                                 <span>{{ $event->source?->name ?: 'Nav Afiro' }}</span>
@@ -67,16 +67,16 @@
                 @endif
 
                 <!-- Floating info on image -->
-                <div class="absolute bottom-6 left-6 right-6 flex flex-wrap items-center justify-between gap-3 text-white">
-                    <span class="px-3.5 py-1.5 rounded-xl bg-white/95 text-slate-950 text-xs font-extrabold backdrop-blur-md shadow-lg flex items-center gap-2">
-                        <i data-lucide="calendar" class="w-4 h-4 text-emerald-600"></i>
-                        {{ $event->formatted_date }}
+                <div class="absolute bottom-3 left-3 right-3 sm:bottom-6 sm:left-6 sm:right-6 flex flex-wrap items-center justify-between gap-2 text-white">
+                    <span class="px-2.5 py-1 sm:px-3.5 sm:py-1.5 rounded-xl bg-white/95 text-slate-950 text-[11px] sm:text-xs font-extrabold backdrop-blur-md shadow-lg flex items-center gap-1.5 sm:gap-2">
+                        <i data-lucide="calendar" class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 shrink-0"></i>
+                        <span>{{ $event->formatted_date }}</span>
                     </span>
 
                     @if($event->location?->city)
-                        <span class="px-3.5 py-1.5 rounded-xl bg-slate-900/80 text-white text-xs font-bold backdrop-blur-md border border-white/20 flex items-center gap-1.5">
-                            <i data-lucide="map-pin" class="w-4 h-4 text-emerald-400"></i>
-                            {{ $event->location->name ?: $event->location->city }}
+                        <span class="px-2.5 py-1 sm:px-3.5 sm:py-1.5 rounded-xl bg-slate-900/80 text-white text-[11px] sm:text-xs font-bold backdrop-blur-md border border-white/20 flex items-center gap-1.5">
+                            <i data-lucide="map-pin" class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400 shrink-0"></i>
+                            <span class="truncate max-w-[140px] sm:max-w-none">{{ $event->location->name ?: $event->location->city }}</span>
                         </span>
                     @endif
                 </div>

@@ -38,25 +38,25 @@
 </head>
 <body class="min-h-full flex flex-col bg-slate-50 text-slate-900 antialiased selection:bg-emerald-500 selection:text-white overflow-x-hidden w-full max-w-full relative">
     <!-- Header -->
-    <header class="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-slate-200/80 shadow-xs w-full overflow-hidden">
-        <div class="max-w-7xl xl:max-w-[1400px] 2xl:max-w-[1600px] mx-auto px-3 sm:px-6 lg:px-8">
-            <div class="flex items-center justify-between h-14 sm:h-20 gap-2">
+    <header class="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-slate-200/80 shadow-xs w-full">
+        <div class="max-w-7xl xl:max-w-[1400px] 2xl:max-w-[1600px] mx-auto px-2.5 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-14 sm:h-20 gap-1.5 sm:gap-4">
                 <!-- Logo -->
-                <a href="{{ route('events.index') }}" class="flex items-center gap-2 sm:gap-3 group shrink-0 min-w-0">
-                    <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-md shadow-emerald-600/20 group-hover:scale-105 transition-transform duration-200 shrink-0">
-                        <i data-lucide="compass" class="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.5]"></i>
+                <a href="{{ route('events.index') }}" class="flex items-center gap-1.5 sm:gap-3 group shrink-0 min-w-0">
+                    <div class="w-7 h-7 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-md shadow-emerald-600/20 group-hover:scale-105 transition-transform duration-200 shrink-0">
+                        <i data-lucide="compass" class="w-4 h-4 sm:w-6 sm:h-6 stroke-[2.5]"></i>
                     </div>
                     <div class="min-w-0">
-                        <span class="text-base sm:text-xl font-extrabold tracking-tight text-slate-900 flex items-center gap-1.5">
+                        <span class="text-sm sm:text-xl font-extrabold tracking-tight text-slate-900 flex items-center gap-1">
                             Šodiena
-                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200">LATVIJA</span>
+                            <span class="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200">LATVIJA</span>
                         </span>
                         <p class="text-[11px] text-slate-500 font-medium hidden md:block">{{ __('Discover future events') }}</p>
                     </div>
                 </a>
 
                 <!-- Navigation & User Menu -->
-                <div class="flex items-center gap-1.5 sm:gap-3 shrink-0">
+                <div class="flex items-center gap-1 sm:gap-3 shrink-0">
                     <nav class="flex items-center gap-1 sm:gap-2">
                         <a href="{{ route('events.index') }}" class="hidden md:inline-flex px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold transition-all {{ request()->routeIs('events.index') ? 'text-emerald-700 bg-emerald-50 border border-emerald-200/80' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100' }}">
                             <span class="flex items-center gap-1.5">
@@ -79,25 +79,25 @@
                     </nav>
 
                     <!-- Language Selector (LV / EN / RU) -->
-                    <div class="flex items-center gap-0.5 bg-slate-100 p-0.5 sm:p-1 rounded-xl border border-slate-200/90 text-[11px] sm:text-xs font-bold shadow-xs">
+                    <div class="flex items-center gap-0.5 bg-slate-100 p-0.5 sm:p-1 rounded-xl border border-slate-200/90 text-[10px] sm:text-xs font-bold shadow-xs shrink-0">
                         <a href="{{ route('locale.switch', 'lv') }}" class="px-1.5 py-0.5 sm:px-2.5 sm:py-1 rounded-lg transition-all {{ app()->getLocale() === 'lv' ? 'bg-white text-emerald-700 shadow-xs font-extrabold' : 'text-slate-500 hover:text-slate-900' }}">LV</a>
                         <a href="{{ route('locale.switch', 'en') }}" class="px-1.5 py-0.5 sm:px-2.5 sm:py-1 rounded-lg transition-all {{ app()->getLocale() === 'en' ? 'bg-white text-emerald-700 shadow-xs font-extrabold' : 'text-slate-500 hover:text-slate-900' }}">EN</a>
                         <a href="{{ route('locale.switch', 'ru') }}" class="px-1.5 py-0.5 sm:px-2.5 sm:py-1 rounded-lg transition-all {{ app()->getLocale() === 'ru' ? 'bg-white text-emerald-700 shadow-xs font-extrabold' : 'text-slate-500 hover:text-slate-900' }}">RU</a>
                     </div>
 
                     <!-- Auth Section -->
-                    <div class="flex items-center gap-1 sm:gap-2 border-l border-slate-200 pl-1.5 sm:pl-3">
+                    <div class="flex items-center gap-1 sm:gap-2 border-l border-slate-200 pl-1 sm:pl-3 shrink-0">
                         @guest
-                            <a href="{{ route('login') }}" class="px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-xs sm:text-sm font-bold text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-all whitespace-nowrap">
+                            <a href="{{ route('login') }}" class="px-1.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-[11px] sm:text-sm font-bold text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-all whitespace-nowrap">
                                 {{ __('Sign In') }}
                             </a>
-                            <a href="{{ route('register') }}" class="inline-flex items-center gap-1 px-2.5 py-1 sm:px-3.5 sm:py-1.5 rounded-lg sm:rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-extrabold transition-all shadow-xs whitespace-nowrap shrink-0">
-                                <i data-lucide="user-plus" class="w-3.5 h-3.5 hidden sm:inline"></i>
-                                <span>{{ __('Register') }}</span>
+                            <a href="{{ route('register') }}" class="inline-flex items-center justify-center gap-1 px-2 py-1 sm:px-3.5 sm:py-1.5 rounded-lg sm:rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-[11px] sm:text-sm font-extrabold transition-all shadow-xs whitespace-nowrap shrink-0" title="{{ __('Register') }}">
+                                <i data-lucide="user-plus" class="w-3.5 h-3.5"></i>
+                                <span class="hidden md:inline">{{ __('Register') }}</span>
                             </a>
                         @else
-                            <div class="flex items-center gap-1.5 sm:gap-3">
-                                <div class="flex items-center gap-1.5 sm:gap-2">
+                            <div class="flex items-center gap-1 sm:gap-3 shrink-0">
+                                <div class="flex items-center gap-1 sm:gap-2">
                                     <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-xl {{ auth()->user()->isAdmin() ? 'bg-purple-100 text-purple-700 border-purple-200' : 'bg-emerald-100 text-emerald-700 border-emerald-200' }} border font-extrabold text-xs flex items-center justify-center shrink-0 shadow-xs">
                                         {{ mb_strtoupper(mb_substr(auth()->user()->name, 0, 1)) }}
                                     </div>
