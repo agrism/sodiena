@@ -83,9 +83,9 @@
             </div>
 
             <!-- Title & Description Card -->
-            <div class="bg-white rounded-3xl p-6 sm:p-10 border border-slate-200/80 shadow-xs space-y-6">
+            <div class="bg-white rounded-3xl p-5 sm:p-10 border border-slate-200/80 shadow-xs space-y-6 overflow-hidden">
                 <div>
-                    <h1 class="text-2xl sm:text-4xl font-extrabold text-slate-900 tracking-tight leading-tight">
+                    <h1 class="text-2xl sm:text-4xl font-extrabold text-slate-900 tracking-tight leading-tight break-words">
                         {{ $event->title }}
                     </h1>
                     @if($event->localized_entertainment_type)
@@ -95,7 +95,7 @@
                     @endif
                 </div>
 
-                <div class="prose prose-slate max-w-none text-slate-700 leading-relaxed text-sm sm:text-base">
+                <div class="prose prose-slate max-w-none text-slate-700 leading-relaxed text-sm sm:text-base break-words overflow-hidden">
                     {!! $event->formatted_description_html !!}
                 </div>
             </div>

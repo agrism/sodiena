@@ -42,16 +42,13 @@
         <div class="max-w-7xl xl:max-w-[1400px] 2xl:max-w-[1600px] mx-auto px-2.5 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between h-14 sm:h-20 gap-1.5 sm:gap-4">
                 <!-- Logo -->
-                <a href="{{ route('events.index') }}" class="flex items-center gap-1.5 sm:gap-3 group shrink-0 min-w-0">
-                    <div class="w-7 h-7 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-md shadow-emerald-600/20 group-hover:scale-105 transition-transform duration-200 shrink-0">
-                        <i data-lucide="compass" class="w-4 h-4 sm:w-6 sm:h-6 stroke-[2.5]"></i>
+                <a href="{{ route('events.index') }}" class="flex items-center gap-2 sm:gap-2.5 group shrink-0">
+                    <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-md shadow-emerald-600/20 group-hover:scale-105 transition-transform duration-200 shrink-0">
+                        <i data-lucide="compass" class="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.5]"></i>
                     </div>
-                    <div class="min-w-0">
-                        <span class="text-sm sm:text-xl font-extrabold tracking-tight text-slate-900 flex items-center gap-1">
-                            Šodiena
-                            <span class="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200">LATVIJA</span>
-                        </span>
-                        <p class="text-[11px] text-slate-500 font-medium hidden md:block">{{ __('Discover future events') }}</p>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-base sm:text-xl font-extrabold tracking-tight text-slate-900">Šodiena</span>
+                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200">LATVIJA</span>
                     </div>
                 </a>
 
