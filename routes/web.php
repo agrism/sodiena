@@ -3,7 +3,11 @@
 use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\EventController;
+use App\Http\Controllers\SitemapController;
 use Illuminate\Support\Facades\Route;
+
+// SEO & Sitemap
+Route::get('/sitemap.xml', [SitemapController::class, 'index'])->name('sitemap');
 
 // Public Event Routes
 Route::get('/', [EventController::class, 'index'])->name('events.index');

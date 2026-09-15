@@ -2,6 +2,9 @@
 
 @section('title', $event->title . ' — Šodiena')
 @section('meta_description', $event->short_description ?: Str::limit(strip_tags($event->description ?? ''), 160))
+@section('og_type', 'article')
+@section('meta_image', $event->display_image_url)
+@section('canonical_url', route('events.show', $event->slug))
 
 @section('content')
 <div class="max-w-7xl xl:max-w-[1400px] 2xl:max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
@@ -363,7 +366,7 @@
     </div>
 
     <!-- Related Events -->
-    @if($relatedEvents->isNotEmpty())
+    @if(isset($relatedEvents) && $relatedEvents->isNotEmpty())
         <div class="mt-16 pt-12 border-t border-slate-200">
             <div class="flex items-center justify-between mb-8">
                 <div>
@@ -397,3 +400,58 @@
     @endif
 </div>
 @endsection
+
+@push('scripts')
+@php
+    $schemaData = [
+        '@context' => 'https://schema.org',
+        '@type' => 'Event',
+        'name' => $event->title,
+        'description' => $event->short_description ?: Str::limit(strip_tags($event->description ?? ''), 300),
+        'image' => [
+            $event->display_image_url,
+        ],
+        'startDate' => $event->start_at ? $event->start_at->toIso8601String() : null,
+        'eventStatus' => 'https://schema.org/EventScheduled',
+        'eventAttendanceMode' => 'https://schema.org/OfflineEventAttendanceMode',
+        'location' => [
+            '@type' => 'Place',
+            'name' => $event->location?->name ?: ($event->location?->city ?: 'Latvija'),
+            'address' => [
+                '@type' => 'PostalAddress',
+                'streetAddress' => $event->location?->address ?: '',
+                'addressLocality' => $event->location?->city ?: 'Rīga',
+                'addressCountry' => 'LV',
+            ],
+        ],
+        'offers' => [
+            '@type' => 'Offer',
+            'url' => $event->ticket_url ?: route('events.show', $event->slug),
+            'price' => (string) ($event->is_free ? '0' : ($event->price_min ?? '0')),
+            'priceCurrency' => 'EUR',
+            'availability' => 'https://schema.org/InStock',
+            'validFrom' => $event->created_at ? $event->created_at->toIso8601String() : now()->toIso8601String(),
+        ],
+        'organizer' => [
+            '@type' => 'Organization',
+            'name' => $event->source?->name ?: 'Šodiena',
+            'url' => config('app.url', 'https://sodiena.lv'),
+        ],
+    ];
+
+    if ($event->end_at) {
+        $schemaData['endDate'] = $event->end_at->toIso8601String();
+    }
+
+    if ($event->location?->latitude && $event->location?->longitude) {
+        $schemaData['location']['geo'] = [
+            '@type' => 'GeoCoordinates',
+            'latitude' => (float) $event->location->latitude,
+            'longitude' => (float) $event->location->longitude,
+        ];
+    }
+@endphp
+<script type="application/ld+json">
+{!! json_encode($schemaData, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) !!}
+</script>
+@endpush

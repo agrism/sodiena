@@ -5,11 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@yield('title', 'Šodiena — ' . __('Find Events'))</title>
     <meta name="description" content="@yield('meta_description', __('Discover future events'))">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="@yield('canonical_url', url()->current())">
     
     <!-- Open Graph / Meta -->
+    <meta property="og:site_name" content="Šodiena">
+    <meta property="og:url" content="@yield('canonical_url', url()->current())">
     <meta property="og:title" content="@yield('title', 'Šodiena — ' . __('Find Events'))">
     <meta property="og:description" content="@yield('meta_description', __('Discover future events'))">
-    <meta property="og:type" content="website">
+    <meta property="og:type" content="@yield('og_type', 'website')">
+    <meta property="og:image" content="@yield('meta_image', asset('images/default-event.jpg'))">
+    <meta property="og:locale" content="{{ app()->getLocale() === 'lv' ? 'lv_LV' : (app()->getLocale() === 'ru' ? 'ru_RU' : 'en_US') }}">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="@yield('title', 'Šodiena — ' . __('Find Events'))">
+    <meta name="twitter:description" content="@yield('meta_description', __('Discover future events'))">
+    <meta name="twitter:image" content="@yield('meta_image', asset('images/default-event.jpg'))">
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
