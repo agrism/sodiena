@@ -130,18 +130,24 @@ class EventIngestionService
                 }
             }
 
-            // Strict Cinema Enforcement: K.Suns, Forum Cinemas, and Cinema venues must NEVER have Teatris
+            // Strict Cinema Enforcement: K.Suns, Kino Rio, Forum Cinemas, and Cinema venues or film text must NEVER have Teatris
             $venueLower = mb_strtolower($dto->venueName ?? '', 'UTF-8');
             $titleLower = mb_strtolower($dto->title ?? '', 'UTF-8');
+            $descLower = mb_strtolower($dto->description ?? '', 'UTF-8');
+            $fullText = $titleLower . ' ' . $venueLower . ' ' . $descLower;
+
             $isStrictCinema = (
                 $smartSlug === 'kino' ||
                 str_contains($venueLower, 'k.suns') || str_contains($venueLower, 'k suns') || str_contains($venueLower, 'ksuns') ||
+                str_contains($venueLower, 'k. suns') || str_contains($venueLower, 'k.  suns') ||
                 str_contains($venueLower, 'forum cinema') || str_contains($venueLower, 'forumcinemas') ||
+                str_contains($venueLower, 'kino rio') || str_contains($venueLower, 'kinorio') ||
                 str_contains($venueLower, 'kinoteātr') || str_contains($venueLower, 'kinoteatr') ||
                 str_contains($venueLower, 'apollo kino') || str_contains($venueLower, 'cinamon') ||
                 str_contains($venueLower, 'kino bize') ||
-                str_contains($titleLower, 'k.suns') || str_contains($titleLower, 'forum cinema') ||
-                str_contains($titleLower, 'kinoseans') || str_contains($titleLower, 'filmas seans')
+                str_contains($titleLower, 'k.suns') || str_contains($titleLower, 'forum cinema') || str_contains($titleLower, 'kino rio') ||
+                str_contains($fullText, 'filma') || str_contains($fullText, 'filmas') || str_contains($fullText, 'filmu') ||
+                str_contains($fullText, 'kinoseans') || str_contains($fullText, 'filmas seans')
             );
 
             if ($isStrictCinema) {

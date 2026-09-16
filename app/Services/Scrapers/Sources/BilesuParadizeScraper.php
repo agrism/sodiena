@@ -340,10 +340,11 @@ class BilesuParadizeScraper extends BaseScraper
             $lower = mb_strtolower($title . ' ' . $venueName);
             if (empty($categoryNames)) {
                 if (
-                    str_contains($lower, 'k.suns') || str_contains($lower, 'k suns') || str_contains($lower, 'forum cinema') ||
+                    str_contains($lower, 'k.suns') || str_contains($lower, 'k suns') || str_contains($lower, 'k. suns') ||
+                    str_contains($lower, 'forum cinema') || str_contains($lower, 'kino rio') || str_contains($lower, 'kinorio') ||
                     str_contains($lower, 'kinoteātr') || str_contains($lower, 'apollo kino') || str_contains($lower, 'cinamon') ||
                     str_contains($lower, 'kino bize') || str_contains($lower, 'splendid palace') || str_contains($lower, 'kino') ||
-                    str_contains($lower, 'filma') || str_contains($lower, 'kinoseanss') || str_contains($lower, 'seanss')
+                    str_contains($lower, 'filma') || str_contains($lower, 'filmas') || str_contains($lower, 'kinoseanss') || str_contains($lower, 'seanss')
                 ) {
                     $categoryNames[] = 'Kino';
                 } elseif (
