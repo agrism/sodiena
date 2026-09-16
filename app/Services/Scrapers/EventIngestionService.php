@@ -130,6 +130,31 @@ class EventIngestionService
                 }
             }
 
+            // Strict Cinema Enforcement: K.Suns, Forum Cinemas, and Cinema venues must NEVER have Teatris
+            $venueLower = mb_strtolower($dto->venueName ?? '', 'UTF-8');
+            $titleLower = mb_strtolower($dto->title ?? '', 'UTF-8');
+            $isStrictCinema = (
+                $smartSlug === 'kino' ||
+                str_contains($venueLower, 'k.suns') || str_contains($venueLower, 'k suns') || str_contains($venueLower, 'ksuns') ||
+                str_contains($venueLower, 'forum cinema') || str_contains($venueLower, 'forumcinemas') ||
+                str_contains($venueLower, 'kinoteātr') || str_contains($venueLower, 'kinoteatr') ||
+                str_contains($venueLower, 'apollo kino') || str_contains($venueLower, 'cinamon') ||
+                str_contains($venueLower, 'kino bize') ||
+                str_contains($titleLower, 'k.suns') || str_contains($titleLower, 'forum cinema') ||
+                str_contains($titleLower, 'kinoseans') || str_contains($titleLower, 'filmas seans')
+            );
+
+            if ($isStrictCinema) {
+                $teatrisCat = $this->resolveCanonicalCategory('teatris');
+                $kinoCat = $this->resolveCanonicalCategory('kino');
+                if ($teatrisCat) {
+                    $categoryIds = array_diff($categoryIds, [$teatrisCat->id]);
+                }
+                if ($kinoCat && !in_array($kinoCat->id, $categoryIds, true)) {
+                    $categoryIds[] = $kinoCat->id;
+                }
+            }
+
             $categoryIds = array_values(array_unique($categoryIds));
 
             $fingerprint = $dto->getFingerprint();

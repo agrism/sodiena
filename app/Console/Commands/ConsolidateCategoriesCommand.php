@@ -209,8 +209,11 @@ class ConsolidateCategoriesCommand extends Command
             $eventCanonicalLinks[$eventId][$targetCatId] = true;
         }
 
-        // Refine events that might have been broadly categorized into 'izstades' or 'citi'
+        // Refine events that might have been broadly categorized into 'izstades' or 'citi', and strictly enforce cinema venues
         $allEvents = Event::with('location')->get();
+        $teatrisId = $canonicalMap['teatris']->id ?? null;
+        $kinoId = $canonicalMap['kino']->id ?? null;
+
         foreach ($allEvents as $event) {
             $smartSlug = self::inferFromContentAndVenue(
                 $event->title,
@@ -219,7 +222,26 @@ class ConsolidateCategoriesCommand extends Command
                 []
             );
 
-            if ($smartSlug && isset($canonicalMap[$smartSlug])) {
+            $venueLower = mb_strtolower($event->location?->name ?? '', 'UTF-8');
+            $titleLower = mb_strtolower($event->title ?? '', 'UTF-8');
+            $isCinemaVenue = (
+                $smartSlug === 'kino' ||
+                str_contains($venueLower, 'k.suns') || str_contains($venueLower, 'k suns') || str_contains($venueLower, 'ksuns') ||
+                str_contains($venueLower, 'forum cinema') || str_contains($venueLower, 'forumcinemas') ||
+                str_contains($venueLower, 'kinoteātr') || str_contains($venueLower, 'kinoteatr') ||
+                str_contains($venueLower, 'apollo kino') || str_contains($venueLower, 'cinamon') ||
+                str_contains($venueLower, 'kino bize') ||
+                str_contains($titleLower, 'k.suns') || str_contains($titleLower, 'forum cinema') ||
+                str_contains($titleLower, 'kinoseans') || str_contains($titleLower, 'filmas seans')
+            );
+
+            if ($isCinemaVenue && $kinoId) {
+                // Strip teatris and enforce kino
+                if ($teatrisId && isset($eventCanonicalLinks[$event->id][$teatrisId])) {
+                    unset($eventCanonicalLinks[$event->id][$teatrisId]);
+                }
+                $eventCanonicalLinks[$event->id][$kinoId] = true;
+            } elseif ($smartSlug && isset($canonicalMap[$smartSlug])) {
                 $smartCatId = $canonicalMap[$smartSlug]->id;
                 // If it was only mapped to 'citi' or 'izstades', replace with the smarter category
                 $currentCatIds = array_keys($eventCanonicalLinks[$event->id] ?? []);
