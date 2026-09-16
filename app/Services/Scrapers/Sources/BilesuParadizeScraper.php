@@ -173,6 +173,7 @@ class BilesuParadizeScraper extends BaseScraper
         }
 
         $seenSessionIds = [];
+        $fallbackHall = null;
 
         // Parse individual performance session objects
         foreach ($nuxt as $item) {
@@ -236,6 +237,11 @@ class BilesuParadizeScraper extends BaseScraper
                 } elseif (is_string($hTitles)) {
                     $hallName = $hTitles;
                 }
+            } elseif (isset($item['hall'])) {
+                $hallObj = $resolve($item['hall']);
+                if (is_array($hallObj) && isset($hallObj['title'])) {
+                    $hallName = $resolve($hallObj['title']);
+                }
             } elseif (isset($item['venue_titles'])) {
                 $vTitles = $resolve($item['venue_titles']);
                 if (is_array($vTitles)) {
@@ -243,6 +249,12 @@ class BilesuParadizeScraper extends BaseScraper
                 } elseif (is_string($vTitles)) {
                     $hallName = $vTitles;
                 }
+            }
+
+            if (!$hallName && $fallbackHall) {
+                $hallName = $fallbackHall;
+            } elseif ($hallName && is_string($hallName) && $hallName !== 'Rīga') {
+                $fallbackHall = $hallName;
             }
 
             $venueName = is_string($hallName) ? $this->cleanText($hallName) : 'Rīga';
