@@ -102,4 +102,51 @@ class BilesuParadizeScraperTest extends TestCase
         $this->assertEquals('Dailes teātris', $event->location?->name);
         $this->assertTrue($event->categories->pluck('slug')->contains('teatris'));
     }
+
+    public function test_bilesu_paradize_parse_nuxt_event_sessions(): void
+    {
+        $scraper = new BilesuParadizeScraper();
+        $source = Source::create([
+            'name' => 'Biļešu Paradīze',
+            'slug' => 'bilesu-paradize-test',
+            'url' => 'https://www.bilesuparadize.lv/lv',
+            'scraper_class' => BilesuParadizeScraper::class,
+            'is_active' => true,
+        ]);
+
+        $nuxtData = [
+            "DZIMŠANAS DIENAS KŪKA — Biļešu Paradīze",
+            [
+                "date_time" => 2,
+                "performance_id" => 3,
+                "id" => 4,
+                "hall_titles" => 5,
+            ],
+            "2026-10-21 19:00:00",
+            100,
+            175373,
+            "Jaunais Rīgas teātris, Lielā zāle",
+            [
+                "date_time" => 7,
+                "performance_id" => 3,
+                "id" => 8,
+                "hall_titles" => 5,
+            ],
+            "2026-10-22 19:00:00",
+            175374,
+        ];
+
+        $html = '<!DOCTYPE html><html><head><title>DZIMŠANAS DIENAS KŪKA — Biļešu Paradīze</title></head><body><script id="__NUXT_DATA__" type="application/json">' . json_encode($nuxtData) . '</script></body></html>';
+
+        $dtos = $scraper->parseNuxtEventSessions($html, 'https://www.bilesuparadize.lv/lv/event/171278', $source);
+
+        $this->assertCount(2, $dtos);
+        $this->assertEquals('DZIMŠANAS DIENAS KŪKA', $dtos[0]->title);
+        $this->assertEquals('https://www.bilesuparadize.lv/lv/event/175373', $dtos[0]->ticketUrl);
+        $this->assertEquals('Jaunais Rīgas teātris, Lielā zāle', $dtos[0]->venueName);
+        $this->assertEquals('2026-10-21 19:00:00', $dtos[0]->startAt->format('Y-m-d H:i:s'));
+
+        $this->assertEquals('https://www.bilesuparadize.lv/lv/event/175374', $dtos[1]->ticketUrl);
+        $this->assertEquals('2026-10-22 19:00:00', $dtos[1]->startAt->format('Y-m-d H:i:s'));
+    }
 }

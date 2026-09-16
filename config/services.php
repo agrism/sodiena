@@ -43,4 +43,8 @@ return [
         'url' => env('BROWSERLESS_URL', 'http://localhost:4007'),
     ],
 
+    'flaresolverr' => [
+        'url' => env('FLARESOLVERR_URL', 'http://127.0.0.1:8191'),
+    ],
+
 ];

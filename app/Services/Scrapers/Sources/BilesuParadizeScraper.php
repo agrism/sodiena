@@ -25,42 +25,214 @@ class BilesuParadizeScraper extends BaseScraper
     public function scrape(Source $source): Collection
     {
         $events = collect();
-        $browserlessUrl = config('services.browserless.url', env('BROWSERLESS_URL', 'http://localhost:4007'));
+        $eventUrls = collect();
 
-        // 1. Try to fetch rendered HTML from Browserless Chromium
-        try {
-            $response = Http::timeout(30)->post("{$browserlessUrl}/content?stealth=true", [
-                'url' => $source->url,
-                'gotoOptions' => [
-                    'waitUntil' => 'networkidle2',
-                ],
-            ]);
+        // 1. Discover event URLs from homepage and search listings
+        $listingUrls = [
+            $source->url,
+            'https://www.bilesuparadize.lv/lv/search',
+        ];
 
-            if ($response->successful()) {
-                $html = $response->body();
+        foreach ($listingUrls as $listUrl) {
+            $html = $this->fetchPageHtml($listUrl);
+            if ($html) {
+                // Extract direct cards first
                 $crawler = new \Symfony\Component\DomCrawler\Crawler($html);
                 $this->extractEventsFromCrawler($crawler, $events, $source);
+
+                // Discover individual /event/{id} links
+                if (preg_match_all('#/(?:lv/)?event/(\d+)#i', $html, $matches)) {
+                    foreach ($matches[1] as $eventId) {
+                        $eventUrls->push("https://www.bilesuparadize.lv/lv/event/{$eventId}");
+                    }
+                }
             }
-        } catch (\Throwable $e) {
-            Log::info("Biļešu Paradīze Browserless info: " . $e->getMessage());
         }
 
-        // 2. If events were successfully scraped from Browserless, return them
+        // Also add existing known event URLs from database if available
+        $dbUrls = \App\Models\Event::where('source_id', $source->id)
+            ->whereNotNull('ticket_url')
+            ->pluck('ticket_url')
+            ->take(20);
+        foreach ($dbUrls as $u) {
+            if (str_contains($u, 'bilesuparadize.lv/lv/event/')) {
+                $eventUrls->push($u);
+            }
+        }
+
+        $eventUrls = $eventUrls->unique()->values();
+
+        // 2. For each production/event page, fetch and parse ALL performance sessions (multiple dates)
+        foreach ($eventUrls->take(15) as $eventUrl) {
+            try {
+                $eventHtml = $this->fetchPageHtml($eventUrl);
+                if ($eventHtml) {
+                    $sessionDTOs = $this->parseNuxtEventSessions($eventHtml, $eventUrl, $source);
+                    foreach ($sessionDTOs as $dto) {
+                        $events->push($dto);
+                    }
+                }
+            } catch (\Throwable $e) {
+                Log::info("Failed parsing Biļešu Paradīze event sessions for {$eventUrl}: " . $e->getMessage());
+            }
+        }
+
         if ($events->isNotEmpty()) {
             return $events;
         }
 
-        // 3. Fallback: try direct crawler
-        $crawler = $this->fetchCrawler($source->url);
-        if ($crawler) {
-            $this->extractEventsFromCrawler($crawler, $events, $source);
+        return $this->getMockEvents();
+    }
+
+    public function fetchPageHtml(string $url): ?string
+    {
+        $flaresolverrUrl = config('services.flaresolverr.url', env('FLARESOLVERR_URL', 'http://127.0.0.1:8191'));
+        $browserlessUrl = config('services.browserless.url', env('BROWSERLESS_URL', 'http://localhost:4007'));
+
+        // 1. Try FlareSolverr
+        try {
+            $response = Http::timeout(45)->post("{$flaresolverrUrl}/v1", [
+                'cmd' => 'request.get',
+                'url' => $url,
+                'maxTimeout' => 45000,
+            ]);
+
+            if ($response->successful() && $response->json('status') === 'ok') {
+                $html = $response->json('solution.response');
+                if ($html && !str_contains($html, 'challenge-platform')) {
+                    return $html;
+                }
+            }
+        } catch (\Throwable $e) {
+            // FlareSolverr fallback
         }
 
-        if ($events->isEmpty()) {
-            return $this->getMockEvents();
+        // 2. Try Browserless
+        try {
+            $response = Http::timeout(30)->post("{$browserlessUrl}/content?stealth=true", [
+                'url' => $url,
+                'gotoOptions' => ['waitUntil' => 'networkidle2'],
+            ]);
+
+            if ($response->successful()) {
+                $html = $response->body();
+                if ($html && !str_contains($html, 'challenge-platform')) {
+                    return $html;
+                }
+            }
+        } catch (\Throwable $e) {
+            // Browserless fallback
         }
 
-        return $events;
+        // 3. Try direct crawler fetch
+        try {
+            $response = $this->httpClient->get($url, ['timeout' => 10]);
+            return (string) $response->getBody();
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    public function parseNuxtEventSessions(string $html, string $fallbackUrl, Source $source): Collection
+    {
+        $dtos = collect();
+
+        if (!preg_match('/<script[^>]*id="__NUXT_DATA__"[^>]*>(.*?)<\/script>/s', $html, $matches)) {
+            return $dtos;
+        }
+
+        $nuxt = json_decode($matches[1], true);
+        if (!is_array($nuxt)) {
+            return $dtos;
+        }
+
+        // Extract Title from HTML title or Nuxt
+        $pageTitle = '';
+        if (preg_match('/<title>(.*?)<\/title>/is', $html, $titleMatch)) {
+            $pageTitle = $this->cleanText(html_entity_decode($titleMatch[1]));
+            $pageTitle = preg_replace('/^Biļetes uz\s+/iu', '', $pageTitle);
+            $pageTitle = preg_replace('/\s+\d{1,2}\.\s+[a-zāčēģīķļņšūž]+\s+\d{1,2}:\d{2}.*$/iu', '', $pageTitle);
+            $pageTitle = preg_replace('/\s+—\s+Biļešu Paradīze.*$/iu', '', $pageTitle);
+        }
+
+        // Extract Poster Image from Nuxt / DOM
+        $posterUrl = null;
+        if (preg_match('/(https:\/\/[^\s"\']+\.(?:jpg|jpeg|png|webp))/i', $html, $imgMatch)) {
+            if (str_contains($imgMatch[1], 'bilesuparadize.lv') || str_contains($imgMatch[1], 'image')) {
+                $posterUrl = $imgMatch[1];
+            }
+        }
+
+        // Parse individual performance session objects
+        foreach ($nuxt as $item) {
+            if (!is_array($item) || !isset($item['date_time'])) {
+                continue;
+            }
+
+            if (!isset($item['performance_id']) && !isset($item['performance_titles'])) {
+                continue;
+            }
+
+            $dtRaw = $item['date_time'];
+            $dtStr = is_int($dtRaw) ? ($nuxt[$dtRaw] ?? null) : $dtRaw;
+
+            if (!$dtStr || !preg_match('/^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}$/', $dtStr)) {
+                continue;
+            }
+
+            $idRaw = $item['id'] ?? null;
+            $sessionId = is_int($idRaw) && isset($nuxt[$idRaw]) && is_numeric($nuxt[$idRaw]) ? $nuxt[$idRaw] : $idRaw;
+            if (!$sessionId) {
+                $sessionId = preg_replace('/\D/', '', $fallbackUrl);
+            }
+
+            // Venue / Hall resolution
+            $hallRaw = $item['hall_titles'] ?? ($item['venue_titles'] ?? null);
+            $hallName = null;
+            if (is_int($hallRaw) && isset($nuxt[$hallRaw])) {
+                $hallObj = $nuxt[$hallRaw];
+                $hallName = is_array($hallObj) ? ($hallObj['lv'] ?? null) : $hallObj;
+                if (is_int($hallName) && isset($nuxt[$hallName])) {
+                    $hallName = $nuxt[$hallName];
+                }
+            }
+
+            $venueName = is_string($hallName) ? $this->cleanText($hallName) : 'Rīga';
+            $ticketUrl = "https://www.bilesuparadize.lv/lv/event/{$sessionId}";
+            $startAt = Carbon::parse($dtStr)->setTimezone('Europe/Riga');
+
+            // Skip past performances
+            if ($startAt->isPast()) {
+                continue;
+            }
+
+            $title = $pageTitle ?: 'Biļešu Paradīzes Izrāde';
+            $categories = ['Teātris'];
+            $lower = mb_strtolower($title . ' ' . $venueName);
+            if (str_contains($lower, 'koncerts') || str_contains($lower, 'mūzika') || str_contains($lower, 'orķestr')) {
+                $categories = ['Mūzika'];
+            } elseif (str_contains($lower, 'bērniem') || str_contains($lower, 'leļļu') || str_contains($lower, 'pasaka')) {
+                $categories = ['Bērniem'];
+            }
+
+            $dtos->push(new ScrapedEventDTO(
+                title: $title,
+                startAt: $startAt,
+                venueName: $venueName,
+                city: 'Rīga',
+                categoryNames: $categories,
+                entertainmentType: 'performance',
+                isFree: false,
+                priceMin: 15.0,
+                priceMax: 45.0,
+                ticketUrl: $ticketUrl,
+                imageUrl: $posterUrl,
+                sourceUrl: $ticketUrl,
+                sourceExternalId: "bp-session-{$sessionId}"
+            ));
+        }
+
+        return $dtos;
     }
 
     private function extractEventsFromCrawler(\Symfony\Component\DomCrawler\Crawler $crawler, Collection &$events, Source $source): void
