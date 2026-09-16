@@ -66,24 +66,24 @@ class BilesuParadizeScraperTest extends TestCase
             'is_active' => true,
         ]);
 
-        // Mock HTTP call to Puppeteer scraper microservice
+        // Mock HTTP call to Browserless content endpoint
         Http::fake([
-            '*/scrape/bilesuparadize' => Http::response([
-                'success' => true,
-                'total' => 1,
-                'events' => [
-                    [
-                        'title' => 'Dailes Teātra Jauniestudējums "Ziedonis"',
-                        'description' => 'Imanta Ziedoņa dzejas un teātra izrāde.',
-                        'venue_name' => 'Dailes teātris',
-                        'city' => 'Rīga',
-                        'date_text' => '2026-11-15 19:00:00',
-                        'price_text' => '18.00 - 45.00 €',
-                        'ticket_url' => 'https://www.bilesuparadize.lv/lv/event/98765',
-                        'image_url' => 'https://www.bilesuparadize.lv/images/ziedonis.jpg',
-                    ]
-                ]
-            ], 200),
+            '*/content*' => Http::response('
+                <html>
+                <body>
+                    <div class="events-grid">
+                        <div class="event-card">
+                            <h3 class="event-title">Dailes Teātra Jauniestudējums "Ziedonis"</h3>
+                            <div class="event-venue">Dailes teātris</div>
+                            <div class="event-date">2026-11-15 19:00:00</div>
+                            <div class="event-price">18.00 - 45.00 €</div>
+                            <a href="https://www.bilesuparadize.lv/lv/event/98765">Biļetes</a>
+                            <img src="https://www.bilesuparadize.lv/images/ziedonis.jpg" />
+                        </div>
+                    </div>
+                </body>
+                </html>
+            ', 200),
         ]);
 
         $ingestionService = app(EventIngestionService::class);

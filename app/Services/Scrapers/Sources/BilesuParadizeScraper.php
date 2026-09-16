@@ -25,65 +25,35 @@ class BilesuParadizeScraper extends BaseScraper
     public function scrape(Source $source): Collection
     {
         $events = collect();
-        $puppeteerBaseUrl = config('services.puppeteer_scraper.url', env('PUPPETEER_SCRAPER_URL', 'http://puppeteer-scraper:3000'));
+        $browserlessUrl = config('services.browserless.url', env('BROWSERLESS_URL', 'http://localhost:4007'));
 
-        // 1. Try to fetch live events from Puppeteer Stealth container
+        // 1. Try to fetch rendered HTML from Browserless Chromium
         try {
-            $response = Http::timeout(60)->get("{$puppeteerBaseUrl}/scrape/bilesuparadize");
-            if ($response->successful()) {
-                $data = $response->json();
-                $rawEvents = $data['events'] ?? [];
+            $response = Http::timeout(30)->post("{$browserlessUrl}/content?stealth=true", [
+                'url' => $source->url,
+                'gotoOptions' => [
+                    'waitUntil' => 'networkidle2',
+                ],
+            ]);
 
-                foreach ($rawEvents as $raw) {
-                    $dto = $this->parsePuppeteerEvent($raw, $source);
-                    if ($dto) {
-                        $events->push($dto);
-                    }
-                }
+            if ($response->successful()) {
+                $html = $response->body();
+                $crawler = new \Symfony\Component\DomCrawler\Crawler($html);
+                $this->extractEventsFromCrawler($crawler, $events, $source);
             }
         } catch (\Throwable $e) {
-            Log::info("Biļešu Paradīze Puppeteer scraper service info: " . $e->getMessage());
+            Log::info("Biļešu Paradīze Browserless info: " . $e->getMessage());
         }
 
-        // 2. If events were successfully scraped from live site, return them
+        // 2. If events were successfully scraped from Browserless, return them
         if ($events->isNotEmpty()) {
             return $events;
         }
 
-        // 3. Fallback: try direct crawler in case Cloudflare challenge is disabled or bypassed
+        // 3. Fallback: try direct crawler
         $crawler = $this->fetchCrawler($source->url);
         if ($crawler) {
-            try {
-                $crawler->filter('.event-card, .list-item, .events-grid > div')->each(function ($node) use (&$events, $source) {
-                    $title = $this->cleanText($node->filter('.event-title, h3, h2')->first()->text(''));
-                    if (empty($title)) return;
-
-                    $venue = $this->cleanText($node->filter('.event-venue, .venue, .place')->first()->text(''));
-                    $dateText = $this->cleanText($node->filter('.event-date, time')->first()->text(''));
-                    $priceText = $this->cleanText($node->filter('.event-price, .price')->first()->text(''));
-                    $link = $node->filter('a')->count() ? $node->filter('a')->first()->attr('href') : null;
-                    $img = $node->filter('img')->count() ? $node->filter('img')->first()->attr('src') : null;
-
-                    $parsedPrice = $this->extractPrice($priceText);
-
-                    $events->push(new ScrapedEventDTO(
-                        title: $title,
-                        startAt: now()->addDays(rand(2, 20))->setTime(19, 0),
-                        venueName: $venue ?: 'Arēna Rīga',
-                        city: 'Rīga',
-                        categoryNames: ['Mūzika', 'Teātris'],
-                        entertainmentType: 'concert',
-                        isFree: $parsedPrice['min'] === 0.0,
-                        priceMin: $parsedPrice['min'],
-                        priceMax: $parsedPrice['max'],
-                        ticketUrl: $link ?: $source->url,
-                        imageUrl: $img,
-                        sourceUrl: $link ?: $source->url,
-                    ));
-                });
-            } catch (\Throwable $e) {
-                Log::warning("BilesuParadize parsing exception: " . $e->getMessage());
-            }
+            $this->extractEventsFromCrawler($crawler, $events, $source);
         }
 
         if ($events->isEmpty()) {
@@ -91,6 +61,51 @@ class BilesuParadizeScraper extends BaseScraper
         }
 
         return $events;
+    }
+
+    private function extractEventsFromCrawler(\Symfony\Component\DomCrawler\Crawler $crawler, Collection &$events, Source $source): void
+    {
+        try {
+            $crawler->filter('.event-card, .performance-card, .list-item, .events-grid > div, article')->each(function ($node) use (&$events, $source) {
+                $title = $this->cleanText($node->filter('.event-title, .title, h3, h2, h4')->first()->text(''));
+                if (empty($title) || strlen($title) < 3) return;
+
+                $venue = $this->cleanText($node->filter('.event-venue, .venue, .place, .location')->first()->text(''));
+                $dateText = $this->cleanText($node->filter('.event-date, time, .date')->first()->text(''));
+                $priceText = $this->cleanText($node->filter('.event-price, .price, .cost')->first()->text(''));
+                $link = $node->filter('a')->count() ? $node->filter('a')->first()->attr('href') : null;
+                $img = $node->filter('img')->count() ? $node->filter('img')->first()->attr('src') : null;
+
+                $parsedPrice = $this->extractPrice($priceText);
+                $startAt = $this->parseEventDate($dateText);
+
+                $categories = ['Teātris', 'Mūzika'];
+                $lower = mb_strtolower($title);
+                if (str_contains($lower, 'koncerts') || str_contains($lower, 'mūzika') || str_contains($lower, 'orķestris')) {
+                    $categories = ['Mūzika'];
+                } elseif (str_contains($lower, 'izrāde') || str_contains($lower, 'teātris') || str_contains($lower, 'komēdija')) {
+                    $categories = ['Teātris'];
+                }
+
+                $events->push(new ScrapedEventDTO(
+                    title: $title,
+                    startAt: $startAt,
+                    venueName: $venue ?: 'Arēna Rīga',
+                    city: 'Rīga',
+                    categoryNames: $categories,
+                    entertainmentType: 'concert',
+                    isFree: $parsedPrice['min'] === 0.0,
+                    priceMin: $parsedPrice['min'],
+                    priceMax: $parsedPrice['max'],
+                    ticketUrl: $link ?: $source->url,
+                    imageUrl: $img,
+                    sourceUrl: $link ?: $source->url,
+                    sourceExternalId: md5($title . ($startAt ? $startAt->toDateString() : ''))
+                ));
+            });
+        } catch (\Throwable $e) {
+            Log::warning("BilesuParadize crawler extract exception: " . $e->getMessage());
+        }
     }
 
     public function parsePuppeteerEvent(array $raw, Source $source): ?ScrapedEventDTO

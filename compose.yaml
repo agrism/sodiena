@@ -56,22 +56,6 @@ services:
             - '${FORWARD_MAILPIT_DASHBOARD_PORT:-8025}:8025'
         networks:
             - sail
-    puppeteer-scraper:
-        build:
-            context: ./docker/puppeteer
-            dockerfile: Dockerfile
-        image: 'sodiena/puppeteer-scraper:latest'
-        restart: unless-stopped
-        ports:
-            - '${FORWARD_PUPPETEER_PORT:-3000}:3000'
-        networks:
-            - sail
-        environment:
-            - PORT=3000
-            - NODE_ENV=production
-        volumes:
-            - './docker/puppeteer:/app'
-            - '/app/node_modules'
 networks:
     sail:
         driver: bridge
