@@ -146,7 +146,16 @@ class BilesuParadizeScraper extends BaseScraper
             return $dtos;
         }
 
-        // Extract Title from HTML title or Nuxt
+        // Helper to resolve Nuxt index
+        $resolve = function ($val) use (&$resolve, $nuxt) {
+            if ($val === null) return null;
+            if (is_int($val) && isset($nuxt[$val])) {
+                return $resolve($nuxt[$val]);
+            }
+            return $val;
+        };
+
+        // Extract Top-Level Page Title as fallback
         $pageTitle = '';
         if (preg_match('/<title>(.*?)<\/title>/is', $html, $titleMatch)) {
             $pageTitle = $this->cleanText(html_entity_decode($titleMatch[1]));
@@ -155,13 +164,15 @@ class BilesuParadizeScraper extends BaseScraper
             $pageTitle = preg_replace('/\s+—\s+Biļešu Paradīze.*$/iu', '', $pageTitle);
         }
 
-        // Extract Poster Image from Nuxt / DOM
-        $posterUrl = null;
+        // Extract Poster Image from Nuxt / DOM fallback
+        $fallbackPoster = null;
         if (preg_match('/(https:\/\/[^\s"\']+\.(?:jpg|jpeg|png|webp))/i', $html, $imgMatch)) {
             if (str_contains($imgMatch[1], 'bilesuparadize.lv') || str_contains($imgMatch[1], 'image')) {
-                $posterUrl = $imgMatch[1];
+                $fallbackPoster = $imgMatch[1];
             }
         }
+
+        $seenSessionIds = [];
 
         // Parse individual performance session objects
         foreach ($nuxt as $item) {
@@ -169,44 +180,104 @@ class BilesuParadizeScraper extends BaseScraper
                 continue;
             }
 
-            if (!isset($item['performance_id']) && !isset($item['performance_titles'])) {
+            // Must have performance indicators
+            if (!isset($item['performance_id']) && !isset($item['performance_titles']) && !isset($item['performance'])) {
                 continue;
             }
 
+            // Prefer items with performance_titles / hall_titles (session cards)
+            // or if it's the only performance object
             $dtRaw = $item['date_time'];
-            $dtStr = is_int($dtRaw) ? ($nuxt[$dtRaw] ?? null) : $dtRaw;
+            $dtResolved = $resolve($dtRaw);
 
-            if (!$dtStr || !preg_match('/^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}$/', $dtStr)) {
+            if (!$dtResolved || !is_string($dtResolved) || !preg_match('/^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}$/', $dtResolved)) {
                 continue;
             }
 
             $idRaw = $item['id'] ?? null;
-            $sessionId = is_int($idRaw) && isset($nuxt[$idRaw]) && is_numeric($nuxt[$idRaw]) ? $nuxt[$idRaw] : $idRaw;
-            if (!$sessionId) {
+            $sessionId = $resolve($idRaw);
+            if (!$sessionId || !is_numeric($sessionId)) {
                 $sessionId = preg_replace('/\D/', '', $fallbackUrl);
             }
 
-            // Venue / Hall resolution
-            $hallRaw = $item['hall_titles'] ?? ($item['venue_titles'] ?? null);
+            if (isset($seenSessionIds[$sessionId])) {
+                continue;
+            }
+
+            // Title resolution
+            $title = null;
+            if (isset($item['performance_titles'])) {
+                $pTitles = $resolve($item['performance_titles']);
+                if (is_array($pTitles)) {
+                    $title = $resolve($pTitles['lv'] ?? ($pTitles['en'] ?? reset($pTitles)));
+                } elseif (is_string($pTitles)) {
+                    $title = $pTitles;
+                }
+            }
+
+            if (!$title && isset($item['performance'])) {
+                $perfObj = $resolve($item['performance']);
+                if (is_array($perfObj) && isset($perfObj['title'])) {
+                    $title = $resolve($perfObj['title']);
+                }
+            }
+
+            if (!$title || !is_string($title)) {
+                $title = $pageTitle ?: 'Biļešu Paradīzes Izrāde';
+            }
+            $title = $this->cleanText($title);
+
+            // Hall / Venue resolution
             $hallName = null;
-            if (is_int($hallRaw) && isset($nuxt[$hallRaw])) {
-                $hallObj = $nuxt[$hallRaw];
-                $hallName = is_array($hallObj) ? ($hallObj['lv'] ?? null) : $hallObj;
-                if (is_int($hallName) && isset($nuxt[$hallName])) {
-                    $hallName = $nuxt[$hallName];
+            if (isset($item['hall_titles'])) {
+                $hTitles = $resolve($item['hall_titles']);
+                if (is_array($hTitles)) {
+                    $hallName = $resolve($hTitles['lv'] ?? ($hTitles['en'] ?? reset($hTitles)));
+                } elseif (is_string($hTitles)) {
+                    $hallName = $hTitles;
+                }
+            } elseif (isset($item['venue_titles'])) {
+                $vTitles = $resolve($item['venue_titles']);
+                if (is_array($vTitles)) {
+                    $hallName = $resolve($vTitles['lv'] ?? ($vTitles['en'] ?? reset($vTitles)));
+                } elseif (is_string($vTitles)) {
+                    $hallName = $vTitles;
                 }
             }
 
             $venueName = is_string($hallName) ? $this->cleanText($hallName) : 'Rīga';
+
+            // City resolution
+            $city = 'Rīga';
+            if (isset($item['city'])) {
+                $cResolved = $resolve($item['city']);
+                if (is_string($cResolved) && !empty($cResolved)) {
+                    $city = $this->cleanText($cResolved);
+                }
+            }
+
+            // Image resolution
+            $posterUrl = $fallbackPoster;
+            foreach (['performance_poster_image_url', 'poster_image_url', 'performance_standard_image_url', 'standard_image_url'] as $imgKey) {
+                if (isset($item[$imgKey])) {
+                    $imgResolved = $resolve($item[$imgKey]);
+                    if (is_string($imgResolved) && filter_var($imgResolved, FILTER_VALIDATE_URL)) {
+                        $posterUrl = $imgResolved;
+                        break;
+                    }
+                }
+            }
+
             $ticketUrl = "https://www.bilesuparadize.lv/lv/event/{$sessionId}";
-            $startAt = Carbon::parse($dtStr)->setTimezone('Europe/Riga');
+            $startAt = Carbon::parse($dtResolved)->setTimezone('Europe/Riga');
 
             // Skip past performances
             if ($startAt->isPast()) {
                 continue;
             }
 
-            $title = $pageTitle ?: 'Biļešu Paradīzes Izrāde';
+            $seenSessionIds[$sessionId] = true;
+
             $categories = ['Teātris'];
             $lower = mb_strtolower($title . ' ' . $venueName);
             if (str_contains($lower, 'koncerts') || str_contains($lower, 'mūzika') || str_contains($lower, 'orķestr')) {
@@ -219,7 +290,7 @@ class BilesuParadizeScraper extends BaseScraper
                 title: $title,
                 startAt: $startAt,
                 venueName: $venueName,
-                city: 'Rīga',
+                city: $city,
                 categoryNames: $categories,
                 entertainmentType: 'performance',
                 isFree: false,
