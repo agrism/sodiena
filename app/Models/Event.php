@@ -580,6 +580,36 @@ class Event extends Model
         $locale = app()->getLocale();
 
         $types = [
+            'performance' => [
+                'lv' => 'Izrāde',
+                'en' => 'Performance',
+                'ru' => 'Спектакль',
+            ],
+            'movie' => [
+                'lv' => 'Filma',
+                'en' => 'Movie',
+                'ru' => 'Фильм',
+            ],
+            'show' => [
+                'lv' => 'Šovs',
+                'en' => 'Show',
+                'ru' => 'Шоу',
+            ],
+            'theatre' => [
+                'lv' => 'Teātris',
+                'en' => 'Theatre',
+                'ru' => 'Театр',
+            ],
+            'festival' => [
+                'lv' => 'Festivāls',
+                'en' => 'Festival',
+                'ru' => 'Фестиваль',
+            ],
+            'sports' => [
+                'lv' => 'Sports',
+                'en' => 'Sports',
+                'ru' => 'Спорт',
+            ],
             'concert' => [
                 'lv' => 'Koncerts',
                 'en' => 'Concert',

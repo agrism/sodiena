@@ -131,7 +131,7 @@ class CategoryConsolidationTest extends TestCase
             priceMin: 0,
             priceMax: 0,
             currency: 'EUR',
-            categoryNames: ['Kino un filmas jaunumi', 'Neatpazīts žanrs xyz'],
+            categoryNames: ['Kino un filmas jaunumi'],
             venueName: 'Kino Teātris Splendid',
             address: 'Elizabetes iela 61',
             city: 'Rīga',
@@ -143,14 +143,37 @@ class CategoryConsolidationTest extends TestCase
 
         $service->ingestDTO($dto, $source);
 
+        $dtoUnmapped = new ScrapedEventDTO(
+            title: 'Neatpazīts notikums',
+            description: 'Dažāds apraksts',
+            startAt: now()->addDays(4),
+            endAt: null,
+            isFree: true,
+            priceMin: 0,
+            priceMax: 0,
+            currency: 'EUR',
+            categoryNames: ['Neatpazīts žanrs xyz'],
+            venueName: 'Kaut kur',
+            address: 'Brīvības 1',
+            city: 'Rīga',
+            imageUrl: null,
+            ticketUrl: null,
+            sourceUrl: 'https://example.com/event-2',
+            sourceExternalId: 'ext-456'
+        );
+
+        $service->ingestDTO($dtoUnmapped, $source);
+
         $event = Event::where('source_external_id', 'ext-123')->first();
         $this->assertNotNull($event);
-
         $categorySlugs = $event->categories->pluck('slug')->toArray();
-
-        // Should have 'kino' (from Kino un filmas jaunumi) and 'citi' (from Neatpazīts žanrs xyz)
         $this->assertContains('kino', $categorySlugs);
-        $this->assertContains('citi', $categorySlugs);
+        $this->assertNotContains('citi', $categorySlugs);
+
+        $eventUnmapped = Event::where('source_external_id', 'ext-456')->first();
+        $this->assertNotNull($eventUnmapped);
+        $unmappedCategorySlugs = $eventUnmapped->categories->pluck('slug')->toArray();
+        $this->assertContains('citi', $unmappedCategorySlugs);
 
         // No random custom category slug should exist in categories table
         $this->assertDatabaseMissing('categories', ['slug' => 'kino-un-filmas-jaunumi']);

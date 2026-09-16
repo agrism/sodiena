@@ -254,6 +254,12 @@ class ConsolidateCategoriesCommand extends Command
                     $eventCanonicalLinks[$event->id][$smartCatId] = true;
                 }
             }
+
+            // If the event has ANY specific category, remove 'citi'
+            $citiId = $canonicalMap['citi']->id ?? null;
+            if ($citiId && isset($eventCanonicalLinks[$event->id][$citiId]) && count($eventCanonicalLinks[$event->id]) > 1) {
+                unset($eventCanonicalLinks[$event->id][$citiId]);
+            }
         }
 
         // Truncate and rebuild pivot table cleanly

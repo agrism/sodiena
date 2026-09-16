@@ -161,6 +161,12 @@ class EventIngestionService
                 }
             }
 
+            // If specific categories exist, remove 'citi' fallback
+            $citiCat = $this->resolveCanonicalCategory('citi');
+            if ($citiCat && count($categoryIds) > 1 && in_array($citiCat->id, $categoryIds, true)) {
+                $categoryIds = array_diff($categoryIds, [$citiCat->id]);
+            }
+
             $categoryIds = array_values(array_unique($categoryIds));
 
             $fingerprint = $dto->getFingerprint();
