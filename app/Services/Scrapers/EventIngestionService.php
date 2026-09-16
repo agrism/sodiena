@@ -2,6 +2,7 @@
 
 namespace App\Services\Scrapers;
 
+use App\Console\Commands\ConsolidateCategoriesCommand;
 use App\Models\Category;
 use App\Models\CategoryTranslation;
 use App\Models\Event;
@@ -91,40 +92,32 @@ class EventIngestionService
     public function ingestDTO(ScrapedEventDTO $dto, Source $source): string
     {
         return DB::transaction(function () use ($dto, $source) {
-            $fingerprint = $dto->getFingerprint();
             $locale = $dto->locale ?: 'lv';
 
-            // 1. Resolve or create Location and Location Translations
+            // 1. Resolve Location and Location Translations
             $locationId = $this->resolveOrCreateLocation($dto, $locale);
 
-            // 2. Resolve or create Categories and Category Translations
+            // 2. Resolve canonical Categories (strictly the 9 master categories)
             $categoryIds = [];
             foreach ($dto->categoryNames as $catName) {
-                if (empty($catName)) continue;
-                $catNameTrimmed = $this->normalizeCategoryName($catName);
-                $catSlug = Str::slug($catNameTrimmed);
-
-                $category = Category::firstOrCreate(
-                    ['slug' => $catSlug],
-                    [
-                        'name' => $catNameTrimmed,
-                        'icon' => $this->guessCategoryIcon($catNameTrimmed),
-                        'color' => $this->guessCategoryColor($catNameTrimmed),
-                    ]
-                );
-
-                CategoryTranslation::updateOrCreate(
-                    [
-                        'category_id' => $category->id,
-                        'locale' => $locale,
-                    ],
-                    [
-                        'name' => $catNameTrimmed,
-                    ]
-                );
-
-                $categoryIds[] = $category->id;
+                if (empty(trim($catName))) continue;
+                $cat = $this->resolveCanonicalCategory($catName);
+                if ($cat) {
+                    $categoryIds[] = $cat->id;
+                }
             }
+
+            if (empty($categoryIds)) {
+                // Infer from title / entertainmentType or fallback to 'citi'
+                $cat = $this->resolveCanonicalCategory($dto->title . ' ' . ($dto->entertainmentType ?? ''));
+                if ($cat) {
+                    $categoryIds[] = $cat->id;
+                }
+            }
+
+            $categoryIds = array_values(array_unique($categoryIds));
+
+            $fingerprint = $dto->getFingerprint();
 
             // 3. Deduplication search:
             // Check by external source ID first
@@ -610,14 +603,42 @@ class EventIngestionService
 
     public function normalizeCategoryName(string $name): string
     {
-        $clean = trim($name);
-        $lower = mb_strtolower($clean, 'UTF-8');
+        $slug = ConsolidateCategoriesCommand::mapToCanonicalSlug($name);
+        return ConsolidateCategoriesCommand::CANONICAL_CATEGORIES[$slug]['name'] ?? 'Cits';
+    }
 
-        if (in_array($lower, ['kino', 'kino & filmas', 'filmas & kino', 'filmas', 'kino un filmas', 'cinema', 'movies', 'film'])) {
-            return 'Filmas & Kino';
+    public function resolveCanonicalCategory(string $rawNameOrKeyword): Category
+    {
+        $canonicalSlug = ConsolidateCategoriesCommand::mapToCanonicalSlug($rawNameOrKeyword);
+        $category = Category::where('slug', $canonicalSlug)->first();
+
+        if (!$category) {
+            $data = ConsolidateCategoriesCommand::CANONICAL_CATEGORIES[$canonicalSlug] ?? ConsolidateCategoriesCommand::CANONICAL_CATEGORIES['citi'];
+            $category = Category::firstOrCreate(
+                ['slug' => $data['slug']],
+                [
+                    'name' => $data['name'],
+                    'icon' => $data['icon'],
+                    'color' => $data['color'],
+                    'description' => $data['description'],
+                    'order' => $data['order'],
+                ]
+            );
+
+            foreach ($data['translations'] as $loc => $transName) {
+                CategoryTranslation::updateOrCreate(
+                    [
+                        'category_id' => $category->id,
+                        'locale' => $loc,
+                    ],
+                    [
+                        'name' => $transName,
+                    ]
+                );
+            }
         }
 
-        return $clean;
+        return $category;
     }
 
 
