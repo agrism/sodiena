@@ -337,23 +337,44 @@ class ConsolidateCategoriesCommand extends Command
         $text = mb_strtolower($title . ' ' . ($description ?? '') . ' ' . ($venue ?? ''), 'UTF-8');
         $rawCatText = mb_strtolower(implode(' ', $rawCategories), 'UTF-8');
 
-        // 1. Teātris (theatres, plays, performances, dramaturgy)
+        // 1. Cinema / Kino (K.Suns, Forum Cinema, Apollo Kino, Cinamon, Splendid Palace, Kino Bize etc. are ALWAYS KINO, NEVER Theater)
+        $isCinemaVenue = (
+            str_contains($text, 'k.suns') || str_contains($text, 'k suns') || str_contains($text, 'ksuns') ||
+            str_contains($text, 'forum cinema') || str_contains($text, 'forumcinemas') ||
+            str_contains($text, 'kinoteātr') || str_contains($text, 'kinoteatr') ||
+            str_contains($text, 'apollo kino') || str_contains($text, 'cinamon') ||
+            str_contains($text, 'kino bize') || str_contains($text, 'splendid palace') ||
+            str_contains($text, 'kino citadele') || str_contains($text, 'kino gaisma') ||
+            str_contains($text, 'kino lora') || str_contains($text, 'kino ria') ||
+            str_contains($text, 'kino baze') || str_contains($text, 'kino zāle') ||
+            str_contains($text, 'kinozāle')
+        );
+
         if (
-            str_contains($text, 'teātr') || str_contains($text, 'teatr') || str_contains($text, 'teatro') ||
-            str_contains($text, 'izrāde') || str_contains($text, 'izrādē') || str_contains($text, 'pirmizrāde') ||
-            str_contains($text, 'luga') || str_contains($text, 'lugā') || str_contains($text, 'iestudējum') ||
-            str_contains($text, 'dramaturg') || str_contains($text, 'aktier') || str_contains($text, 'režisor') ||
-            str_contains($text, 'operet') || str_contains($text, 'balet') || str_contains($text, 'cirks') ||
-            str_contains($text, 'stand-up') || str_contains($text, 'standup') || str_contains($text, 'komēdij')
+            $isCinemaVenue ||
+            str_contains($text, 'kinoseans') || str_contains($text, 'filmas seans') ||
+            str_contains($text, 'spēlfilma') || str_contains($text, 'dokumentālā filma') ||
+            str_contains($text, 'animācijas filma') || str_contains($text, 'īsfilma') ||
+            str_contains($text, 'kino festivāl') || str_contains($text, 'kinofestivāl') ||
+            str_contains($text, 'filmas pirmizrāde') || str_contains($text, 'filmas seanss') ||
+            str_contains($rawCatText, 'kino') || str_contains($rawCatText, 'film') || str_contains($rawCatText, 'cinema')
         ) {
-            if (!str_contains($text, 'filmas seanss') && !str_contains($text, 'kinoseanss')) {
-                return 'teatris';
-            }
+            return 'kino';
         }
 
-        // 2. Kino
-        if (str_contains($text, 'kino') || str_contains($text, 'filma') || str_contains($text, 'filmas') || str_contains($text, 'cinema') || str_contains($text, 'movie') || str_contains($text, 'seanss')) {
-            return 'kino';
+        // 2. Teātris (theatres, plays, performances, dramaturgy - strictly excluding cinema venues)
+        if (
+            !$isCinemaVenue &&
+            (
+                str_contains($text, 'teātr') || str_contains($text, 'teatr') || str_contains($text, 'teatro') ||
+                str_contains($text, 'izrāde') || str_contains($text, 'izrādē') || str_contains($text, 'pirmizrāde') ||
+                str_contains($text, 'luga') || str_contains($text, 'lugā') || str_contains($text, 'iestudējum') ||
+                str_contains($text, 'dramaturg') || str_contains($text, 'aktier') || str_contains($text, 'režisor') ||
+                str_contains($text, 'operet') || str_contains($text, 'balet') || str_contains($text, 'cirks') ||
+                str_contains($text, 'stand-up') || str_contains($text, 'standup') || str_contains($text, 'komēdij')
+            )
+        ) {
+            return 'teatris';
         }
 
         // 3. Mūzika
