@@ -39,4 +39,8 @@ return [
         'analytics_id' => env('GA_MEASUREMENT_ID'),
     ],
 
+    'puppeteer_scraper' => [
+        'url' => env('PUPPETEER_SCRAPER_URL', 'http://puppeteer-scraper:3000'),
+    ],
+
 ];
