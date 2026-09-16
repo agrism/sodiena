@@ -299,54 +299,67 @@
                             </form>
 
                             <!-- Category and Entertainment Type Selector Form -->
-                            <form action="{{ route('admin.events.update-category', $event->id) }}" method="POST" class="pt-3 border-t border-slate-200/80 space-y-2.5">
+                            <form action="{{ route('admin.events.update-category', $event->id) }}" method="POST" class="pt-3 border-t border-slate-200/80 space-y-3">
                                 @csrf
                                 <div>
-                                    <label for="admin-category-select" class="block text-[11px] font-bold text-slate-600 mb-1 flex items-center justify-between">
-                                        <span>{{ __('Galvenā kategorija') }}:</span>
-                                        <span class="text-[10px] font-normal text-slate-400">Automātiski saglabā</span>
-                                    </label>
-                                    <div class="relative">
-                                        <select 
-                                            id="admin-category-select" 
-                                            name="category_id" 
-                                            onchange="this.form.submit()" 
-                                            class="w-full appearance-none bg-white text-slate-800 text-xs font-bold py-2 pl-3 pr-8 rounded-xl border border-slate-300 hover:border-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer shadow-xs">
-                                            @if(isset($allCategories))
-                                                @foreach($allCategories as $cat)
-                                                    <option value="{{ $cat->id }}" {{ $event->categories->contains('id', $cat->id) ? 'selected' : '' }}>
-                                                        {{ $cat->name }}
-                                                    </option>
-                                                @endforeach
-                                            @endif
-                                        </select>
-                                        <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                                    <div class="flex items-center justify-between mb-1.5">
+                                        <label class="block text-[11px] font-bold text-slate-600">
+                                            {{ __('Pasākuma kategorijas / birkas') }}:
+                                        </label>
+                                        <span class="text-[10px] font-normal text-slate-400">Atzīmējiet visas atbilstošās</span>
+                                    </div>
+                                    
+                                    <div class="grid grid-cols-2 gap-1.5 p-2 bg-white rounded-xl border border-slate-200 shadow-2xs max-h-48 overflow-y-auto">
+                                        @if(isset($allCategories))
+                                            @foreach($allCategories as $cat)
+                                                @php
+                                                    $isChecked = $event->categories->contains('id', $cat->id);
+                                                @endphp
+                                                <label class="flex items-center gap-2 p-1.5 rounded-lg border text-xs font-semibold cursor-pointer transition-colors select-none {{ $isChecked ? 'bg-emerald-50 text-emerald-900 border-emerald-300 font-bold' : 'bg-slate-50/50 text-slate-600 border-slate-200/80 hover:bg-slate-100' }}">
+                                                    <input 
+                                                        type="checkbox" 
+                                                        name="category_ids[]" 
+                                                        value="{{ $cat->id }}" 
+                                                        {{ $isChecked ? 'checked' : '' }}
+                                                        class="w-3.5 h-3.5 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500 cursor-pointer">
+                                                    <span class="truncate">{{ $cat->name }}</span>
+                                                </label>
+                                            @endforeach
+                                        @endif
                                     </div>
                                 </div>
 
                                 <div>
                                     <label for="admin-type-select" class="block text-[11px] font-bold text-slate-600 mb-1 flex items-center justify-between">
-                                        <span>{{ __('Izklaides veids / birka') }}:</span>
-                                        <span class="text-[10px] font-normal text-slate-400">Automātiski saglabā</span>
+                                        <span>{{ __('Izklaides veids') }}:</span>
                                     </label>
                                     <div class="relative">
                                         <select 
                                             id="admin-type-select" 
                                             name="entertainment_type" 
-                                            onchange="this.form.submit()" 
                                             class="w-full appearance-none bg-white text-slate-800 text-xs font-bold py-2 pl-3 pr-8 rounded-xl border border-slate-300 hover:border-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer shadow-xs">
                                             <option value="" {{ empty($event->entertainment_type) ? 'selected' : '' }}>— Nav norādīts —</option>
-                                            <option value="chill" {{ $event->entertainment_type === 'chill' ? 'selected' : '' }}>Kino / Teātris / Atpūta</option>
+                                            <option value="performance" {{ $event->entertainment_type === 'performance' ? 'selected' : '' }}>Izrāde (Performance)</option>
                                             <option value="concert" {{ $event->entertainment_type === 'concert' ? 'selected' : '' }}>Koncerts</option>
                                             <option value="exhibition" {{ $event->entertainment_type === 'exhibition' ? 'selected' : '' }}>Izstāde</option>
+                                            <option value="movie" {{ $event->entertainment_type === 'movie' ? 'selected' : '' }}>Filma / Kino</option>
                                             <option value="workshop" {{ $event->entertainment_type === 'workshop' ? 'selected' : '' }}>Meistarklase / Seminārs</option>
                                             <option value="family" {{ $event->entertainment_type === 'family' ? 'selected' : '' }}>Ģimenei / Bērniem</option>
                                             <option value="active" {{ $event->entertainment_type === 'active' ? 'selected' : '' }}>Sports / Aktīvā atpūta</option>
                                             <option value="party" {{ $event->entertainment_type === 'party' ? 'selected' : '' }}>Ballīte / Festivāls</option>
+                                            <option value="show" {{ $event->entertainment_type === 'show' ? 'selected' : '' }}>Šovs</option>
+                                            <option value="chill" {{ $event->entertainment_type === 'chill' ? 'selected' : '' }}>Atpūta</option>
                                         </select>
                                         <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
                                     </div>
                                 </div>
+
+                                <button 
+                                    type="submit" 
+                                    class="w-full py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer">
+                                    <i data-lucide="check" class="w-3.5 h-3.5 text-emerald-400"></i>
+                                    <span>{{ __('Saglabāt birkas') }}</span>
+                                </button>
                             </form>
                         </div>
                     </div>
