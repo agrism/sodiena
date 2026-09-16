@@ -7,6 +7,7 @@ use App\Models\Event;
 use App\Models\Location;
 use App\Models\Source;
 use App\Services\Scrapers\EventIngestionService;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -37,14 +38,35 @@ class EventController extends Controller
 
         $events = $query->paginate(16)->withQueryString();
 
-        // If this is an HTMX partial request, return only the list fragment
-        if ($request->header('HX-Request')) {
-            return view('events.partials.events-list', compact('events'));
-        }
+        // Cache category counts and total count based on active date filter and locale for 5 minutes (300s)
+        $cacheKey = 'cat_counts_' . app()->getLocale() . '_' . md5(($period ?: 'all') . '_' . ($date ?: 'none'));
+        $categoryData = Cache::remember($cacheKey, 300, function () use ($period, $date) {
+            $categories = Category::with(['translations'])
+                ->withCount(['events' => function ($q) use ($period, $date) {
+                    $q->forDateFilter($period, $date);
+                }])
+                ->orderBy('order')
+                ->get();
 
-        $categories = Category::with(['translations'])->withCount(['events' => function ($q) {
-            $q->upcoming();
-        }])->orderBy('order')->get();
+            $totalUpcoming = Event::query()->forDateFilter($period, $date)->count();
+
+            return compact('categories', 'totalUpcoming');
+        });
+
+        $categories = $categoryData['categories'];
+        $totalUpcoming = $categoryData['totalUpcoming'];
+
+        // If this is an HTMX partial request, return only the list fragment (with OOB category updates)
+        if ($request->header('HX-Request')) {
+            return view('events.partials.events-list', compact(
+                'events',
+                'categories',
+                'totalUpcoming',
+                'categorySlug',
+                'period',
+                'date'
+            ));
+        }
 
         $cities = Location::select('city')
             ->distinct()
@@ -58,8 +80,6 @@ class EventController extends Controller
             ->upcoming()
             ->take(3)
             ->get();
-
-        $totalUpcoming = Event::upcoming()->count();
 
         return view('events.index', compact(
             'events',

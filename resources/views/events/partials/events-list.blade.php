@@ -172,3 +172,14 @@
         </div>
     @endif
 @endif
+
+@if(isset($categories) && isset($totalUpcoming) && $events->currentPage() === 1)
+    <div id="category-carousel-wrapper" hx-swap-oob="true" class="mb-8 w-full max-w-full overflow-hidden">
+        @include('events.partials.category-pills', [
+            'categories' => $categories,
+            'totalUpcoming' => $totalUpcoming,
+            'categorySlug' => $categorySlug ?? request('category', 'all')
+        ])
+    </div>
+@endif
+

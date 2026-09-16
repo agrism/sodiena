@@ -48,6 +48,67 @@ class EventCalendarTest extends TestCase
         $response->assertDontSee('<!DOCTYPE html>'); // Ensures only partial is returned
     }
 
+    public function test_category_counts_scoped_to_when_date_filter_and_htmx_oob_swap(): void
+    {
+        $kino = Category::create([
+            'name' => 'Kino',
+            'slug' => 'kino',
+            'order' => 1,
+        ]);
+
+        $teatris = Category::create([
+            'name' => 'Teātris',
+            'slug' => 'teatris',
+            'order' => 2,
+        ]);
+
+        $eventToday = Event::create([
+            'title' => 'Šodienas Kino Seanss',
+            'slug' => 'sodienas-kino-seanss',
+            'start_at' => now()->startOfDay()->addHours(19),
+            'fingerprint' => 'fp-today-kino',
+            'status' => 'published',
+            'published_at' => now(),
+        ]);
+        $eventToday->categories()->attach($kino);
+
+        $eventNextWeek = Event::create([
+            'title' => 'Nākamās Nedēļas Kino',
+            'slug' => 'nakamas-nedelas-kino',
+            'start_at' => now()->addDays(7)->startOfDay()->addHours(18),
+            'fingerprint' => 'fp-nextweek-kino',
+            'status' => 'published',
+            'published_at' => now(),
+        ]);
+        $eventNextWeek->categories()->attach($kino);
+
+        $eventNextWeekPlay = Event::create([
+            'title' => 'Nākamās Nedēļas Izrāde',
+            'slug' => 'nakamas-nedelas-izrade',
+            'start_at' => now()->addDays(7)->startOfDay()->addHours(19),
+            'fingerprint' => 'fp-nextweek-teatris',
+            'status' => 'published',
+            'published_at' => now(),
+        ]);
+        $eventNextWeekPlay->categories()->attach($teatris);
+
+        // 1. Full page request for all dates: total is 3
+        $resAll = $this->get('/');
+        $resAll->assertStatus(200);
+        $resAll->assertSee('Šodienas Kino Seanss');
+        $resAll->assertSee('Nākamās Nedēļas Kino');
+        $resAll->assertSee('Nākamās Nedēļas Izrāde');
+
+        // 2. HTMX filter request for period=today: should return only today's event + OOB updated counts (total 1, kino 1)
+        $resToday = $this->withHeaders(['HX-Request' => 'true'])->get('/?period=today');
+        $resToday->assertStatus(200);
+        $resToday->assertSee('Šodienas Kino Seanss');
+        $resToday->assertDontSee('Nākamās Nedēļas Kino');
+        $resToday->assertDontSee('Nākamās Nedēļas Izrāde');
+        $resToday->assertSee('hx-swap-oob="true"', false);
+        $resToday->assertSee('id="category-carousel-wrapper"', false);
+    }
+
     public function test_event_show_page_displays_details(): void
     {
         $location = Location::create([
