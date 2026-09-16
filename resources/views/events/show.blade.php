@@ -403,6 +403,14 @@
 
 @push('scripts')
 @php
+    $performerName = $event->raw_data['performer'] 
+        ?? $event->raw_data['artist'] 
+        ?? ($event->location?->name ?: ($event->source?->name ?: $event->title));
+
+    $endDate = $event->end_at 
+        ? $event->end_at->toIso8601String() 
+        : ($event->start_at ? ($event->all_day ? $event->start_at->copy()->endOfDay()->toIso8601String() : $event->start_at->copy()->addHours(2)->toIso8601String()) : null);
+
     $schemaData = [
         '@context' => 'https://schema.org',
         '@type' => 'Event',
@@ -414,6 +422,10 @@
         'startDate' => $event->start_at ? $event->start_at->toIso8601String() : null,
         'eventStatus' => 'https://schema.org/EventScheduled',
         'eventAttendanceMode' => 'https://schema.org/OfflineEventAttendanceMode',
+        'performer' => [
+            '@type' => 'PerformingGroup',
+            'name' => $performerName,
+        ],
         'location' => [
             '@type' => 'Place',
             'name' => $event->location?->name ?: ($event->location?->city ?: 'Latvija'),
@@ -439,8 +451,8 @@
         ],
     ];
 
-    if ($event->end_at) {
-        $schemaData['endDate'] = $event->end_at->toIso8601String();
+    if ($endDate) {
+        $schemaData['endDate'] = $endDate;
     }
 
     if ($event->location?->latitude && $event->location?->longitude) {

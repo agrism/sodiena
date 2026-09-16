@@ -103,5 +103,7 @@ class SeoAndSitemapTest extends TestCase
         $this->assertStringContainsString('"@type": "Event"', $content);
         $this->assertStringContainsString('"name": "Teātra Izrāde Spēle"', $content);
         $this->assertStringContainsString('"addressLocality": "Rīga"', $content);
+        $this->assertStringContainsString('"performer"', $content);
+        $this->assertStringContainsString('"endDate"', $content);
     }
 }
