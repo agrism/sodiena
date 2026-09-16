@@ -99,6 +99,22 @@ class EventIngestionService
 
             // 2. Resolve canonical Categories (strictly the 9 master categories)
             $categoryIds = [];
+
+            // Check if venue or title specifically indicates theatre, cinema, music, etc.
+            $smartSlug = ConsolidateCategoriesCommand::inferFromContentAndVenue(
+                $dto->title,
+                $dto->description,
+                $dto->venueName,
+                $dto->categoryNames
+            );
+
+            if ($smartSlug && $smartSlug !== 'citi') {
+                $cat = $this->resolveCanonicalCategory($smartSlug);
+                if ($cat) {
+                    $categoryIds[] = $cat->id;
+                }
+            }
+
             foreach ($dto->categoryNames as $catName) {
                 if (empty(trim($catName))) continue;
                 $cat = $this->resolveCanonicalCategory($catName);
@@ -108,7 +124,6 @@ class EventIngestionService
             }
 
             if (empty($categoryIds)) {
-                // Infer from title / entertainmentType or fallback to 'citi'
                 $cat = $this->resolveCanonicalCategory($dto->title . ' ' . ($dto->entertainmentType ?? ''));
                 if ($cat) {
                     $categoryIds[] = $cat->id;

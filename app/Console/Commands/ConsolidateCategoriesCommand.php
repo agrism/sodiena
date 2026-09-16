@@ -209,12 +209,29 @@ class ConsolidateCategoriesCommand extends Command
             $eventCanonicalLinks[$eventId][$targetCatId] = true;
         }
 
-        // Also check events with zero categories or direct entertainment_type
-        $eventsWithoutCategories = Event::whereDoesntHave('categories')->get();
-        foreach ($eventsWithoutCategories as $event) {
-            $targetSlug = self::mapToCanonicalSlug($event->title . ' ' . ($event->entertainment_type ?? ''));
-            $targetCatId = $canonicalMap[$targetSlug]->id ?? $canonicalMap['citi']->id;
-            $eventCanonicalLinks[$event->id][$targetCatId] = true;
+        // Refine events that might have been broadly categorized into 'izstades' or 'citi'
+        $allEvents = Event::with('location')->get();
+        foreach ($allEvents as $event) {
+            $smartSlug = self::inferFromContentAndVenue(
+                $event->title,
+                $event->description,
+                $event->location?->name,
+                []
+            );
+
+            if ($smartSlug && isset($canonicalMap[$smartSlug])) {
+                $smartCatId = $canonicalMap[$smartSlug]->id;
+                // If it was only mapped to 'citi' or 'izstades', replace with the smarter category
+                $currentCatIds = array_keys($eventCanonicalLinks[$event->id] ?? []);
+                $izstadesId = $canonicalMap['izstades']->id ?? null;
+                $citiId = $canonicalMap['citi']->id ?? null;
+
+                if (empty($currentCatIds) || (count($currentCatIds) === 1 && (in_array($izstadesId, $currentCatIds, true) || in_array($citiId, $currentCatIds, true)))) {
+                    $eventCanonicalLinks[$event->id] = [$smartCatId => true];
+                } else {
+                    $eventCanonicalLinks[$event->id][$smartCatId] = true;
+                }
+            }
         }
 
         // Truncate and rebuild pivot table cleanly
@@ -313,5 +330,62 @@ class ConsolidateCategoriesCommand extends Command
 
         // 9. Cits
         return 'citi';
+    }
+
+    public static function inferFromContentAndVenue(string $title, ?string $description = null, ?string $venue = null, array $rawCategories = []): string
+    {
+        $text = mb_strtolower($title . ' ' . ($description ?? '') . ' ' . ($venue ?? ''), 'UTF-8');
+        $rawCatText = mb_strtolower(implode(' ', $rawCategories), 'UTF-8');
+
+        // 1. Teātris (theatres, plays, performances, dramaturgy)
+        if (
+            str_contains($text, 'teātr') || str_contains($text, 'teatr') || str_contains($text, 'teatro') ||
+            str_contains($text, 'izrāde') || str_contains($text, 'izrādē') || str_contains($text, 'pirmizrāde') ||
+            str_contains($text, 'luga') || str_contains($text, 'lugā') || str_contains($text, 'iestudējum') ||
+            str_contains($text, 'dramaturg') || str_contains($text, 'aktier') || str_contains($text, 'režisor') ||
+            str_contains($text, 'operet') || str_contains($text, 'balet') || str_contains($text, 'cirks') ||
+            str_contains($text, 'stand-up') || str_contains($text, 'standup') || str_contains($text, 'komēdij')
+        ) {
+            if (!str_contains($text, 'filmas seanss') && !str_contains($text, 'kinoseanss')) {
+                return 'teatris';
+            }
+        }
+
+        // 2. Kino
+        if (str_contains($text, 'kino') || str_contains($text, 'filma') || str_contains($text, 'filmas') || str_contains($text, 'cinema') || str_contains($text, 'movie') || str_contains($text, 'seanss')) {
+            return 'kino';
+        }
+
+        // 3. Mūzika
+        if (str_contains($text, 'koncerts') || str_contains($text, 'koncertā') || str_contains($text, 'mūzika') || str_contains($text, 'mūzikas') || str_contains($text, 'orķestr') || str_contains($text, 'koris') || str_contains($text, 'dziesm') || str_contains($text, 'solist') || str_contains($text, 'džezs') || str_contains($text, 'rokkoncert') || str_contains($text, 'dziedāt')) {
+            return 'muzika';
+        }
+
+        // 4. Bērniem
+        if (str_contains($text, 'bērniem') || str_contains($text, 'leļļu') || str_contains($text, 'pasaka') || str_contains($text, 'ģimenēm') || str_contains($text, 'mazuļiem') || str_contains($text, 'skolēniem')) {
+            return 'berniem';
+        }
+
+        // 5. Sports
+        if (str_contains($text, 'sports') || str_contains($text, 'sacensīb') || str_contains($text, 'maratons') || str_contains($text, 'skrējiens') || str_contains($text, 'velobrauciens') || str_contains($text, 'čempionāt') || str_contains($text, 'turnīrs') || str_contains($text, 'pārgājiens')) {
+            return 'sports';
+        }
+
+        // 6. Semināri
+        if (str_contains($text, 'meistarklas') || str_contains($text, 'seminār') || str_contains($text, 'lekcij') || str_contains($text, 'apmācīb') || str_contains($text, 'konferenc') || str_contains($text, 'vebinār') || str_contains($text, 'nodarbīb') || str_contains($text, 'diskusij')) {
+            return 'seminari';
+        }
+
+        // 7. Svētki
+        if (str_contains($text, 'svētki') || str_contains($text, 'svētkos') || str_contains($text, 'festivāl') || str_contains($text, 'gadatirg') || str_contains($text, 'tirdziņ') || str_contains($text, 'zaļumballe') || str_contains($text, 'ballīte') || str_contains($text, 'naktsdzīv')) {
+            return 'svetki';
+        }
+
+        // 8. Izstādes
+        if (str_contains($text, 'izstāde') || str_contains($text, 'izstādē') || str_contains($text, 'ekspozīcij') || str_contains($text, 'muzejs') || str_contains($text, 'muzejā') || str_contains($text, 'galerij') || str_contains($text, 'glezn') || str_contains($text, 'mākslas darbi')) {
+            return 'izstades';
+        }
+
+        return self::mapToCanonicalSlug($rawCatText ?: $text);
     }
 }
