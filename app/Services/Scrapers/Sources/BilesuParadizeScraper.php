@@ -27,15 +27,19 @@ class BilesuParadizeScraper extends BaseScraper
         $events = collect();
         $eventUrls = collect();
 
-        // 1. Discover event & performance URLs from homepage, search, and category listings
+        // 1. Discover event & performance URLs from paginated search and category listings
         $listingUrls = [
             $source->url,
-            'https://www.bilesuparadize.lv/lv/search',
             'https://www.bilesuparadize.lv/lv/category/teatris',
             'https://www.bilesuparadize.lv/lv/category/koncerti',
             'https://www.bilesuparadize.lv/lv/category/berniem',
             'https://www.bilesuparadize.lv/lv/category/citi',
         ];
+
+        // Add search pagination pages 1 to 10
+        for ($p = 1; $p <= 10; $p++) {
+            $listingUrls[] = "https://www.bilesuparadize.lv/lv/search?page={$p}";
+        }
 
         foreach ($listingUrls as $listUrl) {
             try {
@@ -231,9 +235,10 @@ class BilesuParadizeScraper extends BaseScraper
                 }
             }
 
-            if (!$title && isset($item['performance'])) {
+            $perfObj = null;
+            if (isset($item['performance'])) {
                 $perfObj = $resolve($item['performance']);
-                if (is_array($perfObj) && isset($perfObj['title'])) {
+                if (!$title && is_array($perfObj) && isset($perfObj['title'])) {
                     $title = $resolve($perfObj['title']);
                 }
             }
@@ -298,19 +303,84 @@ class BilesuParadizeScraper extends BaseScraper
             $ticketUrl = "https://www.bilesuparadize.lv/lv/event/{$sessionId}";
             $startAt = Carbon::parse($dtResolved)->setTimezone('Europe/Riga');
 
-            // Skip past performances
-            if ($startAt->isPast()) {
+            // Skip past days (allow events starting today or in future)
+            if ($startAt->isBefore(today('Europe/Riga'))) {
                 continue;
             }
 
             $seenSessionIds[$sessionId] = true;
 
-            $categories = ['Teātris'];
+            // Categories resolution
+            $categoryNames = [];
+            
+            // Check Nuxt categories
+            $catIndices = $item['categories'] ?? ($item['category_ids'] ?? null);
+            if (!$catIndices && is_array($perfObj) && isset($perfObj['categories'])) {
+                $catIndices = $perfObj['categories'];
+            }
+
+            if ($catIndices) {
+                $resolvedCats = $resolve($catIndices);
+                if (is_array($resolvedCats)) {
+                    foreach ($resolvedCats as $cat) {
+                        $catObj = $resolve($cat);
+                        if (is_array($catObj)) {
+                            $cTitle = $resolve($catObj['title'] ?? ($catObj['title_translations']['lv'] ?? null));
+                            if (is_string($cTitle) && !empty($cTitle)) {
+                                $categoryNames[] = $this->cleanText($cTitle);
+                            }
+                        } elseif (is_string($catObj)) {
+                            $categoryNames[] = $this->cleanText($catObj);
+                        }
+                    }
+                }
+            }
+
+            // If no Nuxt category found, infer from title and venue or fallback to 'Cits'
             $lower = mb_strtolower($title . ' ' . $venueName);
-            if (str_contains($lower, 'koncerts') || str_contains($lower, 'mūzika') || str_contains($lower, 'orķestr')) {
-                $categories = ['Mūzika'];
-            } elseif (str_contains($lower, 'bērniem') || str_contains($lower, 'leļļu') || str_contains($lower, 'pasaka')) {
-                $categories = ['Bērniem'];
+            if (empty($categoryNames)) {
+                if (
+                    str_contains($lower, 'teātr') || str_contains($lower, 'izrāde') || 
+                    str_contains($lower, 'iestudējum') || str_contains($lower, 'luga') || 
+                    str_contains($lower, 'komēdija') || str_contains($lower, 'traģēdija') ||
+                    str_contains($lower, 'drama') || str_contains($lower, 'aktier') ||
+                    str_contains($lower, 'jrt') || str_contains($lower, 'dailes') ||
+                    str_contains($lower, 'nacionālais teātris') || str_contains($lower, 'valmieras') ||
+                    str_contains($lower, 'liepājas teātris') || str_contains($lower, 'leļļu teātr')
+                ) {
+                    $categoryNames[] = 'Teātris';
+                } elseif (
+                    str_contains($lower, 'koncerts') || str_contains($lower, 'mūzika') || 
+                    str_contains($lower, 'orķestr') || str_contains($lower, 'koris') || 
+                    str_contains($lower, 'dzied') || str_contains($lower, 'festivāls') ||
+                    str_contains($lower, 'dziesm') || str_contains($lower, 'opera') ||
+                    str_contains($lower, 'balets') || str_contains($lower, 'grupa')
+                ) {
+                    $categoryNames[] = 'Mūzika';
+                } elseif (
+                    str_contains($lower, 'bērniem') || str_contains($lower, 'ģimenei') || 
+                    str_contains($lower, 'pasaka') || str_contains($lower, 'lelles')
+                ) {
+                    $categoryNames[] = 'Bērniem';
+                } elseif (
+                    str_contains($lower, 'izstāde') || str_contains($lower, 'māksla') || 
+                    str_contains($lower, 'glezn') || str_contains($lower, 'muzejs')
+                ) {
+                    $categoryNames[] = 'Māksla un izstādes';
+                } elseif (
+                    str_contains($lower, 'sports') || str_contains($lower, 'skrējiens') || 
+                    str_contains($lower, 'maratons') || str_contains($lower, 'basketbols') || 
+                    str_contains($lower, 'hokejs') || str_contains($lower, 'futbols')
+                ) {
+                    $categoryNames[] = 'Sports';
+                } elseif (
+                    str_contains($lower, 'kino') || str_contains($lower, 'filma') || 
+                    str_contains($lower, 'seanss')
+                ) {
+                    $categoryNames[] = 'Kino';
+                } else {
+                    $categoryNames[] = 'Cits';
+                }
             }
 
             $dtos->push(new ScrapedEventDTO(
@@ -318,7 +388,7 @@ class BilesuParadizeScraper extends BaseScraper
                 startAt: $startAt,
                 venueName: $venueName,
                 city: $city,
-                categoryNames: $categories,
+                categoryNames: $categoryNames,
                 entertainmentType: 'performance',
                 isFree: false,
                 priceMin: 15.0,
