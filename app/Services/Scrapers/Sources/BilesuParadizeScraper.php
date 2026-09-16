@@ -27,25 +27,40 @@ class BilesuParadizeScraper extends BaseScraper
         $events = collect();
         $eventUrls = collect();
 
-        // 1. Discover event URLs from homepage and search listings
+        // 1. Discover event & performance URLs from homepage, search, and category listings
         $listingUrls = [
             $source->url,
             'https://www.bilesuparadize.lv/lv/search',
+            'https://www.bilesuparadize.lv/lv/category/teatris',
+            'https://www.bilesuparadize.lv/lv/category/koncerti',
+            'https://www.bilesuparadize.lv/lv/category/berniem',
+            'https://www.bilesuparadize.lv/lv/category/citi',
         ];
 
         foreach ($listingUrls as $listUrl) {
-            $html = $this->fetchPageHtml($listUrl);
-            if ($html) {
-                // Extract direct cards first
-                $crawler = new \Symfony\Component\DomCrawler\Crawler($html);
-                $this->extractEventsFromCrawler($crawler, $events, $source);
+            try {
+                $html = $this->fetchPageHtml($listUrl);
+                if ($html) {
+                    // Extract direct cards if present in DOM
+                    $crawler = new \Symfony\Component\DomCrawler\Crawler($html);
+                    $this->extractEventsFromCrawler($crawler, $events, $source);
 
-                // Discover individual /event/{id} links
-                if (preg_match_all('#/(?:lv/)?event/(\d+)#i', $html, $matches)) {
-                    foreach ($matches[1] as $eventId) {
-                        $eventUrls->push("https://www.bilesuparadize.lv/lv/event/{$eventId}");
+                    // Discover /performance/{id} links (grouped multi-date productions)
+                    if (preg_match_all('#/(?:lv/)?performance/(\d+)#i', $html, $matches)) {
+                        foreach ($matches[1] as $perfId) {
+                            $eventUrls->push("https://www.bilesuparadize.lv/lv/performance/{$perfId}");
+                        }
+                    }
+
+                    // Discover /event/{id} links
+                    if (preg_match_all('#/(?:lv/)?event/(\d+)#i', $html, $matches)) {
+                        foreach ($matches[1] as $eventId) {
+                            $eventUrls->push("https://www.bilesuparadize.lv/lv/event/{$eventId}");
+                        }
                     }
                 }
+            } catch (\Throwable $e) {
+                Log::info("Failed discovering Biļešu Paradīze URLs from {$listUrl}: " . $e->getMessage());
             }
         }
 
@@ -53,7 +68,7 @@ class BilesuParadizeScraper extends BaseScraper
         $dbUrls = \App\Models\Event::where('source_id', $source->id)
             ->whereNotNull('ticket_url')
             ->pluck('ticket_url')
-            ->take(20);
+            ->take(50);
         foreach ($dbUrls as $u) {
             if (str_contains($u, 'bilesuparadize.lv/lv/event/')) {
                 $eventUrls->push($u);
@@ -63,7 +78,7 @@ class BilesuParadizeScraper extends BaseScraper
         $eventUrls = $eventUrls->unique()->values();
 
         // 2. For each production/event page, fetch and parse ALL performance sessions (multiple dates)
-        foreach ($eventUrls->take(15) as $eventUrl) {
+        foreach ($eventUrls as $eventUrl) {
             try {
                 $eventHtml = $this->fetchPageHtml($eventUrl);
                 if ($eventHtml) {
