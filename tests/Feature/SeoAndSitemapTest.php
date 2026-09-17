@@ -105,5 +105,18 @@ class SeoAndSitemapTest extends TestCase
         $this->assertStringContainsString('"addressLocality": "Rīga"', $content);
         $this->assertStringContainsString('"performer"', $content);
         $this->assertStringContainsString('"endDate"', $content);
+        $this->assertStringContainsString('"@type": "BreadcrumbList"', $content);
+    }
+
+    public function test_homepage_contains_canonical_and_website_schema(): void
+    {
+        $response = $this->get('/');
+
+        $response->assertStatus(200);
+        $content = $response->getContent();
+
+        $this->assertStringContainsString('<link rel="canonical" href="' . url('/') . '">', $content);
+        $this->assertStringContainsString('"@type": "WebSite"', $content);
+        $this->assertStringContainsString('"potentialAction"', $content);
     }
 }

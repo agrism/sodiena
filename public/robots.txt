@@ -1,9 +1,23 @@
 User-agent: *
 Allow: /
+Allow: /events/
+Allow: /sitemap.xml
 Disallow: /admin
 Disallow: /admin/
 Disallow: /login
 Disallow: /register
 Disallow: /locale/
+Disallow: /*?search=*
+Disallow: /*?*search=*
+Disallow: /*?period=*
+Disallow: /*?*period=*
+Disallow: /*?category=*
+Disallow: /*?*category=*
+Disallow: /*?city=*
+Disallow: /*?*city=*
+Disallow: /*?page=*
+Disallow: /*?*page=*
+Disallow: /*?view=*
+Disallow: /*?*view=*
 
 Sitemap: https://sodiena.lv/sitemap.xml

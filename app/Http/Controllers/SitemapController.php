@@ -13,15 +13,16 @@ class SitemapController extends Controller
      */
     public function index(): Response
     {
-        $xml = Cache::remember('sitemap_xml_v1', 3600, function () {
+        $xml = Cache::remember('sitemap_xml_v2', 3600, function () {
             $events = Event::query()
                 ->withoutTrashed()
                 ->published()
                 ->select(['id', 'slug', 'title', 'internal_image_url', 'image_url', 'updated_at', 'start_at'])
-                ->orderByDesc('updated_at')
+                ->orderByDesc('start_at')
                 ->get();
 
             $baseUrl = config('app.url', 'https://sodiena.lv');
+            $today = now()->startOfDay();
 
             $lines = [];
             $lines[] = '<?xml version="1.0" encoding="UTF-8"?>';
@@ -41,11 +42,15 @@ class SitemapController extends Controller
                 $lastmod = ($event->updated_at ?? now())->toAtomString();
                 $imageUrl = $event->display_image_url;
 
+                $isUpcoming = $event->start_at ? $event->start_at->gte($today) : true;
+                $changefreq = $isUpcoming ? 'daily' : 'monthly';
+                $priority = $isUpcoming ? '0.9' : '0.4';
+
                 $lines[] = '  <url>';
                 $lines[] = '    <loc>' . htmlspecialchars($loc, ENT_XML1, 'UTF-8') . '</loc>';
                 $lines[] = '    <lastmod>' . $lastmod . '</lastmod>';
-                $lines[] = '    <changefreq>daily</changefreq>';
-                $lines[] = '    <priority>0.8</priority>';
+                $lines[] = '    <changefreq>' . $changefreq . '</changefreq>';
+                $lines[] = '    <priority>' . $priority . '</priority>';
 
                 if (!empty($imageUrl) && !str_contains($imageUrl, 'default-event.jpg')) {
                     $lines[] = '    <image:image>';

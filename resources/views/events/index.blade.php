@@ -2,6 +2,7 @@
 
 @section('title', 'Šodiena — ' . __('Find Events'))
 @section('meta_description', __('Discover future events'))
+@section('canonical_url', url('/'))
 
 @section('content')
 <div class="relative overflow-hidden bg-gradient-to-b from-emerald-50/60 via-slate-50 to-slate-50 pb-12 pt-6 sm:pt-10">
@@ -371,5 +372,28 @@
         }
         updateCategoryButtons(params.get('category') || 'all');
     });
+</script>
+@endpush
+
+@push('schema')
+@php
+    $websiteSchema = [
+        '@context' => 'https://schema.org',
+        '@type' => 'WebSite',
+        'name' => 'Šodiena',
+        'url' => config('app.url', 'https://sodiena.lv'),
+        'description' => __('Discover future events'),
+        'potentialAction' => [
+            '@type' => 'SearchAction',
+            'target' => [
+                '@type' => 'EntryPoint',
+                'urlTemplate' => config('app.url', 'https://sodiena.lv') . '/?search={search_term_string}',
+            ],
+            'query-input' => 'required name=search_term_string',
+        ],
+    ];
+@endphp
+<script type="application/ld+json">
+{!! json_encode($websiteSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) !!}
 </script>
 @endpush

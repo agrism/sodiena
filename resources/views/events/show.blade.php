@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('title', $event->title . ' — Šodiena')
-@section('meta_description', $event->short_description ?: Str::limit(strip_tags($event->description ?? ''), 160))
+@section('meta_description', Str::squish($event->short_description ?: Str::limit(strip_tags($event->description ?? ''), 160)))
 @section('og_type', 'article')
 @section('meta_image', $event->display_image_url)
 @section('canonical_url', route('events.show', $event->slug))
@@ -414,21 +414,26 @@
 </div>
 @endsection
 
-@push('scripts')
+@push('schema')
 @php
-    $performerName = $event->raw_data['performer'] 
-        ?? $event->raw_data['artist'] 
-        ?? ($event->location?->name ?: ($event->source?->name ?: $event->title));
+    $rawPerformer = $event->raw_data['performer'] ?? $event->raw_data['artist'] ?? null;
+    $performerName = $rawPerformer ?: ($event->location?->name ?: $event->title);
 
     $endDate = $event->end_at 
         ? $event->end_at->toIso8601String() 
         : ($event->start_at ? ($event->all_day ? $event->start_at->copy()->endOfDay()->toIso8601String() : $event->start_at->copy()->addHours(2)->toIso8601String()) : null);
 
+    $sourceName = $event->source?->name ?? '';
+    $isAggregatorSource = preg_match('/(api|scraper|bezrindas|paradize|serviss|afiro)/i', $sourceName);
+    $organizerName = (!$isAggregatorSource && !empty($sourceName)) 
+        ? $sourceName 
+        : ($event->location?->name ?: 'Šodiena');
+
     $schemaData = [
         '@context' => 'https://schema.org',
         '@type' => 'Event',
         'name' => $event->title,
-        'description' => $event->short_description ?: Str::limit(strip_tags($event->description ?? ''), 300),
+        'description' => Str::squish($event->short_description ?: Str::limit(strip_tags($event->description ?? ''), 300)),
         'image' => [
             $event->display_image_url,
         ],
@@ -459,7 +464,7 @@
         ],
         'organizer' => [
             '@type' => 'Organization',
-            'name' => $event->source?->name ?: 'Šodiena',
+            'name' => $organizerName,
             'url' => config('app.url', 'https://sodiena.lv'),
         ],
     ];
@@ -475,8 +480,36 @@
             'longitude' => (float) $event->location->longitude,
         ];
     }
+
+    $breadcrumbData = [
+        '@context' => 'https://schema.org',
+        '@type' => 'BreadcrumbList',
+        'itemListElement' => [
+            [
+                '@type' => 'ListItem',
+                'position' => 1,
+                'name' => 'Šodiena',
+                'item' => config('app.url', 'https://sodiena.lv'),
+            ],
+            [
+                '@type' => 'ListItem',
+                'position' => 2,
+                'name' => $event->categories->first()?->name ?? 'Pasākumi',
+                'item' => config('app.url', 'https://sodiena.lv'),
+            ],
+            [
+                '@type' => 'ListItem',
+                'position' => 3,
+                'name' => $event->title,
+                'item' => route('events.show', $event->slug),
+            ],
+        ],
+    ];
 @endphp
 <script type="application/ld+json">
 {!! json_encode($schemaData, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) !!}
+</script>
+<script type="application/ld+json">
+{!! json_encode($breadcrumbData, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) !!}
 </script>
 @endpush
