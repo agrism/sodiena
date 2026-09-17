@@ -119,4 +119,26 @@ class SeoAndSitemapTest extends TestCase
         $this->assertStringContainsString('"@type": "WebSite"', $content);
         $this->assertStringContainsString('"potentialAction"', $content);
     }
+
+    public function test_event_without_description_generates_fallback_seo_description(): void
+    {
+        $event = Event::create([
+            'title' => 'Donoru diena Aizkrauklē',
+            'slug' => 'donoru-diena-aizkraukle-test',
+            'description' => '',
+            'short_description' => '',
+            'start_at' => now()->addDays(2),
+            'status' => 'published',
+            'published_at' => now()->subDay(),
+        ]);
+
+        $this->assertNotEmpty($event->seo_description);
+        $this->assertStringContainsString('Donoru diena Aizkrauklē', $event->seo_description);
+
+        $response = $this->get(route('events.show', $event->slug));
+        $response->assertStatus(200);
+        $content = $response->getContent();
+
+        $this->assertStringContainsString('"description": "Donoru diena Aizkrauklē', $content);
+    }
 }

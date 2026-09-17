@@ -155,6 +155,26 @@ class Event extends Model
         return ($trans && !empty($trans->short_description)) ? $trans->short_description : $value;
     }
 
+    public function getSeoDescriptionAttribute(): string
+    {
+        $desc = $this->short_description ?: Str::limit(strip_tags($this->description ?? ''), 300);
+        $cleanDesc = trim(Str::squish($desc));
+
+        if (!empty($cleanDesc)) {
+            return $cleanDesc;
+        }
+
+        $locStr = $this->location?->name ?: ($this->location?->city ?: 'Latvijā');
+        $dateStr = $this->formatted_date ?: ($this->start_at ? $this->start_at->format('d.m.Y H:i') : '');
+        $catName = $this->categories->first()?->name;
+
+        if ($catName) {
+            return "{$this->title} — {$catName} ({$locStr}, {$dateStr}). Informācija un biļetes vietnē Šodiena.";
+        }
+
+        return "{$this->title} ({$locStr}, {$dateStr}). Informācija un biļetes vietnē Šodiena.";
+    }
+
     public function getDisplayImageUrlAttribute(): string
     {
         if (!empty($this->internal_image_url)) {

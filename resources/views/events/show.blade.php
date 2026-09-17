@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('title', $event->title . ' — Šodiena')
-@section('meta_description', Str::squish($event->short_description ?: Str::limit(strip_tags($event->description ?? ''), 160)))
+@section('meta_description', Str::limit($event->seo_description, 160))
 @section('og_type', 'article')
 @section('meta_image', $event->display_image_url)
 @section('canonical_url', route('events.show', $event->slug))
@@ -433,7 +433,7 @@
         '@context' => 'https://schema.org',
         '@type' => 'Event',
         'name' => $event->title,
-        'description' => Str::squish($event->short_description ?: Str::limit(strip_tags($event->description ?? ''), 300)),
+        'description' => $event->seo_description,
         'image' => [
             $event->display_image_url,
         ],
