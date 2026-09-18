@@ -214,36 +214,8 @@ class Event extends Model
 
     public function extractRealTicketUrl(): ?string
     {
-        $text = ($this->attributes['description'] ?? '') . ' ' . json_encode($this->raw_data ?? []);
-        if (empty(trim($text))) {
-            return null;
-        }
-
-        preg_match_all('/https?:\/\/[^\s\)\"\'<>]+/i', $text, $matches);
-        $ticketPlatforms = [
-            'bilesuparadize.lv', 'bilesuserviss.lv', 'bezrindas.lv', 'ticketshop.lv',
-            'aula.lv', 'fienta.com', 'apollokino.lv', 'forumcinemas.lv', 'splendidpalace.lv',
-            'cinamonkino.com', 'opera.lv', 'passportix.eu', 'ticketbest.eu', 'ticketly.eu',
-            'forms.gle', 'docs.google.com/forms', 'tally.so', 'distantrace.com',
-            'play.fiba3x3.com', 'cuescore.com'
-        ];
-
-        foreach ($matches[0] as $rawUrl) {
-            $cleanUrl = preg_replace('/(\?|\&)utm_[a-zA-Z0-9_]+=[^&]*/', '', $rawUrl);
-            $cleanUrl = rtrim($cleanUrl, '?&.,;:\'\"');
-
-            if (str_contains($cleanUrl, 'afiro.lv') || str_contains($cleanUrl, 'imagekit.io')) {
-                continue;
-            }
-
-            foreach ($ticketPlatforms as $platform) {
-                if (str_contains($cleanUrl, $platform)) {
-                    return $cleanUrl;
-                }
-            }
-        }
-
-        return null;
+        $links = $this->ticket_links;
+        return !empty($links) ? $links[0]['url'] : null;
     }
 
     public function extractRealOfficialUrl(): ?string
@@ -265,6 +237,197 @@ class Event extends Model
 
             if (!str_contains($cleanUrl, 'youtube.com') && !str_contains($cleanUrl, 'youtu.be') && !str_contains($cleanUrl, 'tiktok.com')) {
                 return $cleanUrl;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Get all structured ticket and cinema booking links
+     *
+     * @return array<array{url: string, title: string, label: string, platform: string}>
+     */
+    public function getTicketLinksAttribute(): array
+    {
+        $links = [];
+        $seenUrls = [];
+
+        $platformNames = [
+            'apollokino.lv' => ['title' => 'Apollo Kino', 'label' => 'Apollo Kino seansi un biļetes', 'platform' => 'apollo'],
+            'forumcinemas.lv' => ['title' => 'Forum Cinemas', 'label' => 'Forum Cinemas seansi un biļetes', 'platform' => 'forum'],
+            'splendidpalace.lv' => ['title' => 'Splendid Palace', 'label' => 'Splendid Palace seansi un biļetes', 'platform' => 'splendid'],
+            'cinamonkino.com' => ['title' => 'Cinamon Kino', 'label' => 'Cinamon Kino seansi un biļetes', 'platform' => 'cinamon'],
+            'bilesuparadize.lv' => ['title' => 'Biļešu Paradīze', 'label' => 'Pirkt biļetes (Biļešu Paradīze)', 'platform' => 'bilesuparadize'],
+            'bilesuserviss.lv' => ['title' => 'Biļešu Serviss', 'label' => 'Pirkt biļetes (Biļešu Serviss)', 'platform' => 'bilesuserviss'],
+            'bezrindas.lv' => ['title' => 'BezRindas.lv', 'label' => 'Pirkt biļetes (BezRindas.lv)', 'platform' => 'bezrindas'],
+            'aula.lv' => ['title' => 'Aula.lv', 'label' => 'Pirkt biļetes (Aula.lv)', 'platform' => 'aula'],
+            'ticketshop.lv' => ['title' => 'Ticketshop.lv', 'label' => 'Pirkt biļetes (Ticketshop.lv)', 'platform' => 'ticketshop'],
+            'fienta.com' => ['title' => 'Fienta', 'label' => 'Pirkt biļetes (Fienta)', 'platform' => 'fienta'],
+            'opera.lv' => ['title' => 'LNOB', 'label' => 'Pirkt biļetes (LNOB)', 'platform' => 'opera'],
+            'passportix.eu' => ['title' => 'Passportix', 'label' => 'Pirkt biļetes (Passportix)', 'platform' => 'passportix'],
+            'ticketbest.eu' => ['title' => 'TicketBest', 'label' => 'Pirkt biļetes (TicketBest)', 'platform' => 'ticketbest'],
+            'ticketly.eu' => ['title' => 'Ticketly', 'label' => 'Pirkt biļetes (Ticketly)', 'platform' => 'ticketly'],
+        ];
+
+        // 1. Check raw_data cta.links
+        if (!empty($this->raw_data['cta']['links']) && is_array($this->raw_data['cta']['links'])) {
+            foreach ($this->raw_data['cta']['links'] as $item) {
+                $rawUrl = is_array($item) ? ($item['url'] ?? null) : (is_string($item) ? $item : null);
+                if (!$rawUrl || !is_string($rawUrl)) continue;
+
+                $cleanUrl = preg_replace('/(\?|\&)utm_[a-zA-Z0-9_]+=[^&]*/', '', $rawUrl);
+                $cleanUrl = rtrim($cleanUrl, '?&.,;:\'\"');
+
+                if (str_contains($cleanUrl, 'afiro.lv') || str_contains($cleanUrl, 'imagekit.io')) {
+                    continue;
+                }
+
+                $normalized = strtolower($cleanUrl);
+                if (isset($seenUrls[$normalized])) continue;
+                $seenUrls[$normalized] = true;
+
+                $matchedPlatform = null;
+                foreach ($platformNames as $domain => $info) {
+                    if (str_contains($normalized, $domain)) {
+                        $matchedPlatform = $info;
+                        break;
+                    }
+                }
+
+                $links[] = [
+                    'url' => $cleanUrl,
+                    'title' => $matchedPlatform ? $matchedPlatform['title'] : (is_array($item) && !empty($item['title']) ? $item['title'] : 'Biļetes'),
+                    'label' => $matchedPlatform ? $matchedPlatform['label'] : 'Pirkt biļetes',
+                    'platform' => $matchedPlatform ? $matchedPlatform['platform'] : 'tickets',
+                ];
+            }
+        }
+
+        // 2. Check ticket_url column
+        $directTicketUrl = $this->attributes['ticket_url'] ?? null;
+        if (!empty($directTicketUrl)) {
+            $cleanUrl = preg_replace('/(\?|\&)utm_[a-zA-Z0-9_]+=[^&]*/', '', $directTicketUrl);
+            $cleanUrl = rtrim($cleanUrl, '?&.,;:\'\"');
+
+            if (!str_contains($cleanUrl, 'afiro.lv') && !str_contains($cleanUrl, 'imagekit.io')) {
+                $normalized = strtolower($cleanUrl);
+                if (!isset($seenUrls[$normalized])) {
+                    $seenUrls[$normalized] = true;
+
+                    $matchedPlatform = null;
+                    foreach ($platformNames as $domain => $info) {
+                        if (str_contains($normalized, $domain)) {
+                            $matchedPlatform = $info;
+                            break;
+                        }
+                    }
+
+                    $links[] = [
+                        'url' => $cleanUrl,
+                        'title' => $matchedPlatform ? $matchedPlatform['title'] : 'Biļetes',
+                        'label' => $matchedPlatform ? $matchedPlatform['label'] : 'Pirkt biļetes',
+                        'platform' => $matchedPlatform ? $matchedPlatform['platform'] : 'tickets',
+                    ];
+                }
+            }
+        }
+
+        // 3. Scan description / raw_data for additional ticket platform URLs
+        $text = ($this->attributes['description'] ?? '') . ' ' . json_encode($this->raw_data ?? []);
+        if (!empty(trim($text))) {
+            preg_match_all('/https?:\/\/[^\s\)\"\'<>]+/i', $text, $matches);
+            foreach ($matches[0] as $rawUrl) {
+                $cleanUrl = preg_replace('/(\?|\&)utm_[a-zA-Z0-9_]+=[^&]*/', '', $rawUrl);
+                $cleanUrl = rtrim($cleanUrl, '?&.,;:\'\"');
+
+                if (str_contains($cleanUrl, 'afiro.lv') || str_contains($cleanUrl, 'imagekit.io')) {
+                    continue;
+                }
+
+                $normalized = strtolower($cleanUrl);
+                if (isset($seenUrls[$normalized])) continue;
+
+                foreach ($platformNames as $domain => $info) {
+                    if (str_contains($normalized, $domain)) {
+                        $seenUrls[$normalized] = true;
+                        $links[] = [
+                            'url' => $cleanUrl,
+                            'title' => $info['title'],
+                            'label' => $info['label'],
+                            'platform' => $info['platform'],
+                        ];
+                        break;
+                    }
+                }
+            }
+        }
+
+        return $links;
+    }
+
+    public function getDisplayVenueAttribute(): string
+    {
+        $locName = $this->location?->name;
+        $locCity = $this->location?->city;
+
+        $ticketLinks = $this->ticket_links;
+        $cinemaPlatforms = ['apollo', 'forum', 'splendid', 'cinamon'];
+        $foundCinemas = [];
+        foreach ($ticketLinks as $tl) {
+            if (in_array($tl['platform'], $cinemaPlatforms, true)) {
+                $foundCinemas[] = $tl['title'];
+            }
+        }
+
+        if (!empty($foundCinemas) && ($locName === 'Riga' || $locName === 'Latvija' || empty($locName) || $locName === $locCity)) {
+            $cinemasText = implode(', ', array_unique($foundCinemas));
+            return ($locCity ? "{$locCity}: " : '') . $cinemasText;
+        }
+
+        return $locName ?: ($locCity ?: 'Latvija');
+    }
+
+    public function getOrganizerDisplayNameAttribute(): ?string
+    {
+        if (!empty($this->raw_data['organizer'])) {
+            $org = $this->raw_data['organizer'];
+            if (is_string($org) && !empty(trim($org)) && !str_contains(strtolower($org), 'afiro')) {
+                return trim($org);
+            }
+            if (is_array($org) && !empty($org['name']) && !str_contains(strtolower($org['name']), 'afiro')) {
+                return trim($org['name']);
+            }
+        }
+
+        if (!empty($this->raw_data['contacts']['organizer'])) {
+            $org = $this->raw_data['contacts']['organizer'];
+            if (is_string($org) && !empty(trim($org)) && !str_contains(strtolower($org), 'afiro')) {
+                return trim($org);
+            }
+        }
+
+        // If source is a direct promoter/venue (not an aggregator), use source name
+        if ($this->source && !preg_match('/(api|scraper|bezrindas|paradize|serviss|afiro)/i', $this->source->name)) {
+            return $this->source->name;
+        }
+
+        return null;
+    }
+
+    public function getOrganizerUrlAttribute(): ?string
+    {
+        if (!empty($this->raw_data['organizer']['url'])) {
+            $url = $this->raw_data['organizer']['url'];
+            if (is_string($url) && !str_contains($url, 'afiro.lv')) {
+                return $url;
+            }
+        }
+
+        if (!empty($this->raw_data['contacts']['url'])) {
+            $url = $this->raw_data['contacts']['url'];
+            if (is_string($url) && !str_contains($url, 'afiro.lv')) {
+                return $url;
             }
         }
 

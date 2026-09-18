@@ -79,7 +79,7 @@
                     @if($event->location?->city)
                         <span class="px-2.5 py-1 sm:px-3.5 sm:py-1.5 rounded-xl bg-slate-900/80 text-white text-[11px] sm:text-xs font-bold backdrop-blur-md border border-white/20 flex items-center gap-1.5">
                             <i data-lucide="map-pin" class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400 shrink-0"></i>
-                            <span class="truncate max-w-[140px] sm:max-w-none">{{ $event->location->name ?: $event->location->city }}</span>
+                            <span class="truncate max-w-[180px] sm:max-w-none">{{ $event->display_venue }}</span>
                         </span>
                     @endif
                 </div>
@@ -132,16 +132,16 @@
                     <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center shrink-0 border border-blue-200">
                         <i data-lucide="map-pin" class="w-5 h-5"></i>
                     </div>
-                    <div>
+                    <div class="min-w-0 flex-1">
                         <p class="text-xs text-slate-400 font-bold uppercase tracking-wider">{{ __('Venue') }}</p>
-                        <p class="text-sm font-extrabold text-slate-900 mt-0.5">{{ $event->location?->name ?: 'Latvija' }}</p>
-                        @if($event->location?->address)
+                        <p class="text-sm font-extrabold text-slate-900 mt-0.5">{{ $event->display_venue }}</p>
+                        @if($event->location?->address && $event->location->address !== 'Latvia' && $event->location->address !== 'Latvija')
                             <p class="text-xs text-slate-600 mt-0.5">{{ $event->location->address }}, {{ $event->location->city }}</p>
                         @elseif($event->location?->city)
                             <p class="text-xs text-slate-600 mt-0.5">{{ $event->location->city }} ({{ $event->location->region }})</p>
                         @endif
 
-                        @if($event->location?->latitude && $event->location?->longitude)
+                        @if($event->location?->latitude && $event->location?->longitude && $event->location->name !== 'Riga' && $event->location->name !== 'Latvija')
                             <a 
                                 href="https://www.google.com/maps/search/?api=1&query={{ $event->location->latitude }},{{ $event->location->longitude }}" 
                                 target="_blank" 
@@ -153,6 +153,29 @@
                         @endif
                     </div>
                 </div>
+
+                <!-- Organizer (if available) -->
+                @if(!empty($event->organizer_display_name))
+                    <div class="flex items-start gap-3.5">
+                        <div class="w-10 h-10 rounded-xl bg-slate-50 text-slate-700 flex items-center justify-center shrink-0 border border-slate-200">
+                            <i data-lucide="user-check" class="w-5 h-5"></i>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <p class="text-xs text-slate-400 font-bold uppercase tracking-wider">{{ __('Organizer') }}</p>
+                            <p class="text-sm font-extrabold text-slate-900 mt-0.5">{{ $event->organizer_display_name }}</p>
+                            @if(!empty($event->organizer_url))
+                                <a 
+                                    href="{{ $event->organizer_url }}" 
+                                    target="_blank" 
+                                    rel="noopener noreferrer" 
+                                    class="inline-flex items-center gap-1 text-xs text-emerald-700 hover:text-emerald-800 font-bold mt-1">
+                                    <i data-lucide="external-link" class="w-3 h-3"></i>
+                                    <span>{{ __('Organizer website') }}</span>
+                                </a>
+                            @endif
+                        </div>
+                    </div>
+                @endif
 
                 <!-- Opening Hours -->
                 @if(!empty($event->raw_data['opening_hours']))
@@ -225,7 +248,39 @@
 
                 <!-- Direct External Action Buttons -->
                 <div class="pt-2 flex flex-col gap-3">
-                    @if($event->ticket_url)
+                    @php
+                        $ticketLinks = $event->ticket_links;
+                    @endphp
+
+                    @if(count($ticketLinks) > 1)
+                        <div class="space-y-2">
+                            <p class="text-[11px] text-slate-500 font-extrabold uppercase tracking-wider flex items-center gap-1.5">
+                                <i data-lucide="ticket" class="w-3.5 h-3.5 text-emerald-600"></i>
+                                <span>{{ __('Seansi un biļetes kinoteātros') }}</span>
+                            </p>
+                            <div class="grid grid-cols-1 gap-2">
+                                @foreach($ticketLinks as $tLink)
+                                    <a 
+                                        href="{{ $tLink['url'] }}" 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-extrabold text-xs sm:text-sm flex items-center justify-between gap-2 hover:from-emerald-700 hover:to-teal-700 transition-all shadow-md shadow-emerald-600/20">
+                                        <span class="truncate">{{ $tLink['label'] }}</span>
+                                        <i data-lucide="external-link" class="w-4 h-4 shrink-0"></i>
+                                    </a>
+                                @endforeach
+                            </div>
+                        </div>
+                    @elseif(count($ticketLinks) === 1)
+                        <a 
+                            href="{{ $ticketLinks[0]['url'] }}" 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            class="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-extrabold text-sm flex items-center justify-center gap-2 hover:from-emerald-700 hover:to-teal-700 transition-all shadow-md shadow-emerald-600/20">
+                            <i data-lucide="external-link" class="w-4 h-4"></i>
+                            <span>{{ $ticketLinks[0]['label'] }}</span>
+                        </a>
+                    @elseif($event->ticket_url)
                         <a 
                             href="{{ $event->ticket_url }}" 
                             target="_blank" 
@@ -236,7 +291,7 @@
                         </a>
                     @endif
 
-                    @if($event->source_url && $event->source_url !== $event->ticket_url)
+                    @if($event->source_url && $event->source_url !== $event->ticket_url && !in_array($event->source_url, array_column($ticketLinks, 'url')))
                         <a 
                             href="{{ $event->source_url }}" 
                             target="_blank" 

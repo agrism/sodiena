@@ -143,24 +143,27 @@ class AfiroApiScraper extends BaseScraper
             sourceUrl: $extractedUrls['sourceUrl'],
             sourceExternalId: $externalId,
             locale: $locale,
-            rawData: [
+            rawData: array_filter([
                 'amenities' => $item['amenities'] ?? [],
                 'audience' => $item['audience'] ?? [],
                 'originalLocale' => $item['originalLocale'] ?? 'lv',
-            ]
+                'cta' => $item['cta'] ?? null,
+                'organizer' => $item['organizer'] ?? null,
+                'contacts' => $item['contacts'] ?? [],
+            ])
         );
     }
 
     private function extractRealUrls(string $description, array $item): array
     {
-        $textToSearch = $description . ' ' . ($item['location']['onlineUrl'] ?? '') . ' ' . json_encode($item['slots'] ?? []);
+        $textToSearch = $description . ' ' . ($item['location']['onlineUrl'] ?? '') . ' ' . json_encode($item['slots'] ?? []) . ' ' . json_encode($item['cta'] ?? []) . ' ' . json_encode($item['contacts'] ?? []) . ' ' . json_encode($item['organizer'] ?? []);
         preg_match_all('/https?:\/\/[^\s\)\"\'<>]+/i', $textToSearch, $matches);
 
         $ticketPlatforms = [
             'bilesuparadize.lv', 'bilesuserviss.lv', 'bezrindas.lv', 'ticketshop.lv',
             'aula.lv', 'fienta.com', 'apollokino.lv', 'forumcinemas.lv', 'splendidpalace.lv',
-            'opera.lv', 'passportix.eu', 'ticketbest.eu', 'ticketly.eu', 'forms.gle',
-            'docs.google.com/forms', 'tally.so', 'distantrace.com', 'play.fiba3x3.com', 'cuescore.com'
+            'cinamonkino.com', 'opera.lv', 'passportix.eu', 'ticketbest.eu', 'ticketly.eu',
+            'forms.gle', 'docs.google.com/forms', 'tally.so', 'distantrace.com', 'play.fiba3x3.com', 'cuescore.com'
         ];
 
         $foundTicket = null;
