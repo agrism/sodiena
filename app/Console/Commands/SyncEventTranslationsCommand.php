@@ -64,13 +64,13 @@ class SyncEventTranslationsCommand extends Command
 
             if ($lvTrans && !empty($lvTrans->title . ' ' . $lvTrans->description)) {
                 $lvText = $lvTrans->title . ' ' . $lvTrans->description;
-                $detectedLang = $ingestionService->detectTextLanguage($lvText);
+                $cyrillicInLv = preg_match_all('/[\p{Cyrillic}]/u', $lvText);
 
-                if ($detectedLang === 'ru') {
+                if ($cyrillicInLv > 20 && !$this->isLatvianText($lvTrans->description)) {
                     $originalLvWasRuOrEn = 'ru';
                     if (!$dryRun) {
                         $ruTrans = $existingTranslations->get('ru');
-                        if (!$ruTrans || empty(trim($ruTrans->description ?? ''))) {
+                        if (!$ruTrans || empty(trim($ruTrans->description ?? '')) || !$this->isRussianText($ruTrans->description)) {
                             EventTranslation::updateOrCreate(
                                 ['event_id' => $event->id, 'locale' => 'ru'],
                                 [
@@ -86,11 +86,11 @@ class SyncEventTranslationsCommand extends Command
                     $eventModified = true;
                     $event->load('translations');
                     $existingTranslations = $event->translations->keyBy('locale');
-                } elseif ($detectedLang === 'en') {
+                } elseif ($this->isEnglishText($lvText) && !$this->isLatvianText($lvTrans->description)) {
                     $originalLvWasRuOrEn = 'en';
                     if (!$dryRun) {
                         $enTrans = $existingTranslations->get('en');
-                        if (!$enTrans || empty(trim($enTrans->description ?? ''))) {
+                        if (!$enTrans || empty(trim($enTrans->description ?? '')) || $this->isLatvianText($enTrans->description)) {
                             EventTranslation::updateOrCreate(
                                 ['event_id' => $event->id, 'locale' => 'en'],
                                 [
@@ -109,25 +109,21 @@ class SyncEventTranslationsCommand extends Command
                 }
             }
 
-            // Check EN locale for Cyrillic contamination
-            $enTrans = $existingTranslations->get('en');
-            if ($enTrans && !empty($enTrans->description)) {
-                $cyrillicCount = preg_match_all('/[\p{Cyrillic}]/u', $enTrans->description);
-                if ($cyrillicCount > 5) {
-                    $this->line("  -> Event #{$event->id} ({$event->title}): Found Cyrillic in EN description. Translating to clean English...");
+            // Clean bilingual slash in LV title if present (e.g. "Title LV / Title RU")
+            if ($lvTrans && str_contains($lvTrans->title, ' / ')) {
+                $parts = explode(' / ', $lvTrans->title, 2);
+                if (count($parts) === 2 && preg_match('/[\p{Cyrillic}]/u', $parts[1])) {
                     if (!$dryRun) {
-                        $baseLv = $existingTranslations->get('lv')?->description ?: $enTrans->description;
-                        $fromLang = $ingestionService->detectTextLanguage($baseLv);
-                        $cleanEnDesc = $translationService->translate($baseLv, $fromLang, 'en') ?: $enTrans->description;
-                        $cleanEnTitle = $translationService->translate($event->title, 'lv', 'en') ?: $enTrans->title;
+                        $cleanLvTitle = trim($parts[0]);
+                        $cleanRuTitle = trim($parts[1]);
+                        $lvTrans->update(['title' => $cleanLvTitle]);
+                        $event->update(['title' => $cleanLvTitle]);
 
-                        $enTrans->update([
-                            'title' => $cleanEnTitle,
-                            'description' => $cleanEnDesc,
-                            'short_description' => mb_strlen($cleanEnDesc) <= 220 ? $cleanEnDesc : Str::limit(strip_tags($cleanEnDesc), 160),
-                        ]);
+                        $ruTrans = $existingTranslations->get('ru');
+                        if ($ruTrans && (empty($ruTrans->title) || !preg_match('/[\p{Cyrillic}]/u', $ruTrans->title))) {
+                            $ruTrans->update(['title' => $cleanRuTitle]);
+                        }
                     }
-                    $fixedLangCount++;
                     $eventModified = true;
                 }
             }
@@ -139,7 +135,13 @@ class SyncEventTranslationsCommand extends Command
                 $afiroUpdated = false;
                 foreach ($targetLocales as $loc) {
                     $curTrans = $existingTranslations->get($loc);
-                    if (!$curTrans || empty(trim($curTrans->description ?? '')) || ($loc === 'lv' && $originalLvWasRuOrEn)) {
+                    $needsAfiro = !$curTrans
+                        || empty(trim($curTrans->description ?? ''))
+                        || ($loc === 'lv' && $originalLvWasRuOrEn)
+                        || ($loc === 'en' && $this->isLatvianText($curTrans->description))
+                        || ($loc === 'ru' && !$this->isRussianText($curTrans->description));
+
+                    if ($needsAfiro) {
                         try {
                             $res = Http::withHeaders([
                                 'Accept' => 'application/json',
@@ -151,7 +153,13 @@ class SyncEventTranslationsCommand extends Command
                             if ($res->successful() && !empty($res->json('title'))) {
                                 $afTitle = trim($res->json('title'));
                                 $afDesc = trim($res->json('description') ?? '');
-                                if (!empty($afDesc) || !empty($afTitle)) {
+
+                                // Ensure fetched text matches expected language
+                                $validForLoc = true;
+                                if ($loc === 'en' && $this->isLatvianText($afDesc)) $validForLoc = false;
+                                if ($loc === 'ru' && !empty($afDesc) && !$this->isRussianText($afDesc)) $validForLoc = false;
+
+                                if ($validForLoc && (!empty($afDesc) || !empty($afTitle))) {
                                     $this->line("  -> Event #{$event->id} ({$event->title}) fetched [{$loc}] from Afiro API");
                                     if (!$dryRun) {
                                         EventTranslation::updateOrCreate(
@@ -201,7 +209,12 @@ class SyncEventTranslationsCommand extends Command
             $needsSiblingSync = false;
             foreach ($targetLocales as $loc) {
                 $t = $existingTranslations->get($loc);
-                if (!$t || empty(trim($t->description ?? '')) || ($loc === 'lv' && $originalLvWasRuOrEn)) {
+                if (!$t
+                    || empty(trim($t->description ?? ''))
+                    || ($loc === 'lv' && $originalLvWasRuOrEn)
+                    || ($loc === 'en' && $this->isLatvianText($t->description))
+                    || ($loc === 'ru' && !$this->isRussianText($t->description))
+                ) {
                     $needsSiblingSync = true;
                     break;
                 }
@@ -216,38 +229,49 @@ class SyncEventTranslationsCommand extends Command
                         $sibTrans = $sibling->translations->firstWhere('locale', $loc);
 
                         if ($sibTrans && !empty(trim($sibTrans->description ?? ''))) {
-                            if (!$curTrans) {
-                                $this->line("  -> Event #{$event->id} ({$event->title}) inherits [{$loc}] from Event #{$sibling->id}");
-                                if (!$dryRun) {
-                                    EventTranslation::create([
-                                        'event_id' => $event->id,
-                                        'locale' => $loc,
-                                        'title' => $sibTrans->title,
-                                        'slug' => Str::slug($sibTrans->title) . '-' . substr(md5($event->id . $loc), 0, 6),
-                                        'description' => $sibTrans->description,
-                                        'short_description' => $sibTrans->short_description,
-                                    ]);
-                                }
-                                $copiedSibling = true;
-                            } elseif (empty(trim($curTrans->description ?? '')) || ($loc === 'lv' && $originalLvWasRuOrEn)) {
-                                $this->line("  -> Event #{$event->id} ({$event->title}) populates missing [{$loc}] description from Event #{$sibling->id}");
-                                if (!$dryRun) {
-                                    $curTrans->update([
-                                        'title' => $sibTrans->title,
-                                        'description' => $sibTrans->description,
-                                        'short_description' => $sibTrans->short_description ?: (mb_strlen($sibTrans->description) <= 220 ? $sibTrans->description : Str::limit(strip_tags($sibTrans->description), 160)),
-                                    ]);
-                                    if ($loc === 'lv') {
-                                        $event->update([
+                            $sibValid = true;
+                            if ($loc === 'en' && $this->isLatvianText($sibTrans->description)) $sibValid = false;
+                            if ($loc === 'ru' && !$this->isRussianText($sibTrans->description)) $sibValid = false;
+
+                            if ($sibValid) {
+                                if (!$curTrans) {
+                                    $this->line("  -> Event #{$event->id} ({$event->title}) inherits [{$loc}] from Event #{$sibling->id}");
+                                    if (!$dryRun) {
+                                        EventTranslation::create([
+                                            'event_id' => $event->id,
+                                            'locale' => $loc,
                                             'title' => $sibTrans->title,
+                                            'slug' => Str::slug($sibTrans->title) . '-' . substr(md5($event->id . $loc), 0, 6),
                                             'description' => $sibTrans->description,
                                             'short_description' => $sibTrans->short_description,
                                         ]);
                                     }
-                                }
-                                $copiedSibling = true;
-                                if ($loc === 'lv') {
-                                    $originalLvWasRuOrEn = null;
+                                    $copiedSibling = true;
+                                } elseif (
+                                    empty(trim($curTrans->description ?? ''))
+                                    || ($loc === 'lv' && $originalLvWasRuOrEn)
+                                    || ($loc === 'en' && $this->isLatvianText($curTrans->description))
+                                    || ($loc === 'ru' && !$this->isRussianText($curTrans->description))
+                                ) {
+                                    $this->line("  -> Event #{$event->id} ({$event->title}) inherits [{$loc}] description from Event #{$sibling->id}");
+                                    if (!$dryRun) {
+                                        $curTrans->update([
+                                            'title' => $sibTrans->title,
+                                            'description' => $sibTrans->description,
+                                            'short_description' => $sibTrans->short_description ?: (mb_strlen($sibTrans->description) <= 220 ? $sibTrans->description : Str::limit(strip_tags($sibTrans->description), 160)),
+                                        ]);
+                                        if ($loc === 'lv') {
+                                            $event->update([
+                                                'title' => $sibTrans->title,
+                                                'description' => $sibTrans->description,
+                                                'short_description' => $sibTrans->short_description,
+                                            ]);
+                                        }
+                                    }
+                                    $copiedSibling = true;
+                                    if ($loc === 'lv') {
+                                        $originalLvWasRuOrEn = null;
+                                    }
                                 }
                             }
                         }
@@ -329,7 +353,7 @@ class SyncEventTranslationsCommand extends Command
             }
 
             // -------------------------------------------------------------
-            // STEP 6: Auto-translate missing EN and RU translations
+            // STEP 6: Auto-translate missing or invalid EN and RU translations
             // -------------------------------------------------------------
             $lvRecord = $existingTranslations->get('lv');
             $baseTitle = $lvRecord?->title ?: $event->title;
@@ -337,37 +361,66 @@ class SyncEventTranslationsCommand extends Command
             $baseShort = $lvRecord?->short_description ?: $event->short_description;
 
             if (!empty($baseDesc)) {
-                foreach (['en', 'ru'] as $targetLoc) {
-                    $tRecord = $existingTranslations->get($targetLoc);
-                    if (!$tRecord || empty(trim($tRecord->description ?? ''))) {
-                        $this->line("  -> Event #{$event->id} ({$event->title}): Auto-translating LV -> {$targetLoc}...");
+                // Check EN
+                $enRecord = $existingTranslations->get('en');
+                $needsEn = !$enRecord
+                    || empty(trim($enRecord->description ?? ''))
+                    || $this->isLatvianText($enRecord->description)
+                    || preg_match_all('/[\p{Cyrillic}]/u', $enRecord->description ?? '') > 5;
 
-                        if (!$dryRun) {
-                            $transTitle = $translationService->translate($baseTitle, 'lv', $targetLoc) ?: $baseTitle;
-                            $transDesc = $translationService->translate($baseDesc, 'lv', $targetLoc) ?: $baseDesc;
-                            $transShort = $baseShort ? ($translationService->translate($baseShort, 'lv', $targetLoc) ?: Str::limit(strip_tags($transDesc), 160)) : Str::limit(strip_tags($transDesc), 160);
+                if ($needsEn) {
+                    $this->line("  -> Event #{$event->id} ({$event->title}): Translating LV -> en...");
+                    if (!$dryRun) {
+                        $transTitle = $translationService->translate($baseTitle, 'lv', 'en') ?: $baseTitle;
+                        $transDesc = $translationService->translate($baseDesc, 'lv', 'en') ?: $baseDesc;
+                        $transShort = $baseShort ? ($translationService->translate($baseShort, 'lv', 'en') ?: Str::limit(strip_tags($transDesc), 160)) : Str::limit(strip_tags($transDesc), 160);
 
-                            EventTranslation::updateOrCreate(
-                                ['event_id' => $event->id, 'locale' => $targetLoc],
-                                [
-                                    'title' => $transTitle,
-                                    'slug' => Str::slug($transTitle) . '-' . substr(md5($event->id . $targetLoc), 0, 6),
-                                    'description' => $transDesc,
-                                    'short_description' => $transShort,
-                                ]
-                            );
-                        }
-
-                        $autoTranslatedCount++;
-                        $eventModified = true;
+                        EventTranslation::updateOrCreate(
+                            ['event_id' => $event->id, 'locale' => 'en'],
+                            [
+                                'title' => $transTitle,
+                                'slug' => Str::slug($transTitle) . '-' . substr(md5($event->id . 'en'), 0, 6),
+                                'description' => $transDesc,
+                                'short_description' => $transShort,
+                            ]
+                        );
                     }
+                    $autoTranslatedCount++;
+                    $eventModified = true;
+                }
+
+                // Check RU
+                $ruRecord = $existingTranslations->get('ru');
+                $needsRu = !$ruRecord
+                    || empty(trim($ruRecord->description ?? ''))
+                    || (!$this->isRussianText($ruRecord->description) && ($this->isLatvianText($ruRecord->description) || $this->isEnglishText($ruRecord->description)));
+
+                if ($needsRu) {
+                    $this->line("  -> Event #{$event->id} ({$event->title}): Translating LV -> ru...");
+                    if (!$dryRun) {
+                        $transTitle = $translationService->translate($baseTitle, 'lv', 'ru') ?: $baseTitle;
+                        $transDesc = $translationService->translate($baseDesc, 'lv', 'ru') ?: $baseDesc;
+                        $transShort = $baseShort ? ($translationService->translate($baseShort, 'lv', 'ru') ?: Str::limit(strip_tags($transDesc), 160)) : Str::limit(strip_tags($transDesc), 160);
+
+                        EventTranslation::updateOrCreate(
+                            ['event_id' => $event->id, 'locale' => 'ru'],
+                            [
+                                'title' => $transTitle,
+                                'slug' => Str::slug($transTitle) . '-' . substr(md5($event->id . 'ru'), 0, 6),
+                                'description' => $transDesc,
+                                'short_description' => $transShort,
+                            ]
+                        );
+                    }
+                    $autoTranslatedCount++;
+                    $eventModified = true;
                 }
             }
 
             // Ensure main event table has proper LV title and description
             if (!$dryRun) {
                 $finalLv = $event->translations()->where('locale', 'lv')->first();
-                if ($finalLv && (!empty($finalLv->description) && empty($event->description))) {
+                if ($finalLv && (!empty($finalLv->description) && (empty($event->description) || $event->title !== $finalLv->title))) {
                     $event->update([
                         'title' => $finalLv->title,
                         'description' => $finalLv->description,
@@ -393,5 +446,84 @@ class SyncEventTranslationsCommand extends Command
         $this->info("----------------------------------------------------------------");
 
         return self::SUCCESS;
+    }
+
+    protected function isLatvianText(?string $text): bool
+    {
+        if (empty($text)) {
+            return false;
+        }
+        $clean = mb_strtolower(strip_tags($text));
+        if (str_contains($clean, 'apmeklējiet pasākumu') || str_contains($clean, 'norises laiks:')) {
+            return true;
+        }
+
+        $lvStopWords = [' un ', ' ir ', ' ar ', ' par ', ' pie ', ' no ', ' uz ', ' kā ', ' kas ', ' vai ', ' lai ', ' tiek ', ' notiks ', ' biļetes ', ' izrāde ', ' koncerts ', ' vieta ', ' pasākums ', ' spēle ', ' ieeja ', ' stāsts ', ' zālē ', ' biļešu ', ' skatuves ', ' festivāls ', ' programma ', ' dalība '];
+        $enStopWords = [' the ', ' and ', ' is ', ' in ', ' of ', ' to ', ' with ', ' for ', ' at ', ' will ', ' on ', ' tickets ', ' event ', ' performance ', ' venue ', ' admission '];
+
+        $padded = " {$clean} ";
+        $lvCount = 0;
+        foreach ($lvStopWords as $w) {
+            if (str_contains($padded, $w)) {
+                $lvCount++;
+            }
+        }
+        $enCount = 0;
+        foreach ($enStopWords as $w) {
+            if (str_contains($padded, $w)) {
+                $enCount++;
+            }
+        }
+
+        $latvianChars = preg_match_all('/[āēīūģķļņšžč]/u', $clean);
+
+        if ($lvCount >= 2 && $lvCount > $enCount) {
+            return true;
+        }
+        if ($lvCount >= 1 && $enCount === 0 && $latvianChars >= 2) {
+            return true;
+        }
+        if ($latvianChars >= 5 && $enCount === 0) {
+            return true;
+        }
+
+        return false;
+    }
+
+    protected function isRussianText(?string $text): bool
+    {
+        if (empty($text)) {
+            return false;
+        }
+        $cyrillicCount = preg_match_all('/[\p{Cyrillic}]/u', $text);
+        return $cyrillicCount >= 10;
+    }
+
+    protected function isEnglishText(?string $text): bool
+    {
+        if (empty($text)) {
+            return false;
+        }
+        $clean = mb_strtolower(strip_tags($text));
+        $enStopWords = [' the ', ' and ', ' is ', ' in ', ' of ', ' to ', ' with ', ' for ', ' at ', ' will ', ' on ', ' tickets ', ' event ', ' performance ', ' venue ', ' admission '];
+        $lvStopWords = [' un ', ' ir ', ' ar ', ' par ', ' pie ', ' no ', ' uz ', ' kā ', ' kas ', ' vai ', ' lai ', ' tiek ', ' notiks ', ' biļetes '];
+
+        $padded = " {$clean} ";
+        $enCount = 0;
+        foreach ($enStopWords as $w) {
+            if (str_contains($padded, $w)) {
+                $enCount++;
+            }
+        }
+        $lvCount = 0;
+        foreach ($lvStopWords as $w) {
+            if (str_contains($padded, $w)) {
+                $lvCount++;
+            }
+        }
+
+        $cyrillicCount = preg_match_all('/[\p{Cyrillic}]/u', $text);
+
+        return $enCount >= 2 && $enCount > $lvCount && $cyrillicCount < 5;
     }
 }
