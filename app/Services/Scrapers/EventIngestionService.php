@@ -699,8 +699,13 @@ class EventIngestionService
         $clean = preg_replace('/[^\p{L}\s]+/u', ' ', mb_strtolower($title, 'UTF-8'));
         $stopwords = [
             'un', 'par', 'ar', 'pie', 'uz', 'no', 'vai', 'lai', 'kas', 'kur', 'kad', 'kā', 'ir', 'būt', 'arī', 'tiek', 'jeb',
+            'izstāde', 'izstādes', 'izstādei', 'izstādi', 'izstādē', 'pasākums', 'pasākumi', 'pasākumu', 'nodarbība', 'nodarbības',
+            'septembrī', 'oktobrī', 'novembrī', 'decembrī', 'janvārī', 'februārī', 'martā', 'aprīlī', 'maijā', 'jūnijā', 'jūlijā', 'augustā',
+            'novadā', 'novads', 'pagastā', 'pilsētā', 'centrā', 'kultūras', 'nams',
             'the', 'and', 'or', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from', 'is', 'are', 'was', 'were', 'an', 'a',
-            'и', 'в', 'во', 'на', 'с', 'со', 'по', 'к', 'ко', 'у', 'о', 'об', 'для', 'от', 'до', 'из', 'или', 'как', 'это', 'что'
+            'exhibition', 'event', 'events', 'festival',
+            'и', 'в', 'во', 'на', 'с', 'со', 'по', 'к', 'ко', 'у', 'о', 'об', 'для', 'от', 'до', 'из', 'или', 'как', 'это', 'что',
+            'выставка', 'выставки', 'мероприятие', 'фестиваль'
         ];
 
         $words = explode(' ', $clean);
@@ -725,7 +730,9 @@ class EventIngestionService
         // 1. Direct match by shared ticketing platform URL or external identifier
         if ($eventTicketUrl || $eventSourceUrl || $eventExternalId) {
             $ticketCandidate = Event::with('translations')
-                ->has('translations', '>=', 2)
+                ->whereHas('translations', function ($q) {
+                    $q->whereNotNull('description')->where('description', '!=', '');
+                })
                 ->where('id', '!=', $event->id)
                 ->where(function ($q) use ($eventTicketUrl, $eventSourceUrl, $eventExternalId) {
                     if ($eventTicketUrl) {
@@ -745,27 +752,29 @@ class EventIngestionService
             }
         }
 
-        // 2. Search for candidates with translations
+        // 2. Search for candidates with translations and non-empty description
         // First try same location, then try cross-location for multi-venue/cinema/theatre events
-        $locationCandidates = Event::with('translations')
-            ->has('translations', '>=', 2)
-            ->where('id', '!=', $event->id)
-            ->where(function ($q) use ($event) {
-                if ($event->location_id) {
-                    $q->where('location_id', $event->location_id);
-                }
-            })
-            ->get();
+        if ($event->location_id) {
+            $locationCandidates = Event::with('translations')
+                ->whereHas('translations', function ($q) {
+                    $q->whereNotNull('description')->where('description', '!=', '');
+                })
+                ->where('id', '!=', $event->id)
+                ->where('location_id', $event->location_id)
+                ->get();
 
-        $candidateResult = $this->evaluateSiblingCandidates($event, $locationCandidates, $tokens, false);
-        if ($candidateResult) {
-            return $candidateResult;
+            $candidateResult = $this->evaluateSiblingCandidates($event, $locationCandidates, $tokens, false);
+            if ($candidateResult) {
+                return $candidateResult;
+            }
         }
 
         // If no sibling found at same location, search across other locations (for films, tours, guest performances)
         if (!empty($tokens)) {
             $crossLocationCandidates = Event::with('translations')
-                ->has('translations', '>=', 2)
+                ->whereHas('translations', function ($q) {
+                    $q->whereNotNull('description')->where('description', '!=', '');
+                })
                 ->where('id', '!=', $event->id)
                 ->get();
 
@@ -779,7 +788,7 @@ class EventIngestionService
     {
         $bestCandidate = null;
         $bestScore = 0;
-        $minScore = $crossLocation ? 0.60 : 0.35;
+        $minScore = $crossLocation ? 0.75 : 0.40;
 
         // Gather all title variations from the target event (e.g. from existing translations)
         $targetTitles = [$event->title];

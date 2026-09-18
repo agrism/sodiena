@@ -114,7 +114,7 @@ class SyncEventTranslationsCommand extends Command
                             }
                             $copiedAny = true;
                         } elseif (empty(trim($curTrans->description ?? ''))) {
-                            $this->line("  -> Event #{$event->id} ({$event->title}) inherits empty [{$loc}] description from Event #{$sibling->id}");
+                            $this->line("  -> Event #{$event->id} ({$event->title}) populates missing [{$loc}] description from Event #{$sibling->id}");
                             if (!$dryRun) {
                                 $curTrans->update([
                                     'description' => $sibTrans->description,
