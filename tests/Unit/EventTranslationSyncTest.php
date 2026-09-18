@@ -265,4 +265,107 @@ class EventTranslationSyncTest extends TestCase
         $this->assertNotNull($ruTrans);
         $this->assertEquals('Piccolo CONCERTO PICCOLO Органный концерт ~ 20 мин.', $ruTrans->description);
     }
+
+    public function test_prioritize_sibling_with_full_description_over_empty_sessions(): void
+    {
+        $service = app(EventIngestionService::class);
+
+        $source = Source::create([
+            'name' => 'Biļešu Paradīze',
+            'slug' => 'bilesu-paradize',
+            'url' => 'https://www.bilesuparadize.lv',
+            'scraper_class' => \App\Services\Scrapers\Sources\BilesuParadizeScraper::class,
+            'is_active' => true,
+        ]);
+
+        $loc = Location::create([
+            'name' => 'Latvijas Leļļu teātris',
+            'city' => 'Rīga',
+            'region' => 'Rīga un Pierīga',
+        ]);
+
+        // Session 1 (Afiro) - has rich LV, EN, RU
+        $afiroSession = Event::create([
+            'source_id' => $source->id,
+            'source_slug' => 'afiro-api',
+            'location_id' => $loc->id,
+            'title' => 'Čuči,Spilventiņ!',
+            'slug' => 'cucispilventin-9QmQdP',
+            'description' => 'Pirmo reizi Latvijas Leļļu teātrī...',
+            'start_at' => now()->addDays(5),
+            'status' => 'published',
+            'published_at' => now(),
+        ]);
+        EventTranslation::create([
+            'event_id' => $afiroSession->id,
+            'locale' => 'lv',
+            'title' => 'Čuči,Spilventiņ!',
+            'slug' => 'cucispilventin-lv-9QmQdP',
+            'description' => 'Pirmo reizi Latvijas Leļļu teātrī...',
+        ]);
+        EventTranslation::create([
+            'event_id' => $afiroSession->id,
+            'locale' => 'en',
+            'title' => 'Sleep, Little Pillow!',
+            'slug' => 'sleep-little-pillow-en-9QmQdP',
+            'description' => 'For the first time at the Latvian Puppet Theatre...',
+        ]);
+
+        // Session 2 (Bilesu Paradize) - earlier ID than session 3, but missing LV description
+        $emptySession = Event::create([
+            'source_id' => $source->id,
+            'source_slug' => 'bilesu-paradize',
+            'location_id' => $loc->id,
+            'title' => 'Čuči,Spilventiņ!',
+            'slug' => 'cucispilventin-zKReGB',
+            'description' => null,
+            'start_at' => now()->addDays(6),
+            'status' => 'published',
+            'published_at' => now(),
+        ]);
+        EventTranslation::create([
+            'event_id' => $emptySession->id,
+            'locale' => 'lv',
+            'title' => 'Čuči,Spilventiņ!',
+            'slug' => 'cucispilventin-lv-zKReGB',
+            'description' => null,
+        ]);
+        EventTranslation::create([
+            'event_id' => $emptySession->id,
+            'locale' => 'en',
+            'title' => 'Sleep, Little Pillow!',
+            'slug' => 'sleep-little-pillow-en-zKReGB',
+            'description' => 'For the first time at the Latvian Puppet Theatre...',
+        ]);
+
+        // Target Session 3 (Bilesu Paradize) - also missing LV description
+        $targetSession = Event::create([
+            'source_id' => $source->id,
+            'source_slug' => 'bilesu-paradize',
+            'location_id' => $loc->id,
+            'title' => 'Čuči,Spilventiņ!',
+            'slug' => 'cucispilventin-aS1TUI',
+            'description' => null,
+            'start_at' => now()->addDays(7),
+            'status' => 'published',
+            'published_at' => now(),
+        ]);
+        EventTranslation::create([
+            'event_id' => $targetSession->id,
+            'locale' => 'lv',
+            'title' => 'Čuči,Spilventiņ!',
+            'slug' => 'cucispilventin-lv-aS1TUI',
+            'description' => null,
+        ]);
+
+        $sibling = $service->findSiblingWithTranslations($targetSession);
+        $this->assertNotNull($sibling);
+        $this->assertEquals($afiroSession->id, $sibling->id);
+
+        $service->inheritSiblingTranslations($targetSession);
+        $targetSession->refresh();
+
+        $this->assertEquals('Pirmo reizi Latvijas Leļļu teātrī...', $targetSession->description);
+        $this->assertEquals('Pirmo reizi Latvijas Leļļu teātrī...', $targetSession->translations()->where('locale', 'lv')->first()?->description);
+    }
 }
