@@ -294,6 +294,15 @@ class EventIngestionService
                     $finalImageUrl = $existingEvent->image_url;
                 }
 
+                $pMin = $dto->priceMin !== null ? $dto->priceMin : $existingEvent->price_min;
+                $pMax = $dto->priceMax !== null ? $dto->priceMax : $existingEvent->price_max;
+                if ($pMax !== null && (float)$pMax <= 0) {
+                    $pMax = null;
+                }
+                if ($pMin !== null && $pMax !== null && (float)$pMin > (float)$pMax) {
+                    [$pMin, $pMax] = [$pMax, $pMin];
+                }
+
                 // Update existing event details
                 $updateData = [
                     'source_id' => $existingEvent->source_id ?: $source->id,
@@ -305,8 +314,8 @@ class EventIngestionService
                     'image_url' => $finalImageUrl,
                     'ticket_url' => $dto->ticketUrl ?: $existingEvent->ticket_url,
                     'is_free' => $dto->isFree,
-                    'price_min' => $dto->priceMin !== null ? $dto->priceMin : $existingEvent->price_min,
-                    'price_max' => $dto->priceMax !== null ? $dto->priceMax : $existingEvent->price_max,
+                    'price_min' => $pMin,
+                    'price_max' => $pMax,
                     'entertainment_type' => $dto->entertainmentType ?: $existingEvent->entertainment_type,
                     'raw_data' => array_merge($existingEvent->raw_data ?? [], $dto->rawData),
                 ];
@@ -350,6 +359,15 @@ class EventIngestionService
                 return 'updated';
             }
 
+            $newPMin = $dto->priceMin;
+            $newPMax = $dto->priceMax;
+            if ($newPMax !== null && (float)$newPMax <= 0) {
+                $newPMax = null;
+            }
+            if ($newPMin !== null && $newPMax !== null && (float)$newPMin > (float)$newPMax) {
+                [$newPMin, $newPMax] = [$newPMax, $newPMin];
+            }
+
             // 4. Create new event
             $event = Event::create([
                 'source_id' => $source->id,
@@ -363,8 +381,8 @@ class EventIngestionService
                 'end_at' => $dto->endAt,
                 'all_day' => false,
                 'is_free' => $dto->isFree,
-                'price_min' => $dto->priceMin,
-                'price_max' => $dto->priceMax,
+                'price_min' => $newPMin,
+                'price_max' => $newPMax,
                 'currency' => $dto->currency ?: 'EUR',
                 'ticket_url' => $dto->ticketUrl,
                 'image_url' => $dto->imageUrl,

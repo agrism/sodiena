@@ -847,21 +847,36 @@ class Event extends Model
             };
         }
 
-        if ($this->price_min && $this->price_max && $this->price_min != $this->price_max) {
-            return "€{$this->price_min} - €{$this->price_max}";
+        $min = $this->price_min !== null ? (float)$this->price_min : null;
+        $max = $this->price_max !== null ? (float)$this->price_max : null;
+
+        if ($max !== null && $max <= 0) {
+            $max = null;
         }
 
-        if ($this->price_min) {
+        if ($min !== null && $max !== null && $min > $max) {
+            [$min, $max] = [$max, $min];
+        }
+
+        $formatNum = function (float $n): string {
+            return ($n == (int)$n) ? (string)(int)$n : rtrim(rtrim(number_format($n, 2, '.', ''), '0'), '.');
+        };
+
+        if ($min !== null && $max !== null && $min != $max) {
+            return "€{$formatNum($min)} - €{$formatNum($max)}";
+        }
+
+        if ($min !== null) {
             $from = match($locale) {
                 'en' => 'From ',
                 'ru' => 'От ',
                 default => 'No ',
             };
-            return "{$from}€{$this->price_min}";
+            return "{$from}€{$formatNum($min)}";
         }
 
-        if ($this->price_max) {
-            return "€{$this->price_max}";
+        if ($max !== null) {
+            return "€{$formatNum($max)}";
         }
 
         return match($locale) {
