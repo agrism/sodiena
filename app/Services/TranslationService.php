@@ -33,46 +33,32 @@ class TranslationService
     }
 
     /**
-     * Translate longer text by splitting paragraphs and sentences.
+     * Translate longer text by bundling lines/paragraphs into ~2000 char blocks.
      */
     private function translateLongText(string $text, string $from, string $to): string
     {
-        $paragraphs = explode("\n", $text);
-        $translatedParagraphs = [];
+        $lines = explode("\n", $text);
+        $chunks = [];
+        $currentChunk = '';
 
-        foreach ($paragraphs as $para) {
-            $trimmed = trim($para);
-            if ($trimmed === '') {
-                $translatedParagraphs[] = '';
-                continue;
-            }
-
-            if (mb_strlen($trimmed, 'UTF-8') <= 2500) {
-                $translated = $this->translateChunk($trimmed, $from, $to);
-                $translatedParagraphs[] = $translated ?: $trimmed;
+        foreach ($lines as $line) {
+            if (mb_strlen($currentChunk . "\n" . $line, 'UTF-8') > 2000 && !empty($currentChunk)) {
+                $chunks[] = $currentChunk;
+                $currentChunk = $line;
             } else {
-                $sentences = preg_split('/(?<=[.!?])\s+/u', $trimmed, -1, PREG_SPLIT_NO_EMPTY);
-                $translatedSentences = [];
-                $buffer = '';
-
-                foreach ($sentences as $sentence) {
-                    if (mb_strlen($buffer . ' ' . $sentence, 'UTF-8') > 2200 && !empty($buffer)) {
-                        $trans = $this->translateChunk($buffer, $from, $to);
-                        $translatedSentences[] = $trans ?: $buffer;
-                        $buffer = $sentence;
-                    } else {
-                        $buffer = empty($buffer) ? $sentence : $buffer . ' ' . $sentence;
-                    }
-                }
-                if (!empty($buffer)) {
-                    $trans = $this->translateChunk($buffer, $from, $to);
-                    $translatedSentences[] = $trans ?: $buffer;
-                }
-                $translatedParagraphs[] = implode(' ', $translatedSentences);
+                $currentChunk = empty($currentChunk) ? $line : $currentChunk . "\n" . $line;
             }
         }
+        if (!empty($currentChunk)) {
+            $chunks[] = $currentChunk;
+        }
 
-        return implode("\n", $translatedParagraphs);
+        $translatedChunks = [];
+        foreach ($chunks as $c) {
+            $translatedChunks[] = $this->translateChunk($c, $from, $to) ?: $c;
+        }
+
+        return implode("\n", $translatedChunks);
     }
 
     /**
