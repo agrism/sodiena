@@ -195,15 +195,25 @@ class BilesuParadizeScraper extends BaseScraper
         $fallbackHall = null;
 
         // Parse individual performance session objects
+        $candidateItems = [];
         foreach ($nuxt as $item) {
             if (!is_array($item) || !isset($item['date_time'])) {
                 continue;
             }
-
-            // Must have performance indicators
             if (!isset($item['performance_id']) && !isset($item['performance_titles']) && !isset($item['performance'])) {
                 continue;
             }
+            $candidateItems[] = $item;
+        }
+
+        // Sort so items with price_groups and performance_titles come first
+        usort($candidateItems, function ($a, $b) {
+            $scoreA = (isset($a['price_groups']) ? 2 : 0) + (isset($a['performance_titles']) ? 1 : 0);
+            $scoreB = (isset($b['price_groups']) ? 2 : 0) + (isset($b['performance_titles']) ? 1 : 0);
+            return $scoreB <=> $scoreA;
+        });
+
+        foreach ($candidateItems as $item) {
 
             // Prefer items with performance_titles / hall_titles (session cards)
             // or if it's the only performance object
