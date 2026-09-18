@@ -9,3 +9,9 @@
    - Only actual theater venues (*JRT*, *Dailes*, *Nacionālais*, *Valmieras*, *Liepājas*, *Čehova*, *Dirty Deal*, *Ģertrūdes*, *Leļļu*) and actual theater productions (*izrāde*, *luga*, *iestudējums*, *opera*, *balets*).
 3. **Fallback**:
    - If an event has no clear specific category -> default to **Cits** (`citi`).
+
+## Event Maintenance & Scope Rules
+1. **No Past Events Modification**:
+   - Do NOT modify, resync, or mutate events that have already ended in the past (`end_at < today` or `start_at < today`).
+   - All translation syncing, data repairs, and scraping updates must strictly target **current and upcoming events**.
+
