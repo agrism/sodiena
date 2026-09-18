@@ -391,6 +391,40 @@ class BilesuParadizeScraper extends BaseScraper
                 }
             }
 
+            // Price resolution from Nuxt price_groups or DOM
+            $priceMin = null;
+            $priceMax = null;
+            $prices = [];
+
+            if (isset($item['price_groups'])) {
+                $rawPg = $item['price_groups'];
+                $pgList = is_int($rawPg) && isset($nuxt[$rawPg]) ? $nuxt[$rawPg] : $rawPg;
+                if (is_array($pgList)) {
+                    foreach ($pgList as $pgRef) {
+                        $pgObj = is_int($pgRef) && isset($nuxt[$pgRef]) ? $nuxt[$pgRef] : $pgRef;
+                        if (is_array($pgObj) && isset($pgObj['price'])) {
+                            $priceVal = $pgObj['price'];
+                            $resolvedPrice = is_int($priceVal) && isset($nuxt[$priceVal]) ? $nuxt[$priceVal] : $priceVal;
+                            if (is_numeric($resolvedPrice) && (float)$resolvedPrice > 0) {
+                                $prices[] = (float)$resolvedPrice;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (!empty($prices)) {
+                $priceMin = min($prices);
+                $priceMax = max($prices);
+            } elseif (preg_match('/(?:Biļešu cenas|Cenas?)\s*(?:no)?\s*([\d\.,]+)(?:\s*(?:līdz|-)\s*([\d\.,]+))?\s*€/iu', $html, $domPrice)) {
+                $priceMin = (float) str_replace(',', '.', $domPrice[1]);
+                $priceMax = !empty($domPrice[2]) ? (float) str_replace(',', '.', $domPrice[2]) : $priceMin;
+            } elseif (preg_match('/class="[^"]*(?:price-value|event-price)[^"]*"[^>]*>([^<]+)</iu', $html, $domPrice)) {
+                $extracted = $this->extractPrice($domPrice[1]);
+                $priceMin = $extracted['min'];
+                $priceMax = $extracted['max'];
+            }
+
             $dtos->push(new ScrapedEventDTO(
                 title: $title,
                 startAt: $startAt,
@@ -398,9 +432,9 @@ class BilesuParadizeScraper extends BaseScraper
                 city: $city,
                 categoryNames: $categoryNames,
                 entertainmentType: 'performance',
-                isFree: false,
-                priceMin: 15.0,
-                priceMax: 45.0,
+                isFree: $priceMin === 0.0,
+                priceMin: $priceMin,
+                priceMax: $priceMax,
                 ticketUrl: $ticketUrl,
                 imageUrl: $posterUrl,
                 sourceUrl: $ticketUrl,

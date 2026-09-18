@@ -121,6 +121,7 @@ class BilesuParadizeScraperTest extends TestCase
                 "performance_id" => 3,
                 "id" => 4,
                 "hall_titles" => 5,
+                "price_groups" => [9, 10],
             ],
             "2026-10-21 19:00:00",
             100,
@@ -134,6 +135,10 @@ class BilesuParadizeScraperTest extends TestCase
             ],
             "2026-10-22 19:00:00",
             175374,
+            ["price" => 11],
+            ["price" => 12],
+            60,
+            140,
         ];
 
         $html = '<!DOCTYPE html><html><head><title>DZIMŠANAS DIENAS KŪKA — Biļešu Paradīze</title></head><body><script id="__NUXT_DATA__" type="application/json">' . json_encode($nuxtData) . '</script></body></html>';
@@ -145,6 +150,8 @@ class BilesuParadizeScraperTest extends TestCase
         $this->assertEquals('https://www.bilesuparadize.lv/lv/event/175373', $dtos[0]->ticketUrl);
         $this->assertEquals('Jaunais Rīgas teātris, Lielā zāle', $dtos[0]->venueName);
         $this->assertEquals('2026-10-21 19:00:00', $dtos[0]->startAt->format('Y-m-d H:i:s'));
+        $this->assertEquals(60.0, $dtos[0]->priceMin);
+        $this->assertEquals(140.0, $dtos[0]->priceMax);
 
         $this->assertEquals('https://www.bilesuparadize.lv/lv/event/175374', $dtos[1]->ticketUrl);
         $this->assertEquals('2026-10-22 19:00:00', $dtos[1]->startAt->format('Y-m-d H:i:s'));
