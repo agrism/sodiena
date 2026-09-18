@@ -425,9 +425,67 @@ class BilesuParadizeScraper extends BaseScraper
                 $priceMax = $extracted['max'];
             }
 
+            // Description resolution
+            $description = null;
+            if (isset($item['main_description'])) {
+                $rawDesc = $resolve($item['main_description']);
+                if (is_array($rawDesc)) {
+                    $description = $resolve($rawDesc['lv'] ?? ($rawDesc['en'] ?? reset($rawDesc)));
+                } elseif (is_string($rawDesc) && !empty($rawDesc)) {
+                    $description = $rawDesc;
+                }
+            }
+
+            if (!$description && is_array($perfObj) && isset($perfObj['main_description'])) {
+                $rawDesc = $resolve($perfObj['main_description']);
+                if (is_array($rawDesc)) {
+                    $description = $resolve($rawDesc['lv'] ?? ($rawDesc['en'] ?? reset($rawDesc)));
+                } elseif (is_string($rawDesc) && !empty($rawDesc)) {
+                    $description = $rawDesc;
+                }
+            }
+
+            if (!$description && is_array($perfObj) && isset($perfObj['meta_description'])) {
+                $rawMeta = $resolve($perfObj['meta_description']);
+                if (is_string($rawMeta) && !empty($rawMeta)) {
+                    $description = $rawMeta;
+                }
+            }
+
+            if (!$description && preg_match('/<meta\s+name=["\']description["\']\s+content=["\']([^"\']+)["\']/i', $html, $metaMatch)) {
+                $description = html_entity_decode($metaMatch[1]);
+            }
+
+            if (is_string($description)) {
+                $description = $this->cleanText($description);
+            } else {
+                $description = null;
+            }
+
+            $shortDescription = $description ? \Illuminate\Support\Str::limit(strip_tags($description), 160) : null;
+
+            // Organizer resolution
+            $organizer = null;
+            if (isset($item['organizer_name'])) {
+                $orgResolved = $resolve($item['organizer_name']);
+                if (is_string($orgResolved) && !empty($orgResolved)) {
+                    $organizer = $this->cleanText($orgResolved);
+                }
+            } elseif (is_array($perfObj) && isset($perfObj['organizer'])) {
+                $orgObj = $resolve($perfObj['organizer']);
+                if (is_array($orgObj) && isset($orgObj['name'])) {
+                    $orgName = $resolve($orgObj['name']);
+                    if (is_string($orgName) && !empty($orgName)) {
+                        $organizer = $this->cleanText($orgName);
+                    }
+                }
+            }
+
             $dtos->push(new ScrapedEventDTO(
                 title: $title,
                 startAt: $startAt,
+                description: $description,
+                shortDescription: $shortDescription,
                 venueName: $venueName,
                 city: $city,
                 categoryNames: $categoryNames,
@@ -438,7 +496,10 @@ class BilesuParadizeScraper extends BaseScraper
                 ticketUrl: $ticketUrl,
                 imageUrl: $posterUrl,
                 sourceUrl: $ticketUrl,
-                sourceExternalId: "bp-session-{$sessionId}"
+                sourceExternalId: "bp-session-{$sessionId}",
+                rawData: array_filter([
+                    'organizer' => $organizer,
+                ])
             ));
         }
 
