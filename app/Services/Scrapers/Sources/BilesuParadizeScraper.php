@@ -634,7 +634,7 @@ class BilesuParadizeScraper extends BaseScraper
 
     private function extractPrice(?string $text): array
     {
-        if (empty($text)) return ['min' => 15.0, 'max' => 45.0];
+        if (empty($text)) return ['min' => null, 'max' => null];
         preg_match_all('/(\d+([.,]\d+)?)/', $text, $matches);
         if (!empty($matches[1])) {
             $nums = array_map(fn($n) => (float)str_replace(',', '.', $n), $matches[1]);
@@ -643,7 +643,7 @@ class BilesuParadizeScraper extends BaseScraper
                 'max' => max($nums),
             ];
         }
-        return ['min' => 15.0, 'max' => 50.0];
+        return ['min' => null, 'max' => null];
     }
 
     private function getMockEvents(): Collection
