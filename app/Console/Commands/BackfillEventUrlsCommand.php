@@ -25,36 +25,11 @@ class BackfillEventUrlsCommand extends Command
         $updatedCount = 0;
         $total = Event::count();
 
-        Event::chunk(100, function ($events) use ($ticketPlatforms, &$updatedCount) {
+        Event::chunk(100, function ($events) use (&$updatedCount) {
             foreach ($events as $event) {
-                $text = ($event->getRawOriginal('description') ?? '') . ' ' . json_encode($event->raw_data ?? []);
-                preg_match_all('/https?:\/\/[^\s\)\"\'<>]+/i', $text, $matches);
-
-                $foundTicket = null;
-                $foundOfficial = null;
-
-                foreach ($matches[0] as $rawUrl) {
-                    $cleanUrl = preg_replace('/(\?|\&)utm_[a-zA-Z0-9_]+=[^&]*/', '', $rawUrl);
-                    $cleanUrl = rtrim($cleanUrl, '?&.,;:\'\"');
-
-                    if (str_contains($cleanUrl, 'afiro.lv') || str_contains($cleanUrl, 'imagekit.io')) {
-                        continue;
-                    }
-
-                    foreach ($ticketPlatforms as $platform) {
-                        if (str_contains($cleanUrl, $platform)) {
-                            $foundTicket = $cleanUrl;
-                            break;
-                        }
-                    }
-
-                    if (!$foundOfficial && !str_contains($cleanUrl, 'youtube.com') && !str_contains($cleanUrl, 'youtu.be') && !str_contains($cleanUrl, 'tiktok.com')) {
-                        $foundOfficial = $cleanUrl;
-                    }
-                }
-
-                $newTicketUrl = $foundTicket ?: null;
-                $newSourceUrl = $foundOfficial ?: ($foundTicket ?: null);
+                $ticketLinks = $event->ticket_links;
+                $newTicketUrl = !empty($ticketLinks) ? $ticketLinks[0]['url'] : null;
+                $newSourceUrl = $event->extractRealOfficialUrl() ?: ($newTicketUrl ?: null);
 
                 // Update raw DB columns directly
                 \DB::table('events')->where('id', $event->id)->update([
