@@ -73,7 +73,7 @@ class Event extends Model
                 $event->slug = Str::slug($event->title) . '-' . Str::random(6);
             }
             if (empty($event->fingerprint)) {
-                $dateStr = $event->start_at ? $event->start_at->format('Y-m-d') : '';
+                $dateStr = ($event->start_at && $event->start_at->format('H:i') !== '00:00') ? $event->start_at->format('Y-m-d H:i') : ($event->start_at ? $event->start_at->format('Y-m-d') : '');
                 $event->fingerprint = md5(mb_strtolower(trim($event->title)) . '|' . $dateStr . '|' . ($event->location_id ?? ''));
             }
             if (empty($event->source_slug) && $event->source_id) {

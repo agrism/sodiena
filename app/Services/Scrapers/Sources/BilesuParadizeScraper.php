@@ -166,10 +166,10 @@ class BilesuParadizeScraper extends BaseScraper
         }
 
         // Helper to resolve Nuxt index
-        $resolve = function ($val) use (&$resolve, $nuxt) {
+        $resolve = function ($val) use ($nuxt) {
             if ($val === null) return null;
-            if (is_int($val) && isset($nuxt[$val])) {
-                return $resolve($nuxt[$val]);
+            if (is_int($val) && array_key_exists($val, $nuxt)) {
+                return $nuxt[$val];
             }
             return $val;
         };
@@ -397,18 +397,25 @@ class BilesuParadizeScraper extends BaseScraper
             $prices = [];
 
             if (isset($item['price_groups'])) {
-                $rawPg = $item['price_groups'];
-                $pgList = is_int($rawPg) && isset($nuxt[$rawPg]) ? $nuxt[$rawPg] : $rawPg;
-                if (is_array($pgList)) {
-                    foreach ($pgList as $pgRef) {
-                        $pgObj = is_int($pgRef) && isset($nuxt[$pgRef]) ? $nuxt[$pgRef] : $pgRef;
+                $rawPg = $resolve($item['price_groups']);
+                if (is_array($rawPg)) {
+                    foreach ($rawPg as $pgRef) {
+                        $pgObj = $resolve($pgRef);
                         if (is_array($pgObj) && isset($pgObj['price'])) {
-                            $priceVal = $pgObj['price'];
-                            $resolvedPrice = is_int($priceVal) && isset($nuxt[$priceVal]) ? $nuxt[$priceVal] : $priceVal;
-                            if (is_numeric($resolvedPrice) && (float)$resolvedPrice > 0) {
-                                $prices[] = (float)$resolvedPrice;
+                            $priceVal = $resolve($pgObj['price']);
+                            if (is_numeric($priceVal) && (float)$priceVal > 0) {
+                                $prices[] = (float)$priceVal;
                             }
                         }
+                    }
+                }
+            }
+
+            foreach (['min_price', 'max_price', 'price', 'ticket_price'] as $pKey) {
+                if (isset($item[$pKey])) {
+                    $val = $resolve($item[$pKey]);
+                    if (is_numeric($val) && (float)$val > 0) {
+                        $prices[] = (float)$val;
                     }
                 }
             }

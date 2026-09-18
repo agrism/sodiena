@@ -201,6 +201,22 @@ class EventIngestionService
                 $dtoWords = array_values(array_filter(explode(' ', $cleanDto), fn ($w) => mb_strlen($w, 'UTF-8') > 2 && !in_array($w, ['un', 'par', 'ar', 'pie', 'uz', 'no', 'vai'])));
 
                 foreach ($sameDayEvents as $candidate) {
+                    $isCandidateMultiDay = $candidate->end_at && $candidate->start_at && $candidate->start_at->toDateString() !== $candidate->end_at->toDateString();
+                    $isDtoMultiDay = $dto->endAt && $dto->startAt && $dto->startAt->toDateString() !== $dto->endAt->toDateString();
+
+                    // If both are single-day sessions with specific start times that differ by >= 45 min, they are distinct sessions
+                    if (!$isCandidateMultiDay && !$isDtoMultiDay && $candidate->start_at && $dto->startAt) {
+                        $candTime = $candidate->start_at->format('H:i');
+                        $dtoTime = $dto->startAt->format('H:i');
+                        if ($candTime !== '00:00' && $dtoTime !== '00:00' && $candTime !== $dtoTime) {
+                            $candMinutes = $candidate->start_at->hour * 60 + $candidate->start_at->minute;
+                            $dtoMinutes = $dto->startAt->hour * 60 + $dto->startAt->minute;
+                            if (abs($candMinutes - $dtoMinutes) >= 45) {
+                                continue;
+                            }
+                        }
+                    }
+
                     $cleanCand = preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower($candidate->title, 'UTF-8'));
 
                     // 1. Direct string similarity
