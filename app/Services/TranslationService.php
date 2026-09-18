@@ -24,7 +24,7 @@ class TranslationService
 
         $cacheKey = 'trans_' . md5("{$from}_{$to}_{$text}");
         return Cache::remember($cacheKey, 86400 * 30, function () use ($text, $from, $to) {
-            if (mb_strlen($text, 'UTF-8') > 450) {
+            if (mb_strlen($text, 'UTF-8') > 800) {
                 return $this->translateLongText($text, $from, $to);
             }
 
@@ -47,7 +47,7 @@ class TranslationService
                 continue;
             }
 
-            if (mb_strlen($trimmed, 'UTF-8') <= 450) {
+            if (mb_strlen($trimmed, 'UTF-8') <= 800) {
                 $translated = $this->translateChunk($trimmed, $from, $to);
                 $translatedParagraphs[] = $translated ?: $trimmed;
             } else {
@@ -56,7 +56,7 @@ class TranslationService
                 $buffer = '';
 
                 foreach ($sentences as $sentence) {
-                    if (mb_strlen($buffer . ' ' . $sentence, 'UTF-8') > 400 && !empty($buffer)) {
+                    if (mb_strlen($buffer . ' ' . $sentence, 'UTF-8') > 700 && !empty($buffer)) {
                         $trans = $this->translateChunk($buffer, $from, $to);
                         $translatedSentences[] = $trans ?: $buffer;
                         $buffer = $sentence;
@@ -76,14 +76,57 @@ class TranslationService
     }
 
     /**
-     * Translate a single short chunk via MyMemory translation API.
+     * Translate a text chunk via Google dict-chrome-ex API with fallbacks.
      */
     public function translateChunk(string $text, string $from, string $to): ?string
     {
-        $langPair = "{$from}|{$to}";
+        // 1. Primary: Google translation endpoint
         try {
             $res = Http::timeout(8)
-                ->withHeaders(['User-Agent' => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)'])
+                ->withHeaders([
+                    'User-Agent' => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+                ])
+                ->get('https://translate.googleapis.com/translate_a/t', [
+                    'client' => 'dict-chrome-ex',
+                    'sl' => $from,
+                    'tl' => $to,
+                    'q' => $text,
+                ]);
+
+            if ($res->successful()) {
+                $data = $res->json();
+                if (is_array($data) && !empty($data[0])) {
+                    return is_array($data[0]) ? implode(' ', $data[0]) : (string) $data[0];
+                }
+                if (is_string($data) && !empty($data)) {
+                    return $data;
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::warning("Primary Google translation API failed for {$from}->{$to}: " . $e->getMessage());
+        }
+
+        // 2. Secondary fallback: Disroot LibreTranslate
+        try {
+            $res = Http::timeout(6)
+                ->post('https://translate.disroot.org/translate', [
+                    'q' => $text,
+                    'source' => $from,
+                    'target' => $to,
+                    'format' => 'text'
+                ]);
+
+            if ($res->successful() && !empty($res->json('translatedText'))) {
+                return (string) $res->json('translatedText');
+            }
+        } catch (\Throwable $e) {
+            // ignore and continue to next fallback
+        }
+
+        // 3. Third fallback: MyMemory API
+        $langPair = "{$from}|{$to}";
+        try {
+            $res = Http::timeout(6)
                 ->get('https://api.mymemory.translated.net/get', [
                     'q' => $text,
                     'langpair' => $langPair,
@@ -97,7 +140,7 @@ class TranslationService
                 }
             }
         } catch (\Throwable $e) {
-            Log::warning("Translation API chunk failed for {$langPair}: " . $e->getMessage());
+            Log::warning("Translation fallback failed for {$langPair}: " . $e->getMessage());
         }
 
         return null;
