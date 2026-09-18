@@ -720,6 +720,35 @@ class EventIngestionService
         return array_values(array_unique($meaningful));
     }
 
+    public function calculateCandidateQualityScore(Event $cand): float
+    {
+        $score = 0.0;
+        $lvTrans = $cand->translations->firstWhere('locale', 'lv');
+        $enTrans = $cand->translations->firstWhere('locale', 'en');
+        $ruTrans = $cand->translations->firstWhere('locale', 'ru');
+
+        if ($lvTrans && !empty(trim($lvTrans->description ?? ''))) {
+            $score += 10.0;
+            $score += min(mb_strlen(trim($lvTrans->description)) / 500, 2.0);
+        }
+        if ($enTrans && !empty(trim($enTrans->description ?? ''))) {
+            $score += 2.0;
+            $score += min(mb_strlen(trim($enTrans->description)) / 500, 1.0);
+        }
+        if ($ruTrans && !empty(trim($ruTrans->description ?? ''))) {
+            $score += 2.0;
+            $score += min(mb_strlen(trim($ruTrans->description)) / 500, 1.0);
+        }
+        if (!empty(trim($cand->description ?? ''))) {
+            $score += 2.0;
+        }
+        if ($cand->source_slug === 'afiro-api' || ($cand->source && $cand->source->slug === 'afiro-api')) {
+            $score += 1.0;
+        }
+
+        return $score;
+    }
+
     public function findSiblingWithTranslations(Event $event): ?Event
     {
         $tokens = $this->getMeaningfulTitleTokens($event->title);
@@ -729,7 +758,7 @@ class EventIngestionService
 
         // 1. Direct match by shared ticketing platform URL or external identifier
         if ($eventTicketUrl || $eventSourceUrl || $eventExternalId) {
-            $ticketCandidate = Event::with('translations')
+            $ticketCandidates = Event::with('translations')
                 ->whereHas('translations', function ($q) {
                     $q->whereNotNull('description')->where('description', '!=', '');
                 })
@@ -745,15 +774,18 @@ class EventIngestionService
                         $q->orWhere('source_external_id', $eventExternalId);
                     }
                 })
-                ->first();
+                ->get()
+                ->sortByDesc(fn ($c) => $this->calculateCandidateQualityScore($c));
 
-            if ($ticketCandidate) {
-                return $ticketCandidate;
+            $topTicket = $ticketCandidates->first();
+            if ($topTicket && $this->calculateCandidateQualityScore($topTicket) >= 10.0) {
+                return $topTicket;
             }
         }
 
         // 2. Search for candidates with translations and non-empty description
         // First try same location, then try cross-location for multi-venue/cinema/theatre events
+        $locationCandidate = null;
         if ($event->location_id) {
             $locationCandidates = Event::with('translations')
                 ->whereHas('translations', function ($q) {
@@ -763,13 +795,13 @@ class EventIngestionService
                 ->where('location_id', $event->location_id)
                 ->get();
 
-            $candidateResult = $this->evaluateSiblingCandidates($event, $locationCandidates, $tokens, false);
-            if ($candidateResult) {
-                return $candidateResult;
+            $locationCandidate = $this->evaluateSiblingCandidates($event, $locationCandidates, $tokens, false);
+            if ($locationCandidate && $this->calculateCandidateQualityScore($locationCandidate) >= 10.0) {
+                return $locationCandidate;
             }
         }
 
-        // If no sibling found at same location, search across other locations (for films, tours, guest performances)
+        // If no sibling found at same location or location candidate lacks LV description, search across other locations
         if (!empty($tokens)) {
             $crossLocationCandidates = Event::with('translations')
                 ->whereHas('translations', function ($q) {
@@ -778,17 +810,22 @@ class EventIngestionService
                 ->where('id', '!=', $event->id)
                 ->get();
 
-            return $this->evaluateSiblingCandidates($event, $crossLocationCandidates, $tokens, true);
+            $crossCandidate = $this->evaluateSiblingCandidates($event, $crossLocationCandidates, $tokens, true);
+            if ($crossCandidate) {
+                if (!$locationCandidate || $this->calculateCandidateQualityScore($crossCandidate) > $this->calculateCandidateQualityScore($locationCandidate)) {
+                    return $crossCandidate;
+                }
+            }
         }
 
-        return null;
+        return $locationCandidate ?? ($topTicket ?? null);
     }
 
     private function evaluateSiblingCandidates(Event $event, $candidates, array $tokens, bool $crossLocation = false): ?Event
     {
         $bestCandidate = null;
-        $bestScore = 0;
-        $minScore = $crossLocation ? 0.75 : 0.40;
+        $bestTotalScore = 0;
+        $minTitleScore = $crossLocation ? 0.75 : 0.40;
 
         // Gather all title variations from the target event (e.g. from existing translations)
         $targetTitles = [$event->title];
@@ -804,7 +841,6 @@ class EventIngestionService
         $targetTitles = array_unique(array_filter($targetTitles));
 
         foreach ($candidates as $cand) {
-            // Check if any candidate translation title matches any target event translation title
             $candTitles = [$cand->title];
             foreach ($cand->translations as $ct) {
                 if (!empty($ct->title)) {
@@ -812,6 +848,8 @@ class EventIngestionService
                 }
             }
             $candTitles = array_unique(array_filter($candTitles));
+
+            $highestCandTitleScore = 0.0;
 
             foreach ($targetTitles as $tTitle) {
                 $tTokens = $this->getMeaningfulTitleTokens($tTitle);
@@ -822,7 +860,8 @@ class EventIngestionService
 
                     // Exact match
                     if ($tTitleLower === $cTitleLower && mb_strlen($tTitleLower) >= 3) {
-                        return $cand;
+                        $highestCandTitleScore = max($highestCandTitleScore, 1.0);
+                        continue;
                     }
 
                     $cTokens = $this->getMeaningfulTitleTokens($cTitle);
@@ -835,17 +874,26 @@ class EventIngestionService
 
                     if ($commonCount >= 2) {
                         $overlapScore = $commonCount / max(count($tTokens), count($cTokens));
-                        if ($overlapScore > $bestScore && $overlapScore >= $minScore) {
-                            $bestScore = $overlapScore;
-                            $bestCandidate = $cand;
+                        if ($overlapScore >= $minTitleScore) {
+                            $highestCandTitleScore = max($highestCandTitleScore, $overlapScore);
                         }
                     } elseif ($commonCount >= 1 && count($tTokens) <= 3 && count($cTokens) <= 3) {
                         similar_text($tTitleLower, $cTitleLower, $simPercent);
-                        if ($simPercent >= 70 && ($simPercent / 100) > $bestScore && ($simPercent / 100) >= $minScore) {
-                            $bestScore = $simPercent / 100;
-                            $bestCandidate = $cand;
+                        $simScore = $simPercent / 100;
+                        if ($simScore >= $minTitleScore && $simScore >= 0.70) {
+                            $highestCandTitleScore = max($highestCandTitleScore, $simScore);
                         }
                     }
+                }
+            }
+
+            if ($highestCandTitleScore >= $minTitleScore) {
+                $qualityScore = $this->calculateCandidateQualityScore($cand);
+                $totalScore = ($highestCandTitleScore * 20.0) + $qualityScore;
+
+                if ($totalScore > $bestTotalScore) {
+                    $bestTotalScore = $totalScore;
+                    $bestCandidate = $cand;
                 }
             }
         }
