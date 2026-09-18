@@ -5,7 +5,9 @@ namespace App\Console\Commands;
 use App\Models\Event;
 use App\Models\EventTranslation;
 use App\Services\Scrapers\EventIngestionService;
+use App\Services\TranslationService;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
 class SyncEventTranslationsCommand extends Command
@@ -22,15 +24,15 @@ class SyncEventTranslationsCommand extends Command
      *
      * @var string
      */
-    protected $description = 'Inherit and sync missing multilingual translations (LV, EN, RU) across sibling events and tour instances';
+    protected $description = 'Inherit, translate, and verify multilingual translations (LV, EN, RU) for all active events';
 
     /**
      * Execute the console command.
      */
-    public function handle(EventIngestionService $ingestionService): int
+    public function handle(EventIngestionService $ingestionService, TranslationService $translationService): int
     {
         $dryRun = (bool) $this->option('dry-run');
-        $this->info('Starting event translations synchronization (current & upcoming events only)...');
+        $this->info('Starting event translations verification and synchronization (active & upcoming events only)...');
 
         $events = Event::where(function ($q) {
             $q->where('end_at', '>=', now()->startOfDay())
@@ -40,64 +42,106 @@ class SyncEventTranslationsCommand extends Command
               });
         })->with('translations', 'location')->get();
 
+        $this->info("Found {$events->count()} active/upcoming events to verify.");
+
         $updatedCount = 0;
+        $fixedLangCount = 0;
+        $afiroFetchedCount = 0;
+        $siblingInheritedCount = 0;
+        $autoTranslatedCount = 0;
+        $syntheticDescCount = 0;
 
         foreach ($events as $event) {
             $existingTranslations = $event->translations->keyBy('locale');
             $targetLocales = ['lv', 'en', 'ru'];
-            $needsSync = false;
+            $eventModified = false;
 
-            // Check if any target locale translation is missing or has empty description
-            foreach ($targetLocales as $loc) {
-                $t = $existingTranslations->get($loc);
-                if (!$t || empty(trim($t->description ?? ''))) {
-                    $needsSync = true;
-                    break;
-                }
-            }
-
-            // Check if main event description is empty
-            if (empty(trim($event->description ?? ''))) {
-                $needsSync = true;
-            }
-
-            // 1. Check if 'lv' translation actually contains Russian or English text
+            // -------------------------------------------------------------
+            // STEP 1: Detect non-Latvian text in 'lv' and preserve into 'ru' or 'en'
+            // -------------------------------------------------------------
             $lvTrans = $existingTranslations->get('lv');
-            $lvLanguage = 'lv';
+            $originalLvWasRuOrEn = null;
+
             if ($lvTrans && !empty($lvTrans->title . ' ' . $lvTrans->description)) {
-                $detectedLang = $ingestionService->detectTextLanguage($lvTrans->title . ' ' . $lvTrans->description);
-                if ($detectedLang !== 'lv') {
-                    $lvLanguage = $detectedLang;
-                    $needsSync = true;
+                $lvText = $lvTrans->title . ' ' . $lvTrans->description;
+                $detectedLang = $ingestionService->detectTextLanguage($lvText);
+
+                if ($detectedLang === 'ru') {
+                    $originalLvWasRuOrEn = 'ru';
                     if (!$dryRun) {
-                        // Ensure the detected language translation exists with this content
-                        if (!$existingTranslations->has($detectedLang)) {
-                            EventTranslation::create([
-                                'event_id' => $event->id,
-                                'locale' => $detectedLang,
-                                'title' => $lvTrans->title,
-                                'slug' => Str::slug($lvTrans->title) . '-' . substr(md5($event->id . $detectedLang), 0, 6),
-                                'description' => $lvTrans->description,
-                                'short_description' => $lvTrans->short_description,
-                            ]);
+                        $ruTrans = $existingTranslations->get('ru');
+                        if (!$ruTrans || empty(trim($ruTrans->description ?? ''))) {
+                            EventTranslation::updateOrCreate(
+                                ['event_id' => $event->id, 'locale' => 'ru'],
+                                [
+                                    'title' => $lvTrans->title,
+                                    'slug' => Str::slug($lvTrans->title) . '-' . substr(md5($event->id . 'ru'), 0, 6),
+                                    'description' => $lvTrans->description,
+                                    'short_description' => $lvTrans->short_description ?: Str::limit(strip_tags($lvTrans->description), 160),
+                                ]
+                            );
                         }
                     }
+                    $fixedLangCount++;
+                    $eventModified = true;
+                    $event->load('translations');
+                    $existingTranslations = $event->translations->keyBy('locale');
+                } elseif ($detectedLang === 'en') {
+                    $originalLvWasRuOrEn = 'en';
+                    if (!$dryRun) {
+                        $enTrans = $existingTranslations->get('en');
+                        if (!$enTrans || empty(trim($enTrans->description ?? ''))) {
+                            EventTranslation::updateOrCreate(
+                                ['event_id' => $event->id, 'locale' => 'en'],
+                                [
+                                    'title' => $lvTrans->title,
+                                    'slug' => Str::slug($lvTrans->title) . '-' . substr(md5($event->id . 'en'), 0, 6),
+                                    'description' => $lvTrans->description,
+                                    'short_description' => $lvTrans->short_description ?: Str::limit(strip_tags($lvTrans->description), 160),
+                                ]
+                            );
+                        }
+                    }
+                    $fixedLangCount++;
+                    $eventModified = true;
+                    $event->load('translations');
+                    $existingTranslations = $event->translations->keyBy('locale');
                 }
             }
 
-            // If everything is complete and valid, skip
-            if (!$needsSync && $lvLanguage === 'lv') {
-                continue;
+            // Check EN locale for Cyrillic contamination
+            $enTrans = $existingTranslations->get('en');
+            if ($enTrans && !empty($enTrans->description)) {
+                $cyrillicCount = preg_match_all('/[\p{Cyrillic}]/u', $enTrans->description);
+                if ($cyrillicCount > 5) {
+                    $this->line("  -> Event #{$event->id} ({$event->title}): Found Cyrillic in EN description. Translating to clean English...");
+                    if (!$dryRun) {
+                        $baseLv = $existingTranslations->get('lv')?->description ?: $enTrans->description;
+                        $fromLang = $ingestionService->detectTextLanguage($baseLv);
+                        $cleanEnDesc = $translationService->translate($baseLv, $fromLang, 'en') ?: $enTrans->description;
+                        $cleanEnTitle = $translationService->translate($event->title, 'lv', 'en') ?: $enTrans->title;
+
+                        $enTrans->update([
+                            'title' => $cleanEnTitle,
+                            'description' => $cleanEnDesc,
+                            'short_description' => mb_strlen($cleanEnDesc) <= 220 ? $cleanEnDesc : Str::limit(strip_tags($cleanEnDesc), 160),
+                        ]);
+                    }
+                    $fixedLangCount++;
+                    $eventModified = true;
+                }
             }
 
-            // 2. If event is from Afiro API, fetch missing translations directly from Afiro API
+            // -------------------------------------------------------------
+            // STEP 2: Afiro API Direct Fetch for missing translations
+            // -------------------------------------------------------------
             if ($event->source_slug === 'afiro-api' && $event->source_external_id) {
                 $afiroUpdated = false;
                 foreach ($targetLocales as $loc) {
-                    $curTrans = $event->translations()->where('locale', $loc)->first();
-                    if (!$curTrans || empty(trim($curTrans->description ?? ''))) {
+                    $curTrans = $existingTranslations->get($loc);
+                    if (!$curTrans || empty(trim($curTrans->description ?? '')) || ($loc === 'lv' && $originalLvWasRuOrEn)) {
                         try {
-                            $res = \Illuminate\Support\Facades\Http::withHeaders([
+                            $res = Http::withHeaders([
                                 'Accept' => 'application/json',
                                 'x-lang' => $loc,
                                 'Origin' => 'https://afiro.lv',
@@ -108,7 +152,7 @@ class SyncEventTranslationsCommand extends Command
                                 $afTitle = trim($res->json('title'));
                                 $afDesc = trim($res->json('description') ?? '');
                                 if (!empty($afDesc) || !empty($afTitle)) {
-                                    $this->line("  -> Event #{$event->id} ({$event->title}) fetched [{$loc}] directly from Afiro API");
+                                    $this->line("  -> Event #{$event->id} ({$event->title}) fetched [{$loc}] from Afiro API");
                                     if (!$dryRun) {
                                         EventTranslation::updateOrCreate(
                                             [
@@ -123,7 +167,7 @@ class SyncEventTranslationsCommand extends Command
                                             ]
                                         );
 
-                                        if ($loc === 'lv' || empty(trim($event->description ?? ''))) {
+                                        if ($loc === 'lv' || empty(trim($event->description ?? '')) || $originalLvWasRuOrEn) {
                                             $event->update([
                                                 'title' => $afTitle,
                                                 'description' => $afDesc,
@@ -132,92 +176,222 @@ class SyncEventTranslationsCommand extends Command
                                         }
                                     }
                                     $afiroUpdated = true;
+                                    if ($loc === 'lv') {
+                                        $originalLvWasRuOrEn = null;
+                                    }
                                 }
                             }
                         } catch (\Throwable $e) {
-                            // ignore and fallback to sibling search
+                            // ignore and continue
                         }
                     }
                 }
 
                 if ($afiroUpdated) {
-                    $updatedCount++;
+                    $afiroFetchedCount++;
+                    $eventModified = true;
                     $event->load('translations');
                     $existingTranslations = $event->translations->keyBy('locale');
                 }
             }
 
-            // 3. Search for sibling with full translations
-            $sibling = $ingestionService->findSiblingWithTranslations($event);
+            // -------------------------------------------------------------
+            // STEP 3: Inherit from sibling events across locations/dates
+            // -------------------------------------------------------------
+            $needsSiblingSync = false;
+            foreach ($targetLocales as $loc) {
+                $t = $existingTranslations->get($loc);
+                if (!$t || empty(trim($t->description ?? '')) || ($loc === 'lv' && $originalLvWasRuOrEn)) {
+                    $needsSiblingSync = true;
+                    break;
+                }
+            }
 
-            if ($sibling) {
-                $copiedAny = false;
-                foreach ($targetLocales as $loc) {
-                    $curTrans = $event->translations()->where('locale', $loc)->first();
-                    $sibTrans = $sibling->translations->firstWhere('locale', $loc);
+            if ($needsSiblingSync) {
+                $sibling = $ingestionService->findSiblingWithTranslations($event);
+                if ($sibling) {
+                    $copiedSibling = false;
+                    foreach ($targetLocales as $loc) {
+                        $curTrans = $existingTranslations->get($loc);
+                        $sibTrans = $sibling->translations->firstWhere('locale', $loc);
 
-                    if ($sibTrans && !empty(trim($sibTrans->description ?? ''))) {
-                        if (!$curTrans) {
-                            $this->line("  -> Event #{$event->id} ({$event->title}) inherits [{$loc}] from Event #{$sibling->id}");
-                            if (!$dryRun) {
-                                EventTranslation::create([
-                                    'event_id' => $event->id,
-                                    'locale' => $loc,
-                                    'title' => $sibTrans->title,
-                                    'slug' => Str::slug($sibTrans->title) . '-' . substr(md5($event->id . $loc), 0, 6),
-                                    'description' => $sibTrans->description,
-                                    'short_description' => $sibTrans->short_description,
-                                ]);
+                        if ($sibTrans && !empty(trim($sibTrans->description ?? ''))) {
+                            if (!$curTrans) {
+                                $this->line("  -> Event #{$event->id} ({$event->title}) inherits [{$loc}] from Event #{$sibling->id}");
+                                if (!$dryRun) {
+                                    EventTranslation::create([
+                                        'event_id' => $event->id,
+                                        'locale' => $loc,
+                                        'title' => $sibTrans->title,
+                                        'slug' => Str::slug($sibTrans->title) . '-' . substr(md5($event->id . $loc), 0, 6),
+                                        'description' => $sibTrans->description,
+                                        'short_description' => $sibTrans->short_description,
+                                    ]);
+                                }
+                                $copiedSibling = true;
+                            } elseif (empty(trim($curTrans->description ?? '')) || ($loc === 'lv' && $originalLvWasRuOrEn)) {
+                                $this->line("  -> Event #{$event->id} ({$event->title}) populates missing [{$loc}] description from Event #{$sibling->id}");
+                                if (!$dryRun) {
+                                    $curTrans->update([
+                                        'title' => $sibTrans->title,
+                                        'description' => $sibTrans->description,
+                                        'short_description' => $sibTrans->short_description ?: (mb_strlen($sibTrans->description) <= 220 ? $sibTrans->description : Str::limit(strip_tags($sibTrans->description), 160)),
+                                    ]);
+                                    if ($loc === 'lv') {
+                                        $event->update([
+                                            'title' => $sibTrans->title,
+                                            'description' => $sibTrans->description,
+                                            'short_description' => $sibTrans->short_description,
+                                        ]);
+                                    }
+                                }
+                                $copiedSibling = true;
+                                if ($loc === 'lv') {
+                                    $originalLvWasRuOrEn = null;
+                                }
                             }
-                            $copiedAny = true;
-                        } elseif (empty(trim($curTrans->description ?? ''))) {
-                            $this->line("  -> Event #{$event->id} ({$event->title}) populates missing [{$loc}] description from Event #{$sibling->id}");
-                            if (!$dryRun) {
-                                $curTrans->update([
-                                    'description' => $sibTrans->description,
-                                    'short_description' => $sibTrans->short_description ?: (mb_strlen($sibTrans->description) <= 220 ? $sibTrans->description : Str::limit(strip_tags($sibTrans->description), 160)),
-                                ]);
-                            }
-                            $copiedAny = true;
                         }
                     }
+
+                    if ($copiedSibling) {
+                        $siblingInheritedCount++;
+                        $eventModified = true;
+                        $event->load('translations');
+                        $existingTranslations = $event->translations->keyBy('locale');
+                    }
+                }
+            }
+
+            // -------------------------------------------------------------
+            // STEP 4: Machine translate LV if still Russian/English and no sibling found
+            // -------------------------------------------------------------
+            if ($originalLvWasRuOrEn) {
+                $lvTrans = $existingTranslations->get('lv');
+                if ($lvTrans) {
+                    $this->line("  -> Event #{$event->id} ({$event->title}): Machine translating {$originalLvWasRuOrEn} -> lv for LV locale...");
+                    if (!$dryRun) {
+                        $translatedLvTitle = $translationService->translate($lvTrans->title, $originalLvWasRuOrEn, 'lv') ?: $lvTrans->title;
+                        $translatedLvDesc = $translationService->translate($lvTrans->description, $originalLvWasRuOrEn, 'lv') ?: $lvTrans->description;
+                        $translatedLvShort = $translationService->translate($lvTrans->short_description, $originalLvWasRuOrEn, 'lv') ?: Str::limit(strip_tags($translatedLvDesc), 160);
+
+                        $lvTrans->update([
+                            'title' => $translatedLvTitle,
+                            'description' => $translatedLvDesc,
+                            'short_description' => $translatedLvShort,
+                        ]);
+
+                        $event->update([
+                            'title' => $translatedLvTitle,
+                            'description' => $translatedLvDesc,
+                            'short_description' => $translatedLvShort,
+                        ]);
+                    }
+                    $event->load('translations');
+                    $existingTranslations = $event->translations->keyBy('locale');
+                }
+            }
+
+            // -------------------------------------------------------------
+            // STEP 5: Synthetic Fallback if Description is completely missing
+            // -------------------------------------------------------------
+            $currentMainDesc = trim($event->description ?? ($existingTranslations->get('lv')?->description ?? ''));
+            if (empty($currentMainDesc)) {
+                $venueName = $event->location?->name ?: ($event->location?->city ?: 'Latvijā');
+                $cityName = $event->location?->city ?: 'Latvijā';
+                $formattedDate = $event->start_at ? $event->start_at->format('d.m.Y H:i') : '';
+
+                $syntheticLv = "Apmeklējiet pasākumu \"{$event->title}\" {$venueName}" . ($cityName !== $venueName ? " ({$cityName})" : "") . ($formattedDate ? ". Norises laiks: {$formattedDate}." : ".") . " Plašāka informācija un biļešu iegāde pieejama norādītajā pasākuma saitē.";
+                $syntheticShort = "Pasākums \"{$event->title}\" {$venueName}" . ($formattedDate ? ", {$formattedDate}" : "");
+
+                $this->line("  -> Event #{$event->id} ({$event->title}): Generated descriptive fallback");
+
+                if (!$dryRun) {
+                    $event->update([
+                        'description' => $syntheticLv,
+                        'short_description' => $syntheticShort,
+                    ]);
+
+                    EventTranslation::updateOrCreate(
+                        ['event_id' => $event->id, 'locale' => 'lv'],
+                        [
+                            'title' => $event->title,
+                            'slug' => Str::slug($event->title) . '-' . substr(md5($event->id . 'lv'), 0, 6),
+                            'description' => $syntheticLv,
+                            'short_description' => $syntheticShort,
+                        ]
+                    );
                 }
 
-                // If 'lv' was originally Russian/English, or if main event has empty description, populate from sibling LV
-                $lvSibTrans = $sibling->translations->firstWhere('locale', 'lv');
-                $curLv = $event->translations()->where('locale', 'lv')->first();
-                if ($lvSibTrans && !empty(trim($lvSibTrans->description ?? ''))) {
-                    $curLang = $curLv ? $ingestionService->detectTextLanguage($curLv->description ?: $curLv->title) : 'lv';
-                    $sibLang = $ingestionService->detectTextLanguage($lvSibTrans->description ?: $lvSibTrans->title);
-                    $mainDescEmpty = empty(trim($event->description ?? ''));
+                $syntheticDescCount++;
+                $eventModified = true;
+                $event->load('translations');
+                $existingTranslations = $event->translations->keyBy('locale');
+            }
 
-                    if (($curLang !== 'lv' && $sibLang === 'lv') || $mainDescEmpty) {
-                        $this->line("  -> Event #{$event->id} ({$event->title}) updating [lv] / main description from Event #{$sibling->id}");
+            // -------------------------------------------------------------
+            // STEP 6: Auto-translate missing EN and RU translations
+            // -------------------------------------------------------------
+            $lvRecord = $existingTranslations->get('lv');
+            $baseTitle = $lvRecord?->title ?: $event->title;
+            $baseDesc = $lvRecord?->description ?: $event->description;
+            $baseShort = $lvRecord?->short_description ?: $event->short_description;
+
+            if (!empty($baseDesc)) {
+                foreach (['en', 'ru'] as $targetLoc) {
+                    $tRecord = $existingTranslations->get($targetLoc);
+                    if (!$tRecord || empty(trim($tRecord->description ?? ''))) {
+                        $this->line("  -> Event #{$event->id} ({$event->title}): Auto-translating LV -> {$targetLoc}...");
+
                         if (!$dryRun) {
-                            if ($curLv) {
-                                $curLv->update([
-                                    'title' => $lvSibTrans->title,
-                                    'description' => $lvSibTrans->description,
-                                    'short_description' => $lvSibTrans->short_description,
-                                ]);
-                            }
-                            $event->update([
-                                'title' => $lvSibTrans->title,
-                                'description' => $lvSibTrans->description,
-                                'short_description' => $lvSibTrans->short_description,
-                            ]);
+                            $transTitle = $translationService->translate($baseTitle, 'lv', $targetLoc) ?: $baseTitle;
+                            $transDesc = $translationService->translate($baseDesc, 'lv', $targetLoc) ?: $baseDesc;
+                            $transShort = $baseShort ? ($translationService->translate($baseShort, 'lv', $targetLoc) ?: Str::limit(strip_tags($transDesc), 160)) : Str::limit(strip_tags($transDesc), 160);
+
+                            EventTranslation::updateOrCreate(
+                                ['event_id' => $event->id, 'locale' => $targetLoc],
+                                [
+                                    'title' => $transTitle,
+                                    'slug' => Str::slug($transTitle) . '-' . substr(md5($event->id . $targetLoc), 0, 6),
+                                    'description' => $transDesc,
+                                    'short_description' => $transShort,
+                                ]
+                            );
                         }
-                        $copiedAny = true;
+
+                        $autoTranslatedCount++;
+                        $eventModified = true;
                     }
                 }
+            }
 
-                if ($copiedAny) {
-                    $updatedCount++;
+            // Ensure main event table has proper LV title and description
+            if (!$dryRun) {
+                $finalLv = $event->translations()->where('locale', 'lv')->first();
+                if ($finalLv && (!empty($finalLv->description) && empty($event->description))) {
+                    $event->update([
+                        'title' => $finalLv->title,
+                        'description' => $finalLv->description,
+                        'short_description' => $finalLv->short_description,
+                    ]);
                 }
+            }
+
+            if ($eventModified) {
+                $updatedCount++;
             }
         }
 
-        $this->info("Translation synchronization completed. Updated {$updatedCount} events.");
+        $this->info("----------------------------------------------------------------");
+        $this->info("Synchronization and verification summary:");
+        $this->info("  - Total active events processed: {$events->count()}");
+        $this->info("  - Language mismatches repaired: {$fixedLangCount}");
+        $this->info("  - Direct Afiro API translations fetched: {$afiroFetchedCount}");
+        $this->info("  - Sibling translations inherited: {$siblingInheritedCount}");
+        $this->info("  - Auto-translated into missing languages: {$autoTranslatedCount}");
+        $this->info("  - Synthetic fallback descriptions created: {$syntheticDescCount}");
+        $this->info("  - Total events updated/verified: {$updatedCount}");
+        $this->info("----------------------------------------------------------------");
+
         return self::SUCCESS;
     }
 }
