@@ -69,6 +69,8 @@ abstract class BaseScraper implements EventScraperInterface
         }
         $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $text = preg_replace('/<br\s*\/?>/i', "\n", $text);
+        $text = preg_replace('/<\/(?:p|div|li|h[1-6]|tr)>/i', "\n\n", $text);
+        $text = strip_tags($text);
         // Replace non-newline whitespace with single space
         $text = preg_replace('/[^\S\r\n]+/u', ' ', $text);
         // Collapse 3 or more newlines into 2
