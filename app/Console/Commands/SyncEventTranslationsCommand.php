@@ -40,21 +40,21 @@ class SyncEventTranslationsCommand extends Command
             $targetLocales = ['lv', 'en', 'ru'];
             $missingLocales = array_diff($targetLocales, $existingTranslations->keys()->toArray());
 
-            // 1. Check if 'lv' translation actually contains English text
+            // 1. Check if 'lv' translation actually contains Russian or English text
             $lvTrans = $existingTranslations->get('lv');
-            $lvIsEnglish = false;
-            if ($lvTrans && !empty($lvTrans->description)) {
-                $lang = $ingestionService->detectTextLanguage($lvTrans->title . ' ' . $lvTrans->description);
-                if ($lang === 'en') {
-                    $lvIsEnglish = true;
+            $lvLanguage = 'lv';
+            if ($lvTrans && !empty($lvTrans->title . ' ' . $lvTrans->description)) {
+                $detectedLang = $ingestionService->detectTextLanguage($lvTrans->title . ' ' . $lvTrans->description);
+                if ($detectedLang !== 'lv') {
+                    $lvLanguage = $detectedLang;
                     if (!$dryRun) {
-                        // Ensure 'en' translation exists with this text
-                        if (!$existingTranslations->has('en')) {
+                        // Ensure the detected language translation exists with this content
+                        if (!$existingTranslations->has($detectedLang)) {
                             EventTranslation::create([
                                 'event_id' => $event->id,
-                                'locale' => 'en',
+                                'locale' => $detectedLang,
                                 'title' => $lvTrans->title,
-                                'slug' => Str::slug($lvTrans->title) . '-' . substr(md5($event->id . 'en'), 0, 6),
+                                'slug' => Str::slug($lvTrans->title) . '-' . substr(md5($event->id . $detectedLang), 0, 6),
                                 'description' => $lvTrans->description,
                                 'short_description' => $lvTrans->short_description,
                             ]);
@@ -63,8 +63,8 @@ class SyncEventTranslationsCommand extends Command
                 }
             }
 
-            // If no missing locales and 'lv' is not in English, nothing to inherit
-            if (empty($missingLocales) && !$lvIsEnglish) {
+            // If no missing locales and 'lv' is real Latvian, nothing to inherit
+            if (empty($missingLocales) && $lvLanguage === 'lv') {
                 continue;
             }
 
@@ -97,13 +97,13 @@ class SyncEventTranslationsCommand extends Command
                     }
                 }
 
-                // If 'lv' was originally English, overwrite 'lv' with the sibling's real Latvian translation
+                // If 'lv' was originally Russian or English, overwrite 'lv' with the sibling's real Latvian translation
                 $lvSibTrans = $sibling->translations->firstWhere('locale', 'lv');
                 $curLv = $event->translations()->where('locale', 'lv')->first();
                 if ($curLv && $lvSibTrans && !empty($lvSibTrans->description)) {
-                    $curLang = $ingestionService->detectTextLanguage($curLv->description);
-                    $sibLang = $ingestionService->detectTextLanguage($lvSibTrans->description);
-                    if ($curLang === 'en' && $sibLang === 'lv') {
+                    $curLang = $ingestionService->detectTextLanguage($curLv->description ?: $curLv->title);
+                    $sibLang = $ingestionService->detectTextLanguage($lvSibTrans->description ?: $lvSibTrans->title);
+                    if ($curLang !== 'lv' && $sibLang === 'lv') {
                         $this->line("  -> Event #{$event->id} ({$event->title}) overwriting [lv] with real LV text from Event #{$sibling->id}");
                         if (!$dryRun) {
                             $curLv->update([
@@ -112,6 +112,7 @@ class SyncEventTranslationsCommand extends Command
                                 'short_description' => $lvSibTrans->short_description,
                             ]);
                             $event->update([
+                                'title' => $lvSibTrans->title,
                                 'description' => $lvSibTrans->description,
                                 'short_description' => $lvSibTrans->short_description,
                             ]);

@@ -718,11 +718,36 @@ class EventIngestionService
     public function findSiblingWithTranslations(Event $event): ?Event
     {
         $tokens = $this->getMeaningfulTitleTokens($event->title);
-        if (empty($tokens)) {
-            return null;
+        $eventTicketUrl = $event->ticket_url;
+        $eventSourceUrl = $event->source_url;
+        $eventExternalId = $event->source_external_id;
+
+        // 1. Direct match by shared ticketing platform URL or external identifier
+        if ($eventTicketUrl || $eventSourceUrl || $eventExternalId) {
+            $ticketCandidate = Event::with('translations')
+                ->has('translations', '>=', 2)
+                ->where('id', '!=', $event->id)
+                ->where(function ($q) use ($eventTicketUrl, $eventSourceUrl, $eventExternalId) {
+                    if ($eventTicketUrl) {
+                        $q->where('ticket_url', $eventTicketUrl);
+                    }
+                    if ($eventSourceUrl) {
+                        $q->orWhere('source_url', $eventSourceUrl);
+                    }
+                    if ($eventExternalId) {
+                        $q->orWhere('source_external_id', $eventExternalId);
+                    }
+                })
+                ->first();
+
+            if ($ticketCandidate) {
+                return $ticketCandidate;
+            }
         }
 
-        $candidates = Event::with('translations')
+        // 2. Search for candidates with translations
+        // First try same location, then try cross-location for multi-venue/cinema/theatre events
+        $locationCandidates = Event::with('translations')
             ->has('translations', '>=', 2)
             ->where('id', '!=', $event->id)
             ->where(function ($q) use ($event) {
@@ -732,29 +757,86 @@ class EventIngestionService
             })
             ->get();
 
+        $candidateResult = $this->evaluateSiblingCandidates($event, $locationCandidates, $tokens, false);
+        if ($candidateResult) {
+            return $candidateResult;
+        }
+
+        // If no sibling found at same location, search across other locations (for films, tours, guest performances)
+        if (!empty($tokens)) {
+            $crossLocationCandidates = Event::with('translations')
+                ->has('translations', '>=', 2)
+                ->where('id', '!=', $event->id)
+                ->get();
+
+            return $this->evaluateSiblingCandidates($event, $crossLocationCandidates, $tokens, true);
+        }
+
+        return null;
+    }
+
+    private function evaluateSiblingCandidates(Event $event, $candidates, array $tokens, bool $crossLocation = false): ?Event
+    {
         $bestCandidate = null;
         $bestScore = 0;
+        $minScore = $crossLocation ? 0.60 : 0.35;
+
+        // Gather all title variations from the target event (e.g. from existing translations)
+        $targetTitles = [$event->title];
+        if ($event->relationLoaded('translations')) {
+            foreach ($event->translations as $t) {
+                if (!empty($t->title)) $targetTitles[] = $t->title;
+            }
+        } else {
+            foreach ($event->translations()->pluck('title') as $tTitle) {
+                if (!empty($tTitle)) $targetTitles[] = $tTitle;
+            }
+        }
+        $targetTitles = array_unique(array_filter($targetTitles));
 
         foreach ($candidates as $cand) {
-            $candTokens = $this->getMeaningfulTitleTokens($cand->title);
-            if (empty($candTokens)) {
-                continue;
-            }
-
-            $common = array_intersect($tokens, $candTokens);
-            $commonCount = count($common);
-
-            if ($commonCount >= 2) {
-                $overlapScore = $commonCount / max(count($tokens), count($candTokens));
-                if ($overlapScore > $bestScore && $overlapScore >= 0.35) {
-                    $bestScore = $overlapScore;
-                    $bestCandidate = $cand;
+            // Check if any candidate translation title matches any target event translation title
+            $candTitles = [$cand->title];
+            foreach ($cand->translations as $ct) {
+                if (!empty($ct->title)) {
+                    $candTitles[] = $ct->title;
                 }
-            } elseif ($commonCount >= 1 && count($tokens) <= 3 && count($candTokens) <= 3) {
-                similar_text(mb_strtolower($event->title, 'UTF-8'), mb_strtolower($cand->title, 'UTF-8'), $simPercent);
-                if ($simPercent >= 70 && ($simPercent / 100) > $bestScore) {
-                    $bestScore = $simPercent / 100;
-                    $bestCandidate = $cand;
+            }
+            $candTitles = array_unique(array_filter($candTitles));
+
+            foreach ($targetTitles as $tTitle) {
+                $tTokens = $this->getMeaningfulTitleTokens($tTitle);
+                $tTitleLower = mb_strtolower(trim($tTitle), 'UTF-8');
+
+                foreach ($candTitles as $cTitle) {
+                    $cTitleLower = mb_strtolower(trim($cTitle), 'UTF-8');
+
+                    // Exact match
+                    if ($tTitleLower === $cTitleLower && mb_strlen($tTitleLower) >= 3) {
+                        return $cand;
+                    }
+
+                    $cTokens = $this->getMeaningfulTitleTokens($cTitle);
+                    if (empty($tTokens) || empty($cTokens)) {
+                        continue;
+                    }
+
+                    $common = array_intersect($tTokens, $cTokens);
+                    $commonCount = count($common);
+
+                    if ($commonCount >= 2) {
+                        $overlapScore = $commonCount / max(count($tTokens), count($cTokens));
+                        if ($overlapScore > $bestScore && $overlapScore >= $minScore) {
+                            $bestScore = $overlapScore;
+                            $bestCandidate = $cand;
+                        }
+                    } elseif ($commonCount >= 1 && count($tTokens) <= 3 && count($cTokens) <= 3) {
+                        similar_text($tTitleLower, $cTitleLower, $simPercent);
+                        if ($simPercent >= 70 && ($simPercent / 100) > $bestScore && ($simPercent / 100) >= $minScore) {
+                            $bestScore = $simPercent / 100;
+                            $bestCandidate = $cand;
+                        }
+                    }
                 }
             }
         }
@@ -788,14 +870,14 @@ class EventIngestionService
             }
         }
 
-        // If current 'lv' translation is in English and sibling has a real Latvian 'lv' translation, replace it
+        // If current 'lv' translation is in English or Russian and sibling has a real Latvian 'lv' translation, replace it
         $curLv = $event->translations()->where('locale', 'lv')->first();
         $sibLv = $sibling->translations->firstWhere('locale', 'lv');
         if ($curLv && $sibLv && !empty($sibLv->description)) {
-            $curLvLang = $this->detectTextLanguage($curLv->description);
-            $sibLvLang = $this->detectTextLanguage($sibLv->description);
+            $curLvLang = $this->detectTextLanguage($curLv->description ?: $curLv->title);
+            $sibLvLang = $this->detectTextLanguage($sibLv->description ?: $sibLv->title);
 
-            if ($curLvLang === 'en' && $sibLvLang === 'lv') {
+            if ($curLvLang !== 'lv' && $sibLvLang === 'lv') {
                 $curLv->update([
                     'title' => $sibLv->title,
                     'description' => $sibLv->description,
@@ -804,6 +886,7 @@ class EventIngestionService
 
                 // Also update main event text to Latvian
                 $event->update([
+                    'title' => $sibLv->title,
                     'description' => $sibLv->description,
                     'short_description' => $sibLv->short_description,
                 ]);
@@ -817,21 +900,17 @@ class EventIngestionService
             return 'lv';
         }
 
-        $lower = mb_strtolower($text, 'UTF-8');
-        $enHits = preg_match_all('/\b(the|and|in|is|are|of|to|with|for|during|from|we|you|please|will|not|have|can|this|that|on|at|by|tours?|exhibition|history|tickets?|visitors?|open|daily|adults?|students?|building|palace|museum)\b/u', $lower);
-        $lvHits = preg_match_all('/\b(un|ir|par|ar|pie|no|vai|lai|mēs|jūs|kas|tiek|katru|dienu|lūdzu|cena|ieeja|biļetes|pēc|līdz|vieta|laiks|gads|gadā|stūra|māja|muzejs|skatāma|norise|iekļauts|apmeklēt)\b/u', $lower);
-        
         $ruHits = preg_match_all('/[\p{Cyrillic}]/u', $text);
-        if ($ruHits > 30 && $ruHits > $enHits && $ruHits > $lvHits) {
+        if ($ruHits > 5) {
             return 'ru';
         }
 
-        if ($enHits > 8 && $enHits > $lvHits * 2) {
-            return 'en';
-        }
+        $lower = mb_strtolower($text, 'UTF-8');
+        $enHits = preg_match_all('/\b(the|and|in|is|are|of|to|with|for|during|from|we|you|please|will|not|have|can|this|that|on|at|by|tours?|exhibition|history|tickets?|visitors?|open|daily|adults?|students?|building|palace|museum)\b/u', $lower);
+        $lvHits = preg_match_all('/\b(un|ir|par|ar|pie|no|vai|lai|mēs|jūs|kas|tiek|katru|dienu|lūdzu|cena|ieeja|biļetes|pēc|līdz|vieta|laiks|gads|gadā|stūra|māja|muzejs|skatāma|norise|iekļauts|apmeklēt)\b/u', $lower);
 
-        if ($lvHits > $enHits) {
-            return 'lv';
+        if ($enHits > 3 && $enHits > $lvHits * 2) {
+            return 'en';
         }
 
         return 'lv';
