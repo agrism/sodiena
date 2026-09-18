@@ -24,7 +24,7 @@ class TranslationService
 
         $cacheKey = 'trans_' . md5("{$from}_{$to}_{$text}");
         return Cache::remember($cacheKey, 86400 * 30, function () use ($text, $from, $to) {
-            if (mb_strlen($text, 'UTF-8') > 800) {
+            if (mb_strlen($text, 'UTF-8') > 2500) {
                 return $this->translateLongText($text, $from, $to);
             }
 
@@ -47,7 +47,7 @@ class TranslationService
                 continue;
             }
 
-            if (mb_strlen($trimmed, 'UTF-8') <= 800) {
+            if (mb_strlen($trimmed, 'UTF-8') <= 2500) {
                 $translated = $this->translateChunk($trimmed, $from, $to);
                 $translatedParagraphs[] = $translated ?: $trimmed;
             } else {
@@ -56,7 +56,7 @@ class TranslationService
                 $buffer = '';
 
                 foreach ($sentences as $sentence) {
-                    if (mb_strlen($buffer . ' ' . $sentence, 'UTF-8') > 700 && !empty($buffer)) {
+                    if (mb_strlen($buffer . ' ' . $sentence, 'UTF-8') > 2200 && !empty($buffer)) {
                         $trans = $this->translateChunk($buffer, $from, $to);
                         $translatedSentences[] = $trans ?: $buffer;
                         $buffer = $sentence;
