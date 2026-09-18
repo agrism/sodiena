@@ -149,17 +149,27 @@ class BilesuServissScraper extends BaseScraper
 
         // Promoter / Organizer
         $promoterName = $this->cleanText($item['promoter']['companyName'] ?? null);
-        $description = null;
-        if ($promoterName) {
-            $description = "Organizators: {$promoterName}";
-        }
+
+        // Fetch full description & priceInfo from event page
+        $details = $this->fetchEventPageDetails($eventUrl);
+        $description = $details['description'] ?? null;
+        $priceInfo = $details['priceInfo'] ?? null;
+
+        $sections = array_filter([
+            $description,
+            $priceInfo,
+            $promoterName ? "Organizators: {$promoterName}" : null,
+        ]);
+
+        $fullDescription = !empty($sections) ? implode("\n\n", $sections) : ($promoterName ? "Organizators: {$promoterName}" : null);
+        $shortDescription = $description ? \Illuminate\Support\Str::limit(strip_tags($description), 160) : ($promoterName ? "Organizators: {$promoterName}" : null);
 
         return new ScrapedEventDTO(
             title: $title,
             startAt: $startAt,
             endAt: $endAt,
-            description: $description,
-            shortDescription: $description,
+            description: $fullDescription,
+            shortDescription: $shortDescription,
             venueName: $venueName,
             city: $city,
             categoryNames: $categoryNames,
@@ -170,5 +180,59 @@ class BilesuServissScraper extends BaseScraper
             locale: 'lv',
             rawData: $item
         );
+    }
+
+    protected array $eventDetailsCache = [];
+
+    public function fetchEventPageDetails(string $url): ?array
+    {
+        if (isset($this->eventDetailsCache[$url])) {
+            return $this->eventDetailsCache[$url];
+        }
+
+        try {
+            $response = $this->httpClient->get($url, ['timeout' => 15]);
+            $html = (string) $response->getBody();
+
+            if (preg_match_all('/<script[^>]*>(.*?)<\/script>/is', $html, $scripts)) {
+                foreach ($scripts[1] as $s) {
+                    if (!str_contains($s, 'event:lv:') && !str_contains($s, 'ShallowReactive')) {
+                        continue;
+                    }
+                    $nuxt = json_decode($s, true);
+                    if (!is_array($nuxt)) {
+                        continue;
+                    }
+
+                    $resolve = function ($val) use ($nuxt) {
+                        if ($val === null) return null;
+                        if (is_int($val) && array_key_exists($val, $nuxt)) return $nuxt[$val];
+                        return $val;
+                    };
+
+                    foreach ($nuxt as $item) {
+                        if (is_array($item) && isset($item['description']) && isset($item['sluggedName'])) {
+                            $descRaw = $resolve($item['description']);
+                            $priceInfoRaw = isset($item['priceInfo']) ? $resolve($item['priceInfo']) : null;
+                            
+                            $desc = is_string($descRaw) ? $this->cleanText($descRaw) : null;
+                            $priceInfo = is_string($priceInfoRaw) ? $this->cleanText($priceInfoRaw) : null;
+
+                            $res = [
+                                'description' => $desc,
+                                'priceInfo' => $priceInfo,
+                            ];
+                            $this->eventDetailsCache[$url] = $res;
+                            return $res;
+                        }
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            // Fail gracefully
+        }
+
+        $this->eventDetailsCache[$url] = null;
+        return null;
     }
 }
