@@ -315,4 +315,102 @@ class EventController extends Controller
 
         return redirect()->back()->with('status', $msg);
     }
+
+    /**
+     * Display the Unpublished Events Verification & Pricing page shell.
+     */
+    public function unpublished(Request $request): View
+    {
+        $sources = Source::where('is_active', true)->orderBy('name')->get();
+        $categories = Category::orderBy('name')->get();
+        $now = now();
+        $unpublishedCount = Event::where(function ($q) use ($now) {
+            $q->whereNull('published_at')
+              ->orWhere('published_at', '>', $now)
+              ->orWhere('status', '!=', 'published');
+        })->count();
+
+        $withTicketUrlCount = Event::where(function ($q) use ($now) {
+            $q->whereNull('published_at')
+              ->orWhere('published_at', '>', $now)
+              ->orWhere('status', '!=', 'published');
+        })->where(function ($q) {
+            $q->whereNotNull('ticket_url')->orWhereNotNull('source_url');
+        })->count();
+
+        return view('admin.events.unpublished', compact('sources', 'categories', 'unpublishedCount', 'withTicketUrlCount'));
+    }
+
+    /**
+     * HTMX endpoint to fetch the list of unpublished events with multilingual descriptions and ticket price iframes.
+     */
+    public function unpublishedList(Request $request): View
+    {
+        $search = trim((string) $request->input('search', ''));
+        $sourceSlug = $request->input('source', 'all');
+        $categorySlug = $request->input('category', 'all');
+        $hasTicketUrl = $request->input('has_ticket_url', 'all');
+        $sortBy = $request->input('sort_by', 'start_at');
+        $sortDir = strtolower($request->input('sort_dir', 'asc')) === 'desc' ? 'desc' : 'asc';
+        $perPage = (int) $request->input('per_page', 10);
+
+        if (!in_array($perPage, [5, 10, 20, 50, 100], true)) {
+            $perPage = 10;
+        }
+
+        $now = now();
+        $query = Event::query()
+            ->with(['location', 'categories', 'source', 'translations'])
+            ->where(function ($q) use ($now) {
+                $q->whereNull('published_at')
+                  ->orWhere('published_at', '>', $now)
+                  ->orWhere('status', '!=', 'published');
+            });
+
+        // Search filter
+        if (!empty($search)) {
+            $query->where(function ($q) use ($search) {
+                $q->where('title', 'like', "%{$search}%")
+                  ->orWhere('description', 'like', "%{$search}%")
+                  ->orWhere('slug', 'like', "%{$search}%")
+                  ->orWhere('ticket_url', 'like', "%{$search}%")
+                  ->orWhere('source_url', 'like', "%{$search}%")
+                  ->orWhereHas('location', function ($locQ) use ($search) {
+                      $locQ->where('name', 'like', "%{$search}%")
+                           ->orWhere('city', 'like', "%{$search}%");
+                  });
+            });
+        }
+
+        // Filter by source
+        if (!empty($sourceSlug) && $sourceSlug !== 'all') {
+            $query->where('source_slug', $sourceSlug);
+        }
+
+        // Filter by category
+        if (!empty($categorySlug) && $categorySlug !== 'all') {
+            $query->whereHas('categories', function ($catQ) use ($categorySlug) {
+                $catQ->where('slug', $categorySlug);
+            });
+        }
+
+        // Filter by ticket url presence
+        if ($hasTicketUrl === 'yes') {
+            $query->where(function ($q) {
+                $q->whereNotNull('ticket_url')->orWhereNotNull('source_url');
+            });
+        } elseif ($hasTicketUrl === 'no') {
+            $query->whereNull('ticket_url')->whereNull('source_url');
+        }
+
+        if (in_array($sortBy, ['start_at', 'created_at', 'title', 'price_min'], true)) {
+            $query->orderBy($sortBy, $sortDir);
+        } else {
+            $query->orderBy('start_at', 'asc');
+        }
+
+        $events = $query->paginate($perPage)->withQueryString();
+
+        return view('admin.events.partials.unpublished-list', compact('events'));
+    }
 }

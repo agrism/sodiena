@@ -13,7 +13,7 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @stack('styles')
 </head>
-<body class="min-h-full bg-slate-100 text-slate-900 antialiased font-sans flex flex-col overflow-x-hidden w-full max-w-full relative">
+<body hx-headers='{"X-CSRF-TOKEN": "{{ csrf_token() }}"}' class="min-h-full bg-slate-100 text-slate-900 antialiased font-sans flex flex-col overflow-x-hidden w-full max-w-full relative">
 
 <div class="eds-app-wrapper flex min-h-screen">
     
@@ -50,11 +50,32 @@
                 <!-- Events Grid Table -->
                 <li>
                     <a href="{{ route('admin.events.index') }}" 
-                       class="eds-menu-link flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all {{ request()->routeIs('admin.events.*') ? 'bg-[#002855] text-white shadow-sm' : 'text-slate-700 hover:bg-slate-100 hover:text-[#002855]' }}">
+                       class="eds-menu-link flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all {{ request()->routeIs('admin.events.index') ? 'bg-[#002855] text-white shadow-sm' : 'text-slate-700 hover:bg-slate-100 hover:text-[#002855]' }}">
                         <div class="flex items-center gap-2.5">
-                            <i data-lucide="table-2" class="w-4 h-4 {{ request()->routeIs('admin.events.*') ? 'text-cyan-300' : 'text-slate-500' }}"></i>
+                            <i data-lucide="table-2" class="w-4 h-4 {{ request()->routeIs('admin.events.index') ? 'text-cyan-300' : 'text-slate-500' }}"></i>
                             <span>Pasākumu tabula</span>
                         </div>
+                    </a>
+                </li>
+
+                <!-- Unpublished Events & Pricing Review -->
+                <li>
+                    <a href="{{ route('admin.events.unpublished') }}" 
+                       class="eds-menu-link flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all {{ request()->routeIs('admin.events.unpublished*') ? 'bg-[#002855] text-white shadow-sm' : 'text-slate-700 hover:bg-slate-100 hover:text-[#002855]' }}">
+                        <div class="flex items-center gap-2.5">
+                            <i data-lucide="shield-alert" class="w-4 h-4 {{ request()->routeIs('admin.events.unpublished*') ? 'text-amber-400' : 'text-amber-500' }}"></i>
+                            <span>Nepublicētie & Cenas</span>
+                        </div>
+                        @php
+                            $unpubBadgeCount = \App\Models\Event::where(function ($q) {
+                                $q->whereNull('published_at')->orWhere('published_at', '>', now())->orWhere('status', '!=', 'published');
+                            })->count();
+                        @endphp
+                        @if($unpubBadgeCount > 0)
+                            <span class="inline-flex items-center justify-center px-2 py-0.5 text-[10px] font-extrabold rounded-full {{ request()->routeIs('admin.events.unpublished*') ? 'bg-amber-400 text-slate-900' : 'bg-amber-100 text-amber-800' }}">
+                                {{ $unpubBadgeCount }}
+                            </span>
+                        @endif
                     </a>
                 </li>
 
