@@ -30,15 +30,36 @@ class SyncEventTranslationsCommand extends Command
     public function handle(EventIngestionService $ingestionService): int
     {
         $dryRun = (bool) $this->option('dry-run');
-        $this->info('Starting event translations synchronization...');
+        $this->info('Starting event translations synchronization (current & upcoming events only)...');
 
-        $events = Event::with('translations', 'location')->get();
+        $events = Event::where(function ($q) {
+            $q->where('end_at', '>=', now()->startOfDay())
+              ->orWhere(function ($sq) {
+                  $sq->whereNull('end_at')
+                     ->where('start_at', '>=', now()->startOfDay());
+              });
+        })->with('translations', 'location')->get();
+
         $updatedCount = 0;
 
         foreach ($events as $event) {
             $existingTranslations = $event->translations->keyBy('locale');
             $targetLocales = ['lv', 'en', 'ru'];
-            $missingLocales = array_diff($targetLocales, $existingTranslations->keys()->toArray());
+            $needsSync = false;
+
+            // Check if any target locale translation is missing or has empty description
+            foreach ($targetLocales as $loc) {
+                $t = $existingTranslations->get($loc);
+                if (!$t || empty(trim($t->description ?? ''))) {
+                    $needsSync = true;
+                    break;
+                }
+            }
+
+            // Check if main event description is empty
+            if (empty(trim($event->description ?? ''))) {
+                $needsSync = true;
+            }
 
             // 1. Check if 'lv' translation actually contains Russian or English text
             $lvTrans = $existingTranslations->get('lv');
@@ -47,6 +68,7 @@ class SyncEventTranslationsCommand extends Command
                 $detectedLang = $ingestionService->detectTextLanguage($lvTrans->title . ' ' . $lvTrans->description);
                 if ($detectedLang !== 'lv') {
                     $lvLanguage = $detectedLang;
+                    $needsSync = true;
                     if (!$dryRun) {
                         // Ensure the detected language translation exists with this content
                         if (!$existingTranslations->has($detectedLang)) {
@@ -63,8 +85,8 @@ class SyncEventTranslationsCommand extends Command
                 }
             }
 
-            // If no missing locales and 'lv' is real Latvian, nothing to inherit
-            if (empty($missingLocales) && $lvLanguage === 'lv') {
+            // If everything is complete and valid, skip
+            if (!$needsSync && $lvLanguage === 'lv') {
                 continue;
             }
 
@@ -74,43 +96,54 @@ class SyncEventTranslationsCommand extends Command
             if ($sibling) {
                 $copiedAny = false;
                 foreach ($targetLocales as $loc) {
-                    $hasCurrent = $event->translations()->where('locale', $loc)->exists();
+                    $curTrans = $event->translations()->where('locale', $loc)->first();
                     $sibTrans = $sibling->translations->firstWhere('locale', $loc);
 
-                    if (!$hasCurrent && $sibTrans && !empty($sibTrans->description)) {
-                        $this->line("  -> Event #{$event->id} ({$event->title}) inherits [{$loc}] from Event #{$sibling->id}");
-                        if (!$dryRun) {
-                            EventTranslation::updateOrCreate(
-                                [
+                    if ($sibTrans && !empty(trim($sibTrans->description ?? ''))) {
+                        if (!$curTrans) {
+                            $this->line("  -> Event #{$event->id} ({$event->title}) inherits [{$loc}] from Event #{$sibling->id}");
+                            if (!$dryRun) {
+                                EventTranslation::create([
                                     'event_id' => $event->id,
                                     'locale' => $loc,
-                                ],
-                                [
                                     'title' => $sibTrans->title,
                                     'slug' => Str::slug($sibTrans->title) . '-' . substr(md5($event->id . $loc), 0, 6),
                                     'description' => $sibTrans->description,
                                     'short_description' => $sibTrans->short_description,
-                                ]
-                            );
+                                ]);
+                            }
+                            $copiedAny = true;
+                        } elseif (empty(trim($curTrans->description ?? ''))) {
+                            $this->line("  -> Event #{$event->id} ({$event->title}) inherits empty [{$loc}] description from Event #{$sibling->id}");
+                            if (!$dryRun) {
+                                $curTrans->update([
+                                    'description' => $sibTrans->description,
+                                    'short_description' => $sibTrans->short_description ?: (mb_strlen($sibTrans->description) <= 220 ? $sibTrans->description : Str::limit(strip_tags($sibTrans->description), 160)),
+                                ]);
+                            }
+                            $copiedAny = true;
                         }
-                        $copiedAny = true;
                     }
                 }
 
-                // If 'lv' was originally Russian or English, overwrite 'lv' with the sibling's real Latvian translation
+                // If 'lv' was originally Russian/English, or if main event has empty description, populate from sibling LV
                 $lvSibTrans = $sibling->translations->firstWhere('locale', 'lv');
                 $curLv = $event->translations()->where('locale', 'lv')->first();
-                if ($curLv && $lvSibTrans && !empty($lvSibTrans->description)) {
-                    $curLang = $ingestionService->detectTextLanguage($curLv->description ?: $curLv->title);
+                if ($lvSibTrans && !empty(trim($lvSibTrans->description ?? ''))) {
+                    $curLang = $curLv ? $ingestionService->detectTextLanguage($curLv->description ?: $curLv->title) : 'lv';
                     $sibLang = $ingestionService->detectTextLanguage($lvSibTrans->description ?: $lvSibTrans->title);
-                    if ($curLang !== 'lv' && $sibLang === 'lv') {
-                        $this->line("  -> Event #{$event->id} ({$event->title}) overwriting [lv] with real LV text from Event #{$sibling->id}");
+                    $mainDescEmpty = empty(trim($event->description ?? ''));
+
+                    if (($curLang !== 'lv' && $sibLang === 'lv') || $mainDescEmpty) {
+                        $this->line("  -> Event #{$event->id} ({$event->title}) updating [lv] / main description from Event #{$sibling->id}");
                         if (!$dryRun) {
-                            $curLv->update([
-                                'title' => $lvSibTrans->title,
-                                'description' => $lvSibTrans->description,
-                                'short_description' => $lvSibTrans->short_description,
-                            ]);
+                            if ($curLv) {
+                                $curLv->update([
+                                    'title' => $lvSibTrans->title,
+                                    'description' => $lvSibTrans->description,
+                                    'short_description' => $lvSibTrans->short_description,
+                                ]);
+                            }
                             $event->update([
                                 'title' => $lvSibTrans->title,
                                 'description' => $lvSibTrans->description,

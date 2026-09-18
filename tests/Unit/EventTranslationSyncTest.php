@@ -169,4 +169,100 @@ class EventTranslationSyncTest extends TestCase
         $russianEvent->refresh();
         $this->assertEquals('Laimīgie', $russianEvent->title);
     }
+
+    public function test_inherit_missing_description_for_existing_translation_records(): void
+    {
+        $source = Source::create([
+            'name' => 'Biļešu Paradīze',
+            'slug' => 'bilesu-paradize',
+            'url' => 'https://www.bilesuparadize.lv',
+            'scraper_class' => \App\Services\Scrapers\Sources\BilesuParadizeScraper::class,
+            'is_active' => true,
+        ]);
+
+        $loc = Location::create([
+            'name' => 'Rīgas Doms',
+            'city' => 'Rīga',
+            'region' => 'Rīga un Pierīga',
+        ]);
+
+        // Event A (Afiro) with full LV, EN, RU translations
+        $afiroEvent = Event::create([
+            'source_id' => $source->id,
+            'source_slug' => 'afiro-api',
+            'location_id' => $loc->id,
+            'title' => 'Concerto Piccolo',
+            'slug' => 'concerto-piccolo-ofW3Z0',
+            'description' => 'Piccolo CONCERTO PICCOLO Ērģeļmūzika ~ 20 min.',
+            'short_description' => 'Piccolo CONCERTO PICCOLO Ērģeļmūzika ~ 20 min.',
+            'start_at' => now()->addDays(2),
+            'status' => 'published',
+            'published_at' => now(),
+        ]);
+
+        EventTranslation::create([
+            'event_id' => $afiroEvent->id,
+            'locale' => 'lv',
+            'title' => 'Concerto Piccolo',
+            'slug' => 'concerto-piccolo-lv-ofW3Z0',
+            'description' => 'Piccolo CONCERTO PICCOLO Ērģeļmūzika ~ 20 min.',
+        ]);
+
+        EventTranslation::create([
+            'event_id' => $afiroEvent->id,
+            'locale' => 'en',
+            'title' => 'Concerto Piccolo',
+            'slug' => 'concerto-piccolo-en-ofW3Z0',
+            'description' => 'Piccolo CONCERTO PICCOLO Organ music ~ 20 min.',
+        ]);
+
+        EventTranslation::create([
+            'event_id' => $afiroEvent->id,
+            'locale' => 'ru',
+            'title' => 'Concerto Piccolo',
+            'slug' => 'concerto-piccolo-ru-ofW3Z0',
+            'description' => 'Piccolo CONCERTO PICCOLO Органный концерт ~ 20 мин.',
+        ]);
+
+        // Event B (Bilesu Paradize) with null description on main event and null description on LV translation record
+        $bpEvent = Event::create([
+            'source_id' => $source->id,
+            'source_slug' => 'bilesu-paradize',
+            'location_id' => $loc->id,
+            'title' => 'CONCERTO PICCOLO',
+            'slug' => 'concerto-piccolo-RV6KJZ',
+            'description' => null,
+            'short_description' => null,
+            'start_at' => now()->addDays(2),
+            'status' => 'published',
+            'published_at' => now(),
+        ]);
+
+        EventTranslation::create([
+            'event_id' => $bpEvent->id,
+            'locale' => 'lv',
+            'title' => 'CONCERTO PICCOLO',
+            'slug' => 'concerto-piccolo-RV6KJZ',
+            'description' => null,
+            'short_description' => null,
+        ]);
+
+        // Run sync command
+        Artisan::call('events:sync-translations');
+
+        $bpEvent->refresh();
+        $lvTrans = $bpEvent->translations()->where('locale', 'lv')->first();
+        $enTrans = $bpEvent->translations()->where('locale', 'en')->first();
+        $ruTrans = $bpEvent->translations()->where('locale', 'ru')->first();
+
+        $this->assertNotNull($lvTrans->description);
+        $this->assertEquals('Piccolo CONCERTO PICCOLO Ērģeļmūzika ~ 20 min.', $lvTrans->description);
+        $this->assertEquals('Piccolo CONCERTO PICCOLO Ērģeļmūzika ~ 20 min.', $bpEvent->description);
+
+        $this->assertNotNull($enTrans);
+        $this->assertEquals('Piccolo CONCERTO PICCOLO Organ music ~ 20 min.', $enTrans->description);
+
+        $this->assertNotNull($ruTrans);
+        $this->assertEquals('Piccolo CONCERTO PICCOLO Органный концерт ~ 20 мин.', $ruTrans->description);
+    }
 }

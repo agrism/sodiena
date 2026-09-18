@@ -858,33 +858,49 @@ class EventIngestionService
             $existingTrans = $event->translations()->where('locale', $loc)->first();
             $sibTrans = $sibling->translations->firstWhere('locale', $loc);
 
-            if (!$existingTrans && $sibTrans && !empty($sibTrans->description)) {
-                EventTranslation::create([
-                    'event_id' => $event->id,
-                    'locale' => $loc,
-                    'title' => $sibTrans->title,
-                    'slug' => Str::slug($sibTrans->title) . '-' . substr(md5($event->id . $loc), 0, 6),
-                    'description' => $sibTrans->description,
-                    'short_description' => $sibTrans->short_description,
-                ]);
+            if ($sibTrans && !empty($sibTrans->description)) {
+                if (!$existingTrans) {
+                    EventTranslation::create([
+                        'event_id' => $event->id,
+                        'locale' => $loc,
+                        'title' => $sibTrans->title,
+                        'slug' => Str::slug($sibTrans->title) . '-' . substr(md5($event->id . $loc), 0, 6),
+                        'description' => $sibTrans->description,
+                        'short_description' => $sibTrans->short_description,
+                    ]);
+                } elseif (empty(trim($existingTrans->description ?? ''))) {
+                    $existingTrans->update([
+                        'description' => $sibTrans->description,
+                        'short_description' => $sibTrans->short_description ?: (mb_strlen($sibTrans->description) <= 220 ? $sibTrans->description : Str::limit(strip_tags($sibTrans->description), 160)),
+                    ]);
+                }
             }
         }
 
-        // If current 'lv' translation is in English or Russian and sibling has a real Latvian 'lv' translation, replace it
+        // Check if event itself has empty description or non-Latvian text in 'lv'
         $curLv = $event->translations()->where('locale', 'lv')->first();
         $sibLv = $sibling->translations->firstWhere('locale', 'lv');
-        if ($curLv && $sibLv && !empty($sibLv->description)) {
-            $curLvLang = $this->detectTextLanguage($curLv->description ?: $curLv->title);
-            $sibLvLang = $this->detectTextLanguage($sibLv->description ?: $sibLv->title);
+        if ($sibLv && !empty($sibLv->description)) {
+            $shouldUpdateMainLv = false;
 
-            if ($curLvLang !== 'lv' && $sibLvLang === 'lv') {
-                $curLv->update([
-                    'title' => $sibLv->title,
-                    'description' => $sibLv->description,
-                    'short_description' => $sibLv->short_description,
-                ]);
+            if (empty(trim($event->description ?? ''))) {
+                $shouldUpdateMainLv = true;
+            } elseif ($curLv) {
+                $curLvLang = $this->detectTextLanguage($curLv->description ?: $curLv->title);
+                $sibLvLang = $this->detectTextLanguage($sibLv->description ?: $sibLv->title);
+                if ($curLvLang !== 'lv' && $sibLvLang === 'lv') {
+                    $shouldUpdateMainLv = true;
+                }
+            }
 
-                // Also update main event text to Latvian
+            if ($shouldUpdateMainLv) {
+                if ($curLv) {
+                    $curLv->update([
+                        'title' => $sibLv->title,
+                        'description' => $sibLv->description,
+                        'short_description' => $sibLv->short_description,
+                    ]);
+                }
                 $event->update([
                     'title' => $sibLv->title,
                     'description' => $sibLv->description,
