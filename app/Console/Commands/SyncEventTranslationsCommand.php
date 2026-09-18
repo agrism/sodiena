@@ -90,7 +90,64 @@ class SyncEventTranslationsCommand extends Command
                 continue;
             }
 
-            // 2. Search for sibling with full translations
+            // 2. If event is from Afiro API, fetch missing translations directly from Afiro API
+            if ($event->source_slug === 'afiro-api' && $event->source_external_id) {
+                $afiroUpdated = false;
+                foreach ($targetLocales as $loc) {
+                    $curTrans = $event->translations()->where('locale', $loc)->first();
+                    if (!$curTrans || empty(trim($curTrans->description ?? ''))) {
+                        try {
+                            $res = \Illuminate\Support\Facades\Http::withHeaders([
+                                'Accept' => 'application/json',
+                                'x-lang' => $loc,
+                                'Origin' => 'https://afiro.lv',
+                                'Referer' => 'https://afiro.lv/',
+                            ])->timeout(10)->get("https://api.afiro.lv/events/{$event->source_external_id}");
+
+                            if ($res->successful() && !empty($res->json('title'))) {
+                                $afTitle = trim($res->json('title'));
+                                $afDesc = trim($res->json('description') ?? '');
+                                if (!empty($afDesc) || !empty($afTitle)) {
+                                    $this->line("  -> Event #{$event->id} ({$event->title}) fetched [{$loc}] directly from Afiro API");
+                                    if (!$dryRun) {
+                                        EventTranslation::updateOrCreate(
+                                            [
+                                                'event_id' => $event->id,
+                                                'locale' => $loc,
+                                            ],
+                                            [
+                                                'title' => $afTitle,
+                                                'slug' => Str::slug($afTitle) . '-' . substr(md5($event->id . $loc), 0, 6),
+                                                'description' => $afDesc,
+                                                'short_description' => mb_strlen($afDesc) <= 220 ? $afDesc : Str::limit(strip_tags($afDesc), 160),
+                                            ]
+                                        );
+
+                                        if ($loc === 'lv' || empty(trim($event->description ?? ''))) {
+                                            $event->update([
+                                                'title' => $afTitle,
+                                                'description' => $afDesc,
+                                                'short_description' => mb_strlen($afDesc) <= 220 ? $afDesc : Str::limit(strip_tags($afDesc), 160),
+                                            ]);
+                                        }
+                                    }
+                                    $afiroUpdated = true;
+                                }
+                            }
+                        } catch (\Throwable $e) {
+                            // ignore and fallback to sibling search
+                        }
+                    }
+                }
+
+                if ($afiroUpdated) {
+                    $updatedCount++;
+                    $event->load('translations');
+                    $existingTranslations = $event->translations->keyBy('locale');
+                }
+            }
+
+            // 3. Search for sibling with full translations
             $sibling = $ingestionService->findSiblingWithTranslations($event);
 
             if ($sibling) {
