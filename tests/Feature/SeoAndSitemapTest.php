@@ -172,5 +172,67 @@ class SeoAndSitemapTest extends TestCase
         $response->assertStatus(200);
         $this->assertStringContainsString('<loc>' . route('events.show', $event->slug) . '</loc>', $response->getContent());
     }
+
+    public function test_event_publish_and_unpublish_dispatches_refresh_sitemap_job(): void
+    {
+        \Illuminate\Support\Facades\Queue::fake();
+
+        $source = Source::create([
+            'name' => 'Queue Test Source',
+            'slug' => 'queue-test-source',
+            'url' => 'https://example.com',
+            'scraper_class' => \App\Services\Scrapers\BezRindasScraper::class,
+            'is_active' => true,
+        ]);
+
+        $event = Event::create([
+            'source_id' => $source->id,
+            'source_slug' => $source->slug,
+            'title' => 'Draft Event',
+            'slug' => 'draft-event-for-queue',
+            'status' => 'draft',
+            'published_at' => null,
+            'start_at' => now()->addDays(2),
+        ]);
+
+        // Publish event
+        $event->publish();
+        \Illuminate\Support\Facades\Queue::assertPushed(\App\Jobs\RefreshSitemapJob::class);
+
+        \Illuminate\Support\Facades\Queue::fake();
+
+        // Unpublish event
+        $event->unpublish();
+        \Illuminate\Support\Facades\Queue::assertPushed(\App\Jobs\RefreshSitemapJob::class);
+    }
+
+    public function test_refresh_sitemap_job_execution_updates_sitemap(): void
+    {
+        $source = Source::create([
+            'name' => 'Job Exec Source',
+            'slug' => 'job-exec-source',
+            'url' => 'https://example.com',
+            'scraper_class' => \App\Services\Scrapers\BezRindasScraper::class,
+            'is_active' => true,
+        ]);
+
+        $event = Event::create([
+            'source_id' => $source->id,
+            'source_slug' => $source->slug,
+            'title' => 'Event Via Queue Job',
+            'slug' => 'event-via-queue-job',
+            'status' => 'published',
+            'published_at' => now()->subMinute(),
+            'start_at' => now()->addDays(3),
+        ]);
+
+        $job = new \App\Jobs\RefreshSitemapJob();
+        $job->handle(app(\App\Services\SitemapService::class));
+
+        $response = $this->get('/sitemap.xml');
+        $response->assertStatus(200);
+        $this->assertStringContainsString('<loc>' . route('events.show', $event->slug) . '</loc>', $response->getContent());
+    }
 }
+
 

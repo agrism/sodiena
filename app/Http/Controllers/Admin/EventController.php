@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\RefreshSitemapJob;
 use App\Models\Category;
 use App\Models\Event;
 use App\Models\Location;
@@ -308,6 +309,8 @@ class EventController extends Controller
             ]);
             $msg = count($eventIds) . ' pasākumi noņemti no publikācijas!';
         }
+
+        RefreshSitemapJob::dispatch();
 
         if ($request->wantsJson() || $request->ajax()) {
             return response()->json(['success' => true, 'message' => $msg]);
