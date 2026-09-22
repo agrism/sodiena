@@ -23,31 +23,13 @@
     <meta name="twitter:description" content="@yield('meta_description', __('Discover future events'))">
     <meta name="twitter:image" content="@yield('meta_image', asset('images/default-event.jpg'))">
 
-    <!-- Fonts & Preload -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" media="print" onload="this.media='all'">
-    <noscript>
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
-    </noscript>
+    <!-- Preload Self-Hosted Fonts -->
+    <link rel="preload" href="/fonts/plus-jakarta-sans-latin.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="/fonts/plus-jakarta-sans-latinext.woff2" as="font" type="font/woff2" crossorigin>
 
-    @if(config('services.google.analytics_id'))
-        <!-- Google tag (gtag.js) -->
-        <script async src="https://www.googletagmanager.com/gtag/js?id={{ config('services.google.analytics_id') }}"></script>
-        <script>
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-            gtag('config', '{{ config('services.google.analytics_id') }}');
-        </script>
-    @endif
-
-    <style>
-        body {
-            font-family: 'Plus Jakarta Sans', sans-serif;
-        }
-    </style>
+    <!-- Preconnect to Image CDN / Object Storage -->
+    <link rel="preconnect" href="https://sodiena.hel1.your-objectstorage.com" crossorigin>
+    <link rel="dns-prefetch" href="https://sodiena.hel1.your-objectstorage.com">
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @stack('styles')
@@ -201,6 +183,19 @@
         </div>
     </footer>
 
+    @if(config('services.google.analytics_id'))
+
+        <!-- Google tag (gtag.js) -->
+        <script async src="https://www.googletagmanager.com/gtag/js?id={{ config('services.google.analytics_id') }}"></script>
+        <script>
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', '{{ config('services.google.analytics_id') }}');
+        </script>
+    @endif
+
     @stack('scripts')
 </body>
 </html>
+

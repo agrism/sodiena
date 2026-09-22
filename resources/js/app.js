@@ -77,7 +77,6 @@ import {
 import flatpickr from 'flatpickr';
 import { Latvian } from 'flatpickr/dist/l10n/lv.js';
 import { Russian } from 'flatpickr/dist/l10n/ru.js';
-import 'flatpickr/dist/flatpickr.min.css';
 
 // Active Lucide icons map for tree-shaking
 const appIcons = {
@@ -171,7 +170,10 @@ function renderIcons() {
 }
 
 // Initialize Lucide icons on page load and on every HTMX content swap
-document.addEventListener('DOMContentLoaded', renderIcons);
+document.addEventListener('DOMContentLoaded', () => {
+    requestAnimationFrame(renderIcons);
+});
 document.addEventListener('htmx:afterSwap', renderIcons);
 document.addEventListener('htmx:afterSettle', renderIcons);
+
 
