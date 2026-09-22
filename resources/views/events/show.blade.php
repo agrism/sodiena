@@ -6,6 +6,10 @@
 @section('meta_image', $event->display_image_url)
 @section('canonical_url', route('events.show', $event->slug))
 
+@push('styles')
+    <link rel="preload" as="image" href="{{ $event->display_image_url }}" fetchpriority="high">
+@endpush
+
 @section('content')
 <div class="max-w-7xl xl:max-w-[1400px] 2xl:max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
     
@@ -38,6 +42,10 @@
                 <img 
                     src="{{ $event->display_image_url }}" 
                     alt="{{ $event->title }}"
+                    width="1200"
+                    height="600"
+                    loading="eager"
+                    fetchpriority="high"
                     class="w-full h-full object-cover">
 
                 <div class="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent"></div>
@@ -451,7 +459,14 @@
                 @foreach($relatedEvents as $rel)
                     <a href="{{ route('events.show', $rel->slug) }}" class="group block bg-white rounded-2xl border border-slate-200/90 overflow-hidden shadow-xs hover:shadow-md hover:border-slate-300 transition-all">
                         <div class="relative aspect-video bg-slate-100 overflow-hidden">
-                            <img src="{{ $rel->display_image_url }}" alt="{{ $rel->title }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+                            <img 
+                                src="{{ $rel->display_image_url }}" 
+                                alt="{{ $rel->title }}" 
+                                width="400"
+                                height="225"
+                                loading="lazy"
+                                decoding="async"
+                                class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
                             <div class="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent"></div>
                             <span class="absolute bottom-2 left-2 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-white/95 text-slate-900 backdrop-blur-md shadow-xs">
                                 {{ $rel->formatted_date }}

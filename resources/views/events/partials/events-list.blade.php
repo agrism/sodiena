@@ -24,7 +24,15 @@
                         <img 
                             src="{{ $event->display_image_url }}" 
                             alt="{{ $event->title }}"
-                            loading="lazy"
+                            width="640"
+                            height="400"
+                            @if($loop->iteration <= 2)
+                                loading="eager"
+                                fetchpriority="high"
+                            @else
+                                loading="lazy"
+                                decoding="async"
+                            @endif
                             class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out">
 
                         <!-- Subtle overlay gradient -->

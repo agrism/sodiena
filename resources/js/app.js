@@ -1,10 +1,158 @@
 import './bootstrap';
 import htmx from 'htmx.org';
-import { createIcons, icons } from 'lucide';
+import {
+    createIcons,
+    AlertCircle,
+    AlertTriangle,
+    ArrowDown,
+    ArrowLeft,
+    ArrowRight,
+    ArrowUp,
+    Bot,
+    Calendar,
+    CalendarX2,
+    Check,
+    CheckCircle,
+    CheckCircle2,
+    ChevronDown,
+    ChevronRight,
+    ChevronsUpDown,
+    Clock,
+    Compass,
+    Download,
+    Drama,
+    ExternalLink,
+    Eye,
+    EyeOff,
+    Film,
+    Filter,
+    Globe,
+    Heart,
+    History,
+    Home,
+    Image,
+    Inbox,
+    Info,
+    Key,
+    Languages,
+    LayoutGrid,
+    Link,
+    Loader2,
+    Lock,
+    LogIn,
+    LogOut,
+    Mail,
+    Map,
+    MapPin,
+    Menu,
+    Music,
+    Palette,
+    Phone,
+    RefreshCw,
+    RotateCcw,
+    Search,
+    Share2,
+    Shield,
+    ShieldAlert,
+    ShieldCheck,
+    SlidersHorizontal,
+    Smile,
+    Sparkles,
+    Star,
+    Table2,
+    Tag,
+    Theater,
+    Ticket,
+    Trash2,
+    Upload,
+    User,
+    UserCheck,
+    UserPlus,
+    Users,
+    Wrench,
+    X,
+    Activity,
+    BookOpen
+} from 'lucide';
 import flatpickr from 'flatpickr';
 import { Latvian } from 'flatpickr/dist/l10n/lv.js';
 import { Russian } from 'flatpickr/dist/l10n/ru.js';
 import 'flatpickr/dist/flatpickr.min.css';
+
+// Active Lucide icons map for tree-shaking
+const appIcons = {
+    AlertCircle,
+    AlertTriangle,
+    ArrowDown,
+    ArrowLeft,
+    ArrowRight,
+    ArrowUp,
+    Bot,
+    Calendar,
+    CalendarX2,
+    Check,
+    CheckCircle,
+    CheckCircle2,
+    ChevronDown,
+    ChevronRight,
+    ChevronsUpDown,
+    Clock,
+    Compass,
+    Download,
+    Drama,
+    ExternalLink,
+    Eye,
+    EyeOff,
+    Film,
+    Filter,
+    Globe,
+    Heart,
+    History,
+    Home,
+    Image,
+    Inbox,
+    Info,
+    Key,
+    Languages,
+    LayoutGrid,
+    Link,
+    Loader2,
+    Lock,
+    LogIn,
+    LogOut,
+    Mail,
+    Map,
+    MapPin,
+    Menu,
+    Music,
+    Palette,
+    Phone,
+    RefreshCw,
+    RotateCcw,
+    Search,
+    Share2,
+    Shield,
+    ShieldAlert,
+    ShieldCheck,
+    SlidersHorizontal,
+    Smile,
+    Sparkles,
+    Star,
+    Table2,
+    Tag,
+    Theater,
+    Ticket,
+    Trash2,
+    Upload,
+    User,
+    UserCheck,
+    UserPlus,
+    Users,
+    Wrench,
+    X,
+    Activity,
+    BookOpen
+};
 
 window.htmx = htmx;
 window.flatpickr = flatpickr;
@@ -18,15 +166,12 @@ window.flatpickrLocales = {
 window.dispatchEvent(new CustomEvent('flatpickr-ready'));
 document.dispatchEvent(new CustomEvent('flatpickr-ready'));
 
+function renderIcons() {
+    createIcons({ icons: appIcons });
+}
+
 // Initialize Lucide icons on page load and on every HTMX content swap
-document.addEventListener('DOMContentLoaded', () => {
-    createIcons({ icons });
-});
+document.addEventListener('DOMContentLoaded', renderIcons);
+document.addEventListener('htmx:afterSwap', renderIcons);
+document.addEventListener('htmx:afterSettle', renderIcons);
 
-document.addEventListener('htmx:afterSwap', () => {
-    createIcons({ icons });
-});
-
-document.addEventListener('htmx:afterSettle', () => {
-    createIcons({ icons });
-});

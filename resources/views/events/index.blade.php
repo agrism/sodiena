@@ -4,6 +4,12 @@
 @section('meta_description', __('Discover future events'))
 @section('canonical_url', url('/'))
 
+@if(isset($events) && $events->isNotEmpty())
+    @push('styles')
+        <link rel="preload" as="image" href="{{ $events->first()->display_image_url }}" fetchpriority="high">
+    @endpush
+@endif
+
 @section('content')
 <div class="relative overflow-hidden bg-gradient-to-b from-emerald-50/60 via-slate-50 to-slate-50 pb-12 pt-6 sm:pt-10">
     <div class="max-w-7xl xl:max-w-[1400px] 2xl:max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
