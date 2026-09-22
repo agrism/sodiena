@@ -31,7 +31,7 @@
                 <span class="text-emerald-700 uppercase font-bold">🟢 Publicēti:</span>
                 <span class="font-extrabold ml-1">{{ number_format($stats['published'], 0, '.', ' ') }}</span>
             </a>
-            <a href="{{ request()->fullUrlWithQuery(['published' => 'unpublished']) }}" class="px-3 py-1.5 bg-amber-50 border border-amber-300 text-amber-900 rounded-lg hover:bg-amber-100 transition-colors {{ $published === 'unpublished' ? 'ring-2 ring-amber-500 font-black' : '' }}">
+            <a href="{{ request()->fullUrlWithQuery(['published' => 'unpublished', 'timeframe' => 'all']) }}" class="px-3 py-1.5 bg-amber-50 border border-amber-300 text-amber-900 rounded-lg hover:bg-amber-100 transition-colors {{ $published === 'unpublished' ? 'ring-2 ring-amber-500 font-black' : '' }}">
                 <span class="text-amber-700 uppercase font-bold">⏳ Nepublicēti:</span>
                 <span class="font-extrabold ml-1">{{ number_format($stats['unpublished'], 0, '.', ' ') }}</span>
             </a>

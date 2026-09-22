@@ -92,11 +92,12 @@ class MadonasMuzejsScraper extends BaseScraper
                 // Parse dates and times from text and fallback to publish date
                 [$startAt, $endAt] = $this->extractDates($title . ' ' . $fullDescription, $pubDateStr);
 
-                // Ignore events older than 1 year ago unless ongoing
-                if ($endAt && $endAt->isPast() && $endAt->diffInDays(now()) > 365) {
+                // Skip past events that already ended before today
+                $todayStart = now()->startOfDay();
+                if ($endAt && $endAt->lt($todayStart)) {
                     return;
                 }
-                if (!$endAt && $startAt->isPast() && $startAt->diffInDays(now()) > 365) {
+                if (!$endAt && $startAt && $startAt->lt($todayStart)) {
                     return;
                 }
 

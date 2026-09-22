@@ -26,7 +26,7 @@ class EventController extends Controller
         $city = $request->input('city', 'all');
         $locationId = $request->input('location_id', 'all');
         $published = $request->input('published', 'all');
-        $timeframe = $request->input('timeframe', 'upcoming');
+        $timeframe = $request->input('timeframe', $published === 'unpublished' ? 'all' : 'upcoming');
         $sortBy = $request->input('sort_by', 'start_at');
         $sortDir = strtolower($request->input('sort_dir', 'asc')) === 'desc' ? 'desc' : 'asc';
         $perPage = (int) $request->input('per_page', 50);
