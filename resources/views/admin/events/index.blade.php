@@ -83,7 +83,7 @@
                     @if($isPublishedActive) <span class="w-1.5 h-1.5 rounded-full bg-red-600"></span> @endif
                     Publicēts
                 </label>
-                <select name="published" class="w-full px-2 py-1.5 rounded text-xs transition-colors {{ $isPublishedActive ? 'admin-filter-active' : 'bg-slate-50 border border-slate-300 text-slate-800 focus:outline-none font-medium' }}">
+                <select name="published" aria-label="Publicēšanas statuss" class="w-full px-2 py-1.5 rounded text-xs transition-colors {{ $isPublishedActive ? 'admin-filter-active' : 'bg-slate-50 border border-slate-300 text-slate-800 focus:outline-none font-medium' }}">
                     <option value="all">🌐 Visi statusi</option>
                     <option value="published" {{ $published === 'published' ? 'selected' : '' }} class="font-bold text-emerald-700">
                         🟢 Tikai publicēti ({{ number_format($stats['published'], 0, '.', ' ') }})
@@ -100,7 +100,7 @@
                     @if($isOriginActive) <span class="w-1.5 h-1.5 rounded-full bg-red-600"></span> @endif
                     Īstā vietne
                 </label>
-                <select name="origin_host" class="w-full px-2 py-1.5 rounded text-xs transition-colors {{ $isOriginActive ? 'admin-filter-active' : 'bg-slate-50 border border-slate-300 text-slate-800 focus:outline-none' }}">
+                <select name="origin_host" aria-label="Īstā vietne" class="w-full px-2 py-1.5 rounded text-xs transition-colors {{ $isOriginActive ? 'admin-filter-active' : 'bg-slate-50 border border-slate-300 text-slate-800 focus:outline-none' }}">
                     <option value="all">🌐 Visas vietnes</option>
                     <option value="missing" {{ $originHost === 'missing' ? 'selected' : '' }} class="font-bold text-amber-700">
                         ⚠️ Nav vietnes / tukšs ({{ number_format($missingOriginCount, 0, '.', ' ') }})
@@ -119,7 +119,7 @@
                     @if($isSourceActive) <span class="w-1.5 h-1.5 rounded-full bg-red-600"></span> @endif
                     Robots / Imports
                 </label>
-                <select name="source" class="w-full px-2 py-1.5 rounded text-xs transition-colors {{ $isSourceActive ? 'admin-filter-active' : 'bg-slate-50 border border-slate-300 text-slate-800 focus:outline-none' }}">
+                <select name="source" aria-label="Robots vai imports" class="w-full px-2 py-1.5 rounded text-xs transition-colors {{ $isSourceActive ? 'admin-filter-active' : 'bg-slate-50 border border-slate-300 text-slate-800 focus:outline-none' }}">
                     <option value="all">🤖 Visi roboti</option>
                     @foreach($sources as $src)
                         <option value="{{ $src->slug }}" {{ $sourceSlug === $src->slug ? 'selected' : '' }}>
@@ -135,7 +135,7 @@
                     @if($isCategoryActive) <span class="w-1.5 h-1.5 rounded-full bg-red-600"></span> @endif
                     Kategorija
                 </label>
-                <select name="category" class="w-full px-2 py-1.5 rounded text-xs transition-colors {{ $isCategoryActive ? 'admin-filter-active' : 'bg-slate-50 border border-slate-300 text-slate-800 focus:outline-none' }}">
+                <select name="category" aria-label="Kategorija" class="w-full px-2 py-1.5 rounded text-xs transition-colors {{ $isCategoryActive ? 'admin-filter-active' : 'bg-slate-50 border border-slate-300 text-slate-800 focus:outline-none' }}">
                     <option value="all">🏷️ Visas kategorijas</option>
                     @foreach($categories as $cat)
                         <option value="{{ $cat->slug }}" {{ $categorySlug === $cat->slug ? 'selected' : '' }}>
@@ -151,7 +151,7 @@
                     @if($isCityActive) <span class="w-1.5 h-1.5 rounded-full bg-red-600"></span> @endif
                     Pilsēta
                 </label>
-                <select name="city" class="w-full px-2 py-1.5 rounded text-xs transition-colors {{ $isCityActive ? 'admin-filter-active' : 'bg-slate-50 border border-slate-300 text-slate-800 focus:outline-none' }}">
+                <select name="city" aria-label="Pilsēta" class="w-full px-2 py-1.5 rounded text-xs transition-colors {{ $isCityActive ? 'admin-filter-active' : 'bg-slate-50 border border-slate-300 text-slate-800 focus:outline-none' }}">
                     <option value="all">📍 Visas pilsētas</option>
                     @foreach($cities as $c)
                         <option value="{{ $c }}" {{ $city === $c ? 'selected' : '' }}>
@@ -172,12 +172,13 @@
                 </div>
                 
                 <!-- Hidden select for form submission -->
-                <select name="location_id" id="adminLocationSelect" class="hidden">
+                <select name="location_id" id="adminLocationSelect" aria-label="Pasākuma norises vieta" class="hidden">
                     <option value="all" {{ $locationId === 'all' ? 'selected' : '' }}>🏛️ Visas vietas</option>
                     @if($missingLocationCount > 0)
                         <option value="missing" {{ $locationId === 'missing' ? 'selected' : '' }}>
                             ⚠️ Nav vietas / tukšs ({{ number_format($missingLocationCount, 0, '.', ' ') }})
                         </option>
+
                     @endif
                     @foreach($locations as $loc)
                         <option value="{{ $loc->id }}" {{ (string)$locationId === (string)$loc->id ? 'selected' : '' }}>
@@ -277,7 +278,7 @@
                         Laiks / Ieraksti
                     </label>
                     <div class="grid grid-cols-2 gap-1">
-                        <select name="timeframe" class="w-full px-1.5 py-1.5 rounded text-[11px] focus:outline-none transition-colors {{ $isTimeframeActive ? 'admin-filter-active' : 'bg-slate-50 border border-slate-300 text-slate-800' }}">
+                        <select name="timeframe" aria-label="Laika periods" class="w-full px-1.5 py-1.5 rounded text-[11px] focus:outline-none transition-colors {{ $isTimeframeActive ? 'admin-filter-active' : 'bg-slate-50 border border-slate-300 text-slate-800' }}">
                             <option value="upcoming" {{ $timeframe === 'upcoming' ? 'selected' : '' }}>Aktuālie</option>
                             <option value="today" {{ $timeframe === 'today' ? 'selected' : '' }}>Šodien</option>
                             <option value="this_week" {{ $timeframe === 'this_week' ? 'selected' : '' }}>Šonedēļ</option>
@@ -285,7 +286,8 @@
                             <option value="past" {{ $timeframe === 'past' ? 'selected' : '' }}>Pagājušie</option>
                             <option value="all" {{ $timeframe === 'all' ? 'selected' : '' }}>Visi</option>
                         </select>
-                        <select name="per_page" class="w-full px-1 py-1.5 rounded text-[11px] focus:outline-none font-mono transition-colors {{ $isPerPageActive ? 'admin-filter-active' : 'bg-slate-50 border border-slate-300 text-slate-800' }}">
+                        <select name="per_page" aria-label="Ierakstu skaits lapā" class="w-full px-1 py-1.5 rounded text-[11px] focus:outline-none font-mono transition-colors {{ $isPerPageActive ? 'admin-filter-active' : 'bg-slate-50 border border-slate-300 text-slate-800' }}">
+
                             <option value="25" {{ $perPage === 25 ? 'selected' : '' }}>25/lp</option>
                             <option value="50" {{ $perPage === 50 ? 'selected' : '' }}>50/lp</option>
                             <option value="100" {{ $perPage === 100 ? 'selected' : '' }}>100/lp</option>

@@ -6,6 +6,7 @@
     <button 
         type="button"
         data-filter-category="all"
+        aria-label="{{ __('All categories') }} ({{ $totalUpcoming }})"
         onclick="applyFilter('category', 'all')"
         class="category-btn shrink-0 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200 {{ (!$activeCategory || $activeCategory === 'all') ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/25 scale-105' : 'bg-white text-slate-700 border border-slate-200 hover:border-slate-300 hover:bg-slate-50' }}">
         <i data-lucide="layout-grid" class="w-4 h-4 {{ (!$activeCategory || $activeCategory === 'all') ? 'text-white' : 'text-emerald-600' }}"></i>
@@ -19,6 +20,7 @@
         <button 
             type="button"
             data-filter-category="{{ $cat->slug }}"
+            aria-label="{{ $cat->name }}{{ $cat->events_count > 0 ? ' (' . $cat->events_count . ')' : '' }}"
             onclick="applyFilter('category', '{{ $cat->slug }}')"
             class="category-btn shrink-0 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200 {{ $activeCategory === $cat->slug ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/25 scale-105' : 'bg-white text-slate-700 border border-slate-200 hover:border-slate-300 hover:bg-slate-50' }}">
             <i data-lucide="{{ $cat->icon ?: 'tag' }}" class="w-4 h-4 {{ $activeCategory === $cat->slug ? 'text-white' : 'text-emerald-600' }}"></i>
@@ -30,4 +32,5 @@
             @endif
         </button>
     @endforeach
+
 </div>

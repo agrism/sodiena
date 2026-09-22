@@ -47,18 +47,20 @@
                     type="text" 
                     id="search-input"
                     name="search" 
+                    aria-label="{{ __('Search placeholder') }}"
                     value="{{ request('search') }}"
                     placeholder="{{ __('Search placeholder') }}"
                     class="w-full bg-transparent border-0 py-2.5 px-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none font-medium"
                     autocomplete="off">
 
                 <!-- Loading Spinner Indicator -->
-                <div id="loading-spinner" class="htmx-indicator pr-3 text-emerald-600">
+                <div id="loading-spinner" class="htmx-indicator pr-3 text-emerald-600" aria-hidden="true">
                     <i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i>
                 </div>
 
                 <button 
                     type="submit" 
+                    aria-label="{{ __('Search button') }}"
                     class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm transition-colors cursor-pointer shrink-0">
                     {{ __('Search button') }}
                 </button>
@@ -103,6 +105,7 @@
                         <button 
                             type="button"
                             data-filter-period="{{ $key }}"
+                            aria-label="{{ $label }}"
                             onclick="applyFilter('period', '{{ $key }}')"
                             class="period-btn px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer {{ (!request('date') && (request('period', 'all') === $key)) ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-transparent' }}">
                             {{ $label }}
@@ -114,6 +117,7 @@
                         <button 
                             type="button" 
                             id="date-picker-btn"
+                            aria-label="{{ __('Date') }}: {{ request('date') ? \Carbon\Carbon::parse(request('date'))->format('d.m.Y') : __('All dates') }}"
                             class="relative flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer {{ request('date') ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-xs' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200/90 bg-slate-50/50' }}">
                             <i data-lucide="calendar" class="w-3.5 h-3.5 {{ request('date') ? 'text-emerald-700' : 'text-slate-400' }}"></i>
                             <span id="date-picker-label">{{ request('date') ? \Carbon\Carbon::parse(request('date'))->format('d.m.Y') : __('Date') }}</span>
@@ -123,12 +127,14 @@
                                 value="{{ request('date') }}"
                                 class="sr-only pointer-events-none"
                                 tabindex="-1"
+                                aria-label="{{ __('Date') }}"
                                 aria-hidden="true">
                         </button>
                         <button 
                             type="button" 
                             id="clear-date-btn"
                             onclick="clearExactDate()" 
+                            aria-label="Notīrīt datumu"
                             title="Notīrīt datumu"
                             class="ml-1 text-slate-400 hover:text-slate-600 p-0.5 rounded-md hover:bg-slate-100 transition-colors {{ request('date') ? 'inline-flex' : 'hidden' }}">
                             <i data-lucide="x" class="w-3.5 h-3.5"></i>
@@ -141,6 +147,9 @@
                     <!-- City Selector -->
                     <div class="relative flex-1 sm:flex-initial">
                         <select 
+                            id="filter-city-select"
+                            name="city"
+                            aria-label="{{ __('All cities') }}"
                             onchange="applyFilter('city', this.value)"
                             class="w-full appearance-none bg-slate-50 text-slate-700 text-xs font-bold py-2 pl-3 pr-8 rounded-xl border border-slate-200 hover:border-slate-300 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer">
                             <option value="all" {{ (!request('city') || request('city') === 'all') ? 'selected' : '' }}>{{ __('All cities') }}</option>
@@ -148,21 +157,25 @@
                                 <option value="{{ $c }}" {{ request('city') === $c ? 'selected' : '' }}>📍 {{ $c }}</option>
                             @endforeach
                         </select>
-                        <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                        <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" aria-hidden="true"></i>
                     </div>
 
                     <!-- Price Filter -->
                     <div class="relative flex-1 sm:flex-initial">
                         <select 
+                            id="filter-price-select"
+                            name="price"
+                            aria-label="{{ __('All prices') }}"
                             onchange="applyFilter('price', this.value)"
                             class="w-full appearance-none bg-slate-50 text-slate-700 text-xs font-bold py-2 pl-3 pr-8 rounded-xl border border-slate-200 hover:border-slate-300 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer">
                             <option value="all" {{ (!request('price') || request('price') === 'all') ? 'selected' : '' }}>{{ __('All prices') }}</option>
                             <option value="free" {{ request('price') === 'free' ? 'selected' : '' }}>{{ __('Only Free') }}</option>
                             <option value="paid" {{ request('price') === 'paid' ? 'selected' : '' }}>{{ __('Only Paid') }}</option>
                         </select>
-                        <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                        <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" aria-hidden="true"></i>
                     </div>
                 </div>
+
 
             </div>
         </div>

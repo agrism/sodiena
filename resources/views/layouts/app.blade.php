@@ -58,116 +58,118 @@
     <header class="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-slate-200/80 shadow-xs w-full">
         <div class="max-w-7xl xl:max-w-[1400px] 2xl:max-w-[1600px] mx-auto px-2.5 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between h-14 sm:h-20 gap-1.5 sm:gap-4">
-                <!-- Logo -->
-                <a href="{{ route('events.index') }}" class="flex items-center gap-2 sm:gap-2.5 group shrink-0">
-                    <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-md shadow-emerald-600/20 group-hover:scale-105 transition-transform duration-200 shrink-0">
-                        <i data-lucide="compass" class="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.5]"></i>
-                    </div>
-                    <div class="flex items-center gap-1.5">
-                        <span class="text-base sm:text-xl font-extrabold tracking-tight text-slate-900">Šodiena</span>
-                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200">LATVIJA</span>
-                    </div>
+        <!-- Logo -->
+        <a href="{{ route('events.index') }}" aria-label="Šodiena.lv — {{ __('Find Events') }}" class="flex items-center gap-2 sm:gap-2.5 group shrink-0">
+            <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-md shadow-emerald-600/20 group-hover:scale-105 transition-transform duration-200 shrink-0">
+                <i data-lucide="compass" class="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.5]" aria-hidden="true"></i>
+            </div>
+            <div class="flex items-center gap-1.5">
+                <span class="text-base sm:text-xl font-extrabold tracking-tight text-slate-900">Šodiena</span>
+                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200">LATVIJA</span>
+            </div>
+        </a>
+
+        <!-- Navigation & User Menu -->
+        <div class="flex items-center gap-1 sm:gap-3 shrink-0">
+            <nav class="flex items-center gap-1 sm:gap-2" aria-label="Galvenā navigācija">
+                <a href="{{ route('events.index') }}" aria-label="{{ __('Events') }}" class="hidden md:inline-flex px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold transition-all {{ request()->routeIs('events.index') ? 'text-emerald-700 bg-emerald-50 border border-emerald-200/80' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100' }}">
+                    <span class="flex items-center gap-1.5">
+                        <i data-lucide="calendar" class="w-4 h-4 text-emerald-600" aria-hidden="true"></i>
+                        <span>{{ __('Events') }}</span>
+                    </span>
                 </a>
 
-                <!-- Navigation & User Menu -->
-                <div class="flex items-center gap-1 sm:gap-3 shrink-0">
-                    <nav class="flex items-center gap-1 sm:gap-2">
-                        <a href="{{ route('events.index') }}" class="hidden md:inline-flex px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold transition-all {{ request()->routeIs('events.index') ? 'text-emerald-700 bg-emerald-50 border border-emerald-200/80' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100' }}">
-                            <span class="flex items-center gap-1.5">
-                                <i data-lucide="calendar" class="w-4 h-4 text-emerald-600"></i>
-                                <span>{{ __('Events') }}</span>
+                @auth
+                    @if(auth()->user()->isAdmin())
+                        <!-- Admin: Events Table -->
+                        <a href="{{ route('admin.events.index') }}" aria-label="Admin panelis" class="px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl text-xs sm:text-sm font-bold transition-all text-purple-700 bg-purple-50 border border-purple-200 hover:bg-purple-100" title="Admin Panelis">
+                            <span class="flex items-center gap-1">
+                                <i data-lucide="shield-check" class="w-3.5 h-3.5 text-purple-600" aria-hidden="true"></i>
+                                <span class="hidden sm:inline">Admin</span>
                             </span>
                         </a>
+                    @endif
+                @endauth
+            </nav>
 
-                        @auth
-                            @if(auth()->user()->isAdmin())
-                                <!-- Admin: Events Table -->
-                                <a href="{{ route('admin.events.index') }}" class="px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl text-xs sm:text-sm font-bold transition-all text-purple-700 bg-purple-50 border border-purple-200 hover:bg-purple-100" title="Admin Panelis">
-                                    <span class="flex items-center gap-1">
-                                        <i data-lucide="shield-check" class="w-3.5 h-3.5 text-purple-600"></i>
-                                        <span class="hidden sm:inline">Admin</span>
-                                    </span>
-                                </a>
-                            @endif
-                        @endauth
-                    </nav>
+            <!-- Language Selector (LV / EN / RU) -->
+            <div class="flex items-center gap-0.5 bg-slate-100 p-0.5 sm:p-1 rounded-xl border border-slate-200/90 text-[10px] sm:text-xs font-bold shadow-xs shrink-0" role="group" aria-label="Valodas izvēle">
+                <a href="{{ route('locale.switch', 'lv') }}" aria-label="Latviešu valoda" class="px-1.5 py-0.5 sm:px-2.5 sm:py-1 rounded-lg transition-all {{ app()->getLocale() === 'lv' ? 'bg-white text-emerald-700 shadow-xs font-extrabold' : 'text-slate-500 hover:text-slate-900' }}">LV</a>
+                <a href="{{ route('locale.switch', 'en') }}" aria-label="English language" class="px-1.5 py-0.5 sm:px-2.5 sm:py-1 rounded-lg transition-all {{ app()->getLocale() === 'en' ? 'bg-white text-emerald-700 shadow-xs font-extrabold' : 'text-slate-500 hover:text-slate-900' }}">EN</a>
+                <a href="{{ route('locale.switch', 'ru') }}" aria-label="Русский язык" class="px-1.5 py-0.5 sm:px-2.5 sm:py-1 rounded-lg transition-all {{ app()->getLocale() === 'ru' ? 'bg-white text-emerald-700 shadow-xs font-extrabold' : 'text-slate-500 hover:text-slate-900' }}">RU</a>
+            </div>
 
-                    <!-- Language Selector (LV / EN / RU) -->
-                    <div class="flex items-center gap-0.5 bg-slate-100 p-0.5 sm:p-1 rounded-xl border border-slate-200/90 text-[10px] sm:text-xs font-bold shadow-xs shrink-0">
-                        <a href="{{ route('locale.switch', 'lv') }}" class="px-1.5 py-0.5 sm:px-2.5 sm:py-1 rounded-lg transition-all {{ app()->getLocale() === 'lv' ? 'bg-white text-emerald-700 shadow-xs font-extrabold' : 'text-slate-500 hover:text-slate-900' }}">LV</a>
-                        <a href="{{ route('locale.switch', 'en') }}" class="px-1.5 py-0.5 sm:px-2.5 sm:py-1 rounded-lg transition-all {{ app()->getLocale() === 'en' ? 'bg-white text-emerald-700 shadow-xs font-extrabold' : 'text-slate-500 hover:text-slate-900' }}">EN</a>
-                        <a href="{{ route('locale.switch', 'ru') }}" class="px-1.5 py-0.5 sm:px-2.5 sm:py-1 rounded-lg transition-all {{ app()->getLocale() === 'ru' ? 'bg-white text-emerald-700 shadow-xs font-extrabold' : 'text-slate-500 hover:text-slate-900' }}">RU</a>
-                    </div>
-
-                    <!-- Auth Section -->
-                    <div class="flex items-center gap-1 sm:gap-2 border-l border-slate-200 pl-1 sm:pl-3 shrink-0">
-                        @guest
-                            <a href="{{ route('login') }}" class="px-1.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-[11px] sm:text-sm font-bold text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-all whitespace-nowrap">
-                                {{ __('Sign In') }}
-                            </a>
-                            <a href="{{ route('register') }}" class="inline-flex items-center justify-center gap-1 px-2 py-1 sm:px-3.5 sm:py-1.5 rounded-lg sm:rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-[11px] sm:text-sm font-extrabold transition-all shadow-xs whitespace-nowrap shrink-0" title="{{ __('Register') }}">
-                                <i data-lucide="user-plus" class="w-3.5 h-3.5"></i>
-                                <span class="hidden md:inline">{{ __('Register') }}</span>
-                            </a>
-                        @else
-                            <div class="flex items-center gap-1 sm:gap-3 shrink-0">
-                                <div class="flex items-center gap-1 sm:gap-2">
-                                    <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-xl {{ auth()->user()->isAdmin() ? 'bg-purple-100 text-purple-700 border-purple-200' : 'bg-emerald-100 text-emerald-700 border-emerald-200' }} border font-extrabold text-xs flex items-center justify-center shrink-0 shadow-xs">
-                                        {{ mb_strtoupper(mb_substr(auth()->user()->name, 0, 1)) }}
-                                    </div>
-                                    <div class="hidden sm:block text-left leading-tight">
-                                        <p class="text-xs font-bold text-slate-900 truncate max-w-[100px] sm:max-w-[120px]">{{ auth()->user()->name }}</p>
-                                        <span class="text-[10px] font-extrabold {{ auth()->user()->isAdmin() ? 'text-purple-700' : 'text-emerald-700' }} uppercase tracking-wider">
-                                            {{ auth()->user()->localized_role_name }}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <form action="{{ route('logout') }}" method="POST" class="inline">
-                                    @csrf
-                                    <button 
-                                        type="submit" 
-                                        title="{{ __('Sign Out') }}"
-                                        class="p-1.5 sm:p-2 rounded-xl text-slate-500 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-all">
-                                        <i data-lucide="log-out" class="w-4 h-4"></i>
-                                    </button>
-                                </form>
+            <!-- Auth Section -->
+            <div class="flex items-center gap-1 sm:gap-2 border-l border-slate-200 pl-1 sm:pl-3 shrink-0">
+                @guest
+                    <a href="{{ route('login') }}" aria-label="{{ __('Sign In') }}" class="px-1.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-[11px] sm:text-sm font-bold text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-all whitespace-nowrap">
+                        {{ __('Sign In') }}
+                    </a>
+                    <a href="{{ route('register') }}" aria-label="{{ __('Register') }}" class="inline-flex items-center justify-center gap-1 px-2 py-1 sm:px-3.5 sm:py-1.5 rounded-lg sm:rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-[11px] sm:text-sm font-extrabold transition-all shadow-xs whitespace-nowrap shrink-0" title="{{ __('Register') }}">
+                        <i data-lucide="user-plus" class="w-3.5 h-3.5" aria-hidden="true"></i>
+                        <span class="hidden md:inline">{{ __('Register') }}</span>
+                    </a>
+                @else
+                    <div class="flex items-center gap-1 sm:gap-3 shrink-0">
+                        <div class="flex items-center gap-1 sm:gap-2">
+                            <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-xl {{ auth()->user()->isAdmin() ? 'bg-purple-100 text-purple-700 border-purple-200' : 'bg-emerald-100 text-emerald-700 border-emerald-200' }} border font-extrabold text-xs flex items-center justify-center shrink-0 shadow-xs">
+                                {{ mb_strtoupper(mb_substr(auth()->user()->name, 0, 1)) }}
                             </div>
-                        @endguest
+                            <div class="hidden sm:block text-left leading-tight">
+                                <p class="text-xs font-bold text-slate-900 truncate max-w-[100px] sm:max-w-[120px]">{{ auth()->user()->name }}</p>
+                                <span class="text-[10px] font-extrabold {{ auth()->user()->isAdmin() ? 'text-purple-700' : 'text-emerald-700' }} uppercase tracking-wider">
+                                    {{ auth()->user()->localized_role_name }}
+                                </span>
+                            </div>
+                        </div>
+
+                        <form action="{{ route('logout') }}" method="POST" class="inline">
+                            @csrf
+                            <button 
+                                type="submit" 
+                                aria-label="{{ __('Sign Out') }}"
+                                title="{{ __('Sign Out') }}"
+                                class="p-1.5 sm:p-2 rounded-xl text-slate-500 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-all cursor-pointer">
+                                <i data-lucide="log-out" class="w-4 h-4" aria-hidden="true"></i>
+                            </button>
+                        </form>
                     </div>
-                </div>
+                @endguest
             </div>
         </div>
-    </header>
+    </div>
+</div>
+</header>
 
-    <!-- Flash Messages -->
-    @if(session('success'))
-        <div class="max-w-7xl xl:max-w-[1400px] 2xl:max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pt-4">
-            <div class="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs sm:text-sm font-semibold flex items-center justify-between shadow-xs animate-in fade-in slide-in-from-top-2 duration-300">
-                <div class="flex items-center gap-2.5">
-                    <i data-lucide="check-circle-2" class="w-5 h-5 text-emerald-600 shrink-0"></i>
-                    <span>{{ session('success') }}</span>
-                </div>
-                <button type="button" onclick="this.parentElement.remove()" class="text-emerald-600 hover:text-emerald-800">
-                    <i data-lucide="x" class="w-4 h-4"></i>
-                </button>
-            </div>
+<!-- Flash Messages -->
+@if(session('success'))
+<div class="max-w-7xl xl:max-w-[1400px] 2xl:max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+    <div class="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs sm:text-sm font-semibold flex items-center justify-between shadow-xs animate-in fade-in slide-in-from-top-2 duration-300" role="alert">
+        <div class="flex items-center gap-2.5">
+            <i data-lucide="check-circle-2" class="w-5 h-5 text-emerald-600 shrink-0" aria-hidden="true"></i>
+            <span>{{ session('success') }}</span>
         </div>
-    @endif
+        <button type="button" aria-label="Aizvērt paziņojumu" onclick="this.parentElement.remove()" class="text-emerald-600 hover:text-emerald-800 cursor-pointer">
+            <i data-lucide="x" class="w-4 h-4" aria-hidden="true"></i>
+        </button>
+    </div>
+</div>
+@endif
 
-    @if(session('error'))
-        <div class="max-w-7xl xl:max-w-[1400px] 2xl:max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pt-4">
-            <div class="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-900 text-xs sm:text-sm font-semibold flex items-center justify-between shadow-xs animate-in fade-in slide-in-from-top-2 duration-300">
-                <div class="flex items-center gap-2.5">
-                    <i data-lucide="alert-triangle" class="w-5 h-5 text-rose-600 shrink-0"></i>
-                    <span>{{ session('error') }}</span>
-                </div>
-                <button type="button" onclick="this.parentElement.remove()" class="text-rose-600 hover:text-rose-800">
-                    <i data-lucide="x" class="w-4 h-4"></i>
-                </button>
-            </div>
+@if(session('error'))
+<div class="max-w-7xl xl:max-w-[1400px] 2xl:max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+    <div class="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-900 text-xs sm:text-sm font-semibold flex items-center justify-between shadow-xs animate-in fade-in slide-in-from-top-2 duration-300" role="alert">
+        <div class="flex items-center gap-2.5">
+            <i data-lucide="alert-triangle" class="w-5 h-5 text-rose-600 shrink-0" aria-hidden="true"></i>
+            <span>{{ session('error') }}</span>
         </div>
-    @endif
+        <button type="button" aria-label="Aizvērt kļūdas paziņojumu" onclick="this.parentElement.remove()" class="text-rose-600 hover:text-rose-800 cursor-pointer">
+            <i data-lucide="x" class="w-4 h-4" aria-hidden="true"></i>
+        </button>
+    </div>
+</div>
+@endif
+
 
     <!-- Main Content -->
     <main class="flex-grow">

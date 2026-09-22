@@ -400,6 +400,7 @@
                                         <select 
                                             id="admin-type-select" 
                                             name="entertainment_type" 
+                                            aria-label="{{ __('Izklaides veids') }}"
                                             class="w-full appearance-none bg-white text-slate-800 text-xs font-bold py-2 pl-3 pr-8 rounded-xl border border-slate-300 hover:border-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer shadow-xs">
                                             <option value="" {{ empty($event->entertainment_type) ? 'selected' : '' }}>— Nav norādīts —</option>
                                             <option value="performance" {{ $event->entertainment_type === 'performance' ? 'selected' : '' }}>Izrāde (Performance)</option>

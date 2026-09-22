@@ -88,8 +88,10 @@
             <div class="flex items-center gap-2">
                 <select 
                     name="role" 
+                    aria-label="{{ __('Filter by Role') }}"
                     onchange="this.form.submit()"
                     class="px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold focus:outline-none transition-all {{ $isUserRoleActive ? 'admin-filter-active' : 'bg-slate-50 border border-slate-200 text-slate-700 focus:ring-2 focus:ring-emerald-500' }}">
+
                     <option value="all" {{ $roleFilter === 'all' ? 'selected' : '' }}>{{ __('All Roles') }}</option>
                     <option value="admin" {{ $roleFilter === 'admin' ? 'selected' : '' }}>{{ __('Administrators') }}</option>
                     <option value="regular" {{ $roleFilter === 'regular' ? 'selected' : '' }}>{{ __('Regular Users') }}</option>
@@ -170,6 +172,7 @@
                                     @csrf
                                     <select 
                                         name="role" 
+                                        aria-label="{{ __('Change User Role') }}"
                                         onchange="this.form.submit()" 
                                         {{ $user->id === auth()->id() ? 'disabled' : '' }}
                                         class="px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed">
@@ -293,6 +296,7 @@
                 <select 
                     name="role" 
                     required 
+                    aria-label="{{ __('Role & Permissions') }}"
                     class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500">
                     <option value="regular">{{ __('Regular User') }}</option>
                     <option value="admin">{{ __('Administrator (Full access)') }}</option>

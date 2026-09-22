@@ -1,0 +1,19 @@
+# Šodiena (sodiena.lv)
+
+> Šodiena ir Latvijas pasākumu ceļvedis — kultūras, teātra, kino, mūzikas, izstāžu, bērnu un sporta notikumi visā Latvijā.
+
+## Galvenās sadaļas un vietnes struktūra
+
+- [Pasākumu saraksts](https://sodiena.lv/): Visi aktuālie un gaidāmie pasākumi ar filtriem pēc kategorijas, pilsētas un datuma.
+- [Vietnes karte (Sitemap)](https://sodiena.lv/sitemap.xml): XML vietnes karte ar visiem publiskotajiem pasākumiem un kategorijām.
+
+## Pasākumu kategorijas
+
+- **Kino**: Filmas, kino seansi, kinofestivāli un pirmizrādes.
+- **Teātris**: Teātra izrādes, opera, balets un skatuves māksla.
+- **Mūzika**: Koncerti, festivāli un dzīvā mūzika.
+- **Izstādes**: Mākslas izstādes, muzeju ekspozīcijas un galerijas.
+- **Bērniem**: Radošās darbnīcas un pasākumi ģimenei ar bērniem.
+- **Sports**: Sporta sacensības, maratoni un aktīvā atpūta.
+- **Semināri**: Izglītojošas lekcijas, kursi un meistarklases.
+- **Svētki**: Pilsētas svētki, gadatirgi un tradīcijas.

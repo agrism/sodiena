@@ -74,6 +74,7 @@
                     Avots
                 </label>
                 <select name="source" 
+                        aria-label="Avota filtrs"
                         hx-trigger="change"
                         class="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:outline-hidden focus:border-[#002855] focus:ring-1 focus:ring-[#002855] transition-all">
                     <option value="all">Visi avoti</option>
@@ -89,6 +90,7 @@
                     Kategorija
                 </label>
                 <select name="category" 
+                        aria-label="Kategorijas filtrs"
                         hx-trigger="change"
                         class="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:outline-hidden focus:border-[#002855] focus:ring-1 focus:ring-[#002855] transition-all">
                     <option value="all">Visas kategorijas</option>
@@ -104,6 +106,7 @@
                     Biļešu saite
                 </label>
                 <select name="has_ticket_url" 
+                        aria-label="Biļešu saites filtrs"
                         hx-trigger="change"
                         class="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:outline-hidden focus:border-[#002855] focus:ring-1 focus:ring-[#002855] transition-all">
                     <option value="all">Visi ieraksti</option>
@@ -118,8 +121,10 @@
                     Skaits
                 </label>
                 <select name="per_page" 
+                        aria-label="Ierakstu skaits"
                         hx-trigger="change"
                         class="w-full px-2 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:outline-hidden focus:border-[#002855] focus:ring-1 focus:ring-[#002855] transition-all">
+
                     <option value="5">5</option>
                     <option value="10" selected>10</option>
                     <option value="20">20</option>
