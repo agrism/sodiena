@@ -135,7 +135,7 @@ class EventImageStorageService
      *
      * @return array{body: string, mimeType: string, extension: string}|null
      */
-    public function optimizeImage(string $binaryData, string $mimeType, int $maxWidth = 1200, int $maxHeight = 1200, int $quality = 82): ?array
+    public function optimizeImage(string $binaryData, string $mimeType, int $maxWidth = 960, int $maxHeight = 600, int $quality = 75): ?array
     {
         // Don't convert SVG vector images
         if (str_contains($mimeType, 'svg')) {

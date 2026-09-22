@@ -184,14 +184,41 @@
     </footer>
 
     @if(config('services.google.analytics_id'))
-
-        <!-- Google tag (gtag.js) -->
-        <script async src="https://www.googletagmanager.com/gtag/js?id={{ config('services.google.analytics_id') }}"></script>
+        <!-- Deferred Google tag (gtag.js) for optimal Core Web Vitals & LCP -->
         <script>
             window.dataLayer = window.dataLayer || [];
             function gtag(){dataLayer.push(arguments);}
             gtag('js', new Date());
             gtag('config', '{{ config('services.google.analytics_id') }}');
+
+            (function() {
+                var loaded = false;
+                function loadGtag() {
+                    if (loaded) return;
+                    loaded = true;
+                    var script = document.createElement('script');
+                    script.async = true;
+                    script.src = 'https://www.googletagmanager.com/gtag/js?id={{ config('services.google.analytics_id') }}';
+                    document.head.appendChild(script);
+                }
+
+                var events = ['pointerdown', 'touchstart', 'scroll', 'keydown', 'mousemove'];
+                function triggerAndClean() {
+                    loadGtag();
+                    events.forEach(function(e) {
+                        window.removeEventListener(e, triggerAndClean, { passive: true });
+                    });
+                }
+                events.forEach(function(e) {
+                    window.addEventListener(e, triggerAndClean, { once: true, passive: true });
+                });
+
+                if ('requestIdleCallback' in window) {
+                    window.requestIdleCallback(loadGtag, { timeout: 4000 });
+                } else {
+                    setTimeout(loadGtag, 4000);
+                }
+            })();
         </script>
     @endif
 

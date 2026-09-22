@@ -3,7 +3,7 @@
         <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 border border-slate-200">
             <i data-lucide="calendar-x-2" class="w-8 h-8"></i>
         </div>
-        <h3 class="text-lg font-bold text-slate-800">{{ __('No events found') }}</h3>
+        <h2 class="text-lg font-bold text-slate-800">{{ __('No events found') }}</h2>
         <p class="text-sm text-slate-500 mt-1 max-w-sm mx-auto">Mēģiniet mainīt meklēšanas vārdus vai filtrus.</p>
         <button 
             type="button" 
@@ -26,7 +26,7 @@
                             alt="{{ $event->title }}"
                             width="640"
                             height="400"
-                            @if($loop->iteration <= 2)
+                            @if($loop->iteration === 1)
                                 loading="eager"
                                 fetchpriority="high"
                             @else
@@ -112,11 +112,11 @@
                         </div>
 
                         <!-- Title -->
-                        <h3 class="text-base font-bold text-slate-900 group-hover:text-emerald-700 transition-colors line-clamp-2 leading-snug">
+                        <h2 class="text-base font-bold text-slate-900 group-hover:text-emerald-700 transition-colors line-clamp-2 leading-snug">
                             <a href="{{ route('events.show', $event->slug) }}" class="focus:outline-none">
                                 {{ $event->title }}
                             </a>
-                        </h3>
+                        </h2>
 
                         <!-- Short Description -->
                         @if($event->short_description)

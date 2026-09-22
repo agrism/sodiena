@@ -17,6 +17,7 @@ class SyncEventImagesCommand extends Command
                             {--id= : Specific event ID to process}
                             {--limit= : Maximum number of events to process}
                             {--force : Force re-upload even if internal_image_url already exists}
+                            {--all : Process all events including past ones (default: upcoming only)}
                             {--chunk=50 : Number of records per chunk}';
 
     /**
@@ -34,6 +35,7 @@ class SyncEventImagesCommand extends Command
         $specificId = $this->option('id');
         $limit = $this->option('limit') ? (int) $this->option('limit') : null;
         $force = (bool) $this->option('force');
+        $all = (bool) $this->option('all');
         $chunkSize = (int) $this->option('chunk');
 
         $query = Event::query()
@@ -45,10 +47,23 @@ class SyncEventImagesCommand extends Command
 
         if ($specificId) {
             $query->where('id', $specificId);
-        } elseif (!$force) {
-            $query->where(function ($q) {
-                $q->whereNull('internal_image_url')->orWhere('internal_image_url', '');
-            });
+        } else {
+            if (!$all) {
+                // Target strictly current and upcoming events (do not touch past events)
+                $todayStart = now()->startOfDay();
+                $query->where(function ($q) use ($todayStart) {
+                    $q->where('start_at', '>=', $todayStart)
+                      ->orWhere(function ($sub) {
+                          $sub->whereNotNull('end_at')->where('end_at', '>=', now());
+                      });
+                });
+            }
+
+            if (!$force) {
+                $query->where(function ($q) {
+                    $q->whereNull('internal_image_url')->orWhere('internal_image_url', '');
+                });
+            }
         }
 
         $total = $limit ? min($query->count(), $limit) : $query->count();

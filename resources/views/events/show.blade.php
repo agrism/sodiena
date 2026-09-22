@@ -117,9 +117,9 @@
         <div class="lg:col-span-4 space-y-6 sticky top-24">
             
             <div class="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/80 shadow-xs space-y-6">
-                <h3 class="text-base font-extrabold text-slate-900 tracking-tight pb-4 border-b border-slate-100">
+                <h2 class="text-base font-extrabold text-slate-900 tracking-tight pb-4 border-b border-slate-100">
                     Notikuma Informācija
-                </h3>
+                </h2>
 
                 <!-- Date & Time -->
                 <div class="flex items-start gap-3.5">
@@ -474,7 +474,7 @@
                             </span>
                         </div>
                         <div class="p-4">
-                            <h4 class="text-sm font-bold text-slate-900 group-hover:text-emerald-700 line-clamp-2">{{ $rel->title }}</h4>
+                            <h3 class="text-sm font-bold text-slate-900 group-hover:text-emerald-700 line-clamp-2">{{ $rel->title }}</h3>
                             <p class="text-xs text-slate-500 mt-1">{{ $rel->location?->city ?: 'Latvija' }} &bull; <span class="text-emerald-700 font-semibold">{{ $rel->formatted_price }}</span></p>
                         </div>
                     </a>
