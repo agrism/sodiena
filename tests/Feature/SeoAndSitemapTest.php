@@ -141,4 +141,36 @@ class SeoAndSitemapTest extends TestCase
 
         $this->assertStringContainsString('"description": "Donoru diena Aizkrauklē', $content);
     }
+
+    public function test_sitemap_refresh_command_updates_cache(): void
+    {
+        $source = Source::create([
+            'name' => 'Refresh Test Source',
+            'slug' => 'refresh-test-source',
+            'url' => 'https://example.com',
+            'scraper_class' => \App\Services\Scrapers\BezRindasScraper::class,
+            'is_active' => true,
+        ]);
+
+        $event = Event::create([
+            'source_id' => $source->id,
+            'source_slug' => $source->slug,
+            'title' => 'Sitemap Refresh Test Event',
+            'slug' => 'sitemap-refresh-test-event',
+            'description' => 'Test event for sitemap refresh command.',
+            'start_at' => now()->addDays(2),
+            'status' => 'published',
+            'published_at' => now()->subDay(),
+        ]);
+
+        $this->artisan('sitemap:refresh')
+            ->expectsOutputToContain('Regenerating sitemap XML cache...')
+            ->expectsOutputToContain('Sitemap cache refreshed successfully')
+            ->assertSuccessful();
+
+        $response = $this->get('/sitemap.xml');
+        $response->assertStatus(200);
+        $this->assertStringContainsString('<loc>' . route('events.show', $event->slug) . '</loc>', $response->getContent());
+    }
 }
+

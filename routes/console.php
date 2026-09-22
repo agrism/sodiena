@@ -19,3 +19,12 @@ Artisan::command('inspire', function () {
     ->dailyAt('04:30')
     ->withoutOverlapping();
 
+\Illuminate\Support\Facades\Schedule::command('sitemap:refresh')
+    ->dailyAt('00:15')
+    ->withoutOverlapping();
+
+\Illuminate\Support\Facades\Schedule::command('sitemap:refresh')
+    ->dailyAt('05:00')
+    ->withoutOverlapping();
+
+
