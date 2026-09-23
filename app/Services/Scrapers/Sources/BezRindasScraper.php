@@ -248,8 +248,9 @@ class BezRindasScraper extends BaseScraper
         $calText = '';
         $locName = '';
         $locHref = '';
+        $priceText = '';
 
-        $box->filter('.event-info-oneliner')->each(function (Crawler $line) use (&$calText, &$locName, &$locHref) {
+        $box->filter('.event-info-oneliner')->each(function (Crawler $line) use (&$calText, &$locName, &$locHref, &$priceText) {
             if ($line->filter('.icon-calendar')->count()) {
                 $calText = $this->cleanText($line->text(''));
             }
@@ -259,7 +260,14 @@ class BezRindasScraper extends BaseScraper
                     $locHref = $line->filter('a')->first()->attr('href');
                 }
             }
+            if ($line->filter('.icon-ticket')->count()) {
+                $priceText = $this->cleanText($line->text(''));
+            }
         });
+
+        if (empty($priceText) && $box->filter('.max_price')->count()) {
+            $priceText = $this->cleanText($box->filter('.max_price')->first()->text(''));
+        }
 
         if (empty($locName) && !empty($card['place'])) {
             $locName = $card['place'];
@@ -285,7 +293,6 @@ class BezRindasScraper extends BaseScraper
         $city = $this->detectCity($locName, $locHref);
 
         // Price
-        $priceText = $box->filter('.max_price')->count() ? $this->cleanText($box->filter('.max_price')->first()->text('')) : null;
         [$isFree, $priceMin, $priceMax] = $this->parsePrice($priceText);
 
         // Ticket URL

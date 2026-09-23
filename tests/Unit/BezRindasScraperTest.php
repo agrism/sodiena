@@ -56,7 +56,9 @@ class BezRindasScraperTest extends TestCase
                     <div class="event-info-oneliner">
                         <span class="icon-location"><b><a href="/lv/vietas/liepaja-lielais-dzintars">Lielais Dzintars</a></b></span>
                     </div>
-                    <div class="max_price">20.00 €</div>
+                    <div class="event-info-oneliner">
+                        <span class="icon-ticket"><b>8.00 € - <span class="max_price">300.00 €</span></b></span>
+                    </div>
                     <a id="event-details-link" href="https://www.bezrindas.lv/lv/stand-up-kandidats/16283/45211/">Pirkt biļeti</a>
                 </div>
             </div>
@@ -95,8 +97,8 @@ HTML;
         $this->assertEquals('Liepāja', $second->city);
         $this->assertEquals('2026-10-20 18:30', $second->startAt->format('Y-m-d H:i'));
         $this->assertEquals('bezrindas-16283-45211', $second->sourceExternalId);
-        $this->assertEquals(20.0, $second->priceMin);
-        $this->assertEquals(20.0, $second->priceMax);
+        $this->assertEquals(8.0, $second->priceMin);
+        $this->assertEquals(300.0, $second->priceMax);
     }
 
     public function test_bezrindas_event_ingestion(): void
