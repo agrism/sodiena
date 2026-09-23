@@ -264,15 +264,36 @@ class AizkrauklesNovadsScraper extends BaseScraper
         $clean = trim(str_replace(['&#8211;', '&ndash;', '–', '—'], '-', $dateStr));
         $parts = explode('-', $clean);
 
-        $parseSingle = function (string $p, ?int $fallbackYear = null) use ($months) {
+        $parseSingle = function (string $p, ?int $fallbackYear = null, ?int $fallbackMonth = null) use ($months) {
             $p = trim($p);
+
+            // Format: dd.mm.yyyy e.g. 07.09.2026
+            if (preg_match('/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/', $p, $m)) {
+                return sprintf('%04d-%02d-%02d', (int) $m[3], (int) $m[2], (int) $m[1]);
+            }
+
+            // Format: "29. septembris, 2026" or "14. septembris" or "7. septembrī"
             if (preg_match('/(\d{1,2})\.\s*([a-zāčēģīķļņšūž]+)(?:[,\s]+(\d{4}))?/iu', $p, $m)) {
                 $day = (int) $m[1];
                 $monthName = mb_strtolower(trim($m[2]));
-                $month = $months[$monthName] ?? 1;
+                $month = $months[$monthName] ?? ($fallbackMonth ?? (int) date('n'));
                 $year = !empty($m[3]) ? (int) $m[3] : ($fallbackYear ?? (int) date('Y'));
                 return sprintf('%04d-%02d-%02d', $year, $month, $day);
             }
+
+            // Format: day-only prefix in range e.g. "7." or "7"
+            if (preg_match('/^(\d{1,2})\.?$/', $p, $m)) {
+                $day = (int) $m[1];
+                $month = $fallbackMonth ?? (int) date('n');
+                $year = $fallbackYear ?? (int) date('Y');
+                return sprintf('%04d-%02d-%02d', $year, $month, $day);
+            }
+
+            // ISO format YYYY-MM-DD
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $p)) {
+                return $p;
+            }
+
             return null;
         };
 
@@ -292,9 +313,10 @@ class AizkrauklesNovadsScraper extends BaseScraper
         if (count($parts) === 2) {
             $endRaw = $parseSingle($parts[1]);
             $endYear = $endRaw ? (int) substr($endRaw, 0, 4) : (int) date('Y');
-            $startRaw = $parseSingle($parts[0], $endYear);
+            $endMonth = $endRaw ? (int) substr($endRaw, 5, 2) : (int) date('n');
+            $startRaw = $parseSingle($parts[0], $endYear, $endMonth);
 
-            $start = $startRaw ? Carbon::parse("{$startRaw} {$startTime}") : now();
+            $start = $startRaw ? Carbon::parse("{$startRaw} {$startTime}") : ($endRaw ? Carbon::parse("{$endRaw} {$startTime}") : now());
             $end = $endRaw ? Carbon::parse("{$endRaw} " . ($endTime ?: '18:00')) : null;
             return [$start, $end];
         } else {

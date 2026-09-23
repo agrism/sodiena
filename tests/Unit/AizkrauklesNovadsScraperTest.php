@@ -31,10 +31,15 @@ class AizkrauklesNovadsScraperTest extends TestCase
         $this->assertEquals('2026-09-14 19:45:00', $start1->toDateTimeString());
         $this->assertEquals('2026-09-14 20:45:00', $end1->toDateTimeString());
 
-        // Date range
+        // Date range with full dates
         [$start2, $end2] = $scraper->parseLatvianDates('1. janvāris, 2026 – 31. decembris, 2026', 'Visu dienu');
         $this->assertEquals('2026-01-01 10:00:00', $start2->toDateTimeString());
         $this->assertEquals('2026-12-31 18:00:00', $end2->toDateTimeString());
+
+        // Date range with day-only prefix: "7.–29. septembris, 2026"
+        [$start3, $end3] = $scraper->parseLatvianDates('7.–29. septembris, 2026', '15.00–20.00');
+        $this->assertEquals('2026-09-07 15:00:00', $start3->toDateTimeString());
+        $this->assertEquals('2026-09-29 20:00:00', $end3->toDateTimeString());
     }
 
     public function test_aizkraukles_novads_location_resolving(): void
