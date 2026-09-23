@@ -42,6 +42,20 @@ class CategoryConsolidationTest extends TestCase
         $this->assertEquals('sports', ConsolidateCategoriesCommand::mapToCanonicalSlug('Sports & Aktīvā atpūta'));
         $this->assertEquals('sports', ConsolidateCategoriesCommand::mapToCanonicalSlug('Daba & Pārgājieni'));
         $this->assertEquals('sports', ConsolidateCategoriesCommand::mapToCanonicalSlug('Velobrauciens un skriešana'));
+        $this->assertEquals('sports', ConsolidateCategoriesCommand::mapToCanonicalSlug('Basketbols un futbols'));
+        $this->assertEquals('sports', ConsolidateCategoriesCommand::mapToCanonicalSlug('FIBA Eurobasket'));
+
+        // Test inferFromContentAndVenue with sports and child ticket disclaimers
+        $this->assertEquals('sports', ConsolidateCategoriesCommand::inferFromContentAndVenue(
+            'Latvija - Vācija. FIBA Pasaules kauss 2027. Kvalifikācija',
+            'Bērniem līdz 6 gadu vecumam (ieskaitot) ieeja bez maksas (neaizņemot atsevišķu sēdvietu).',
+            'Xiaomi Arēna'
+        ));
+        $this->assertEquals('sports', ConsolidateCategoriesCommand::inferFromContentAndVenue(
+            'Florbols, ELVI līga vīriešiem: Ķekava/RB&B - Masters Ulbroka/LU',
+            'Bērniem līdz 7 gadiem ieeja brīva.',
+            'Ķekavas sporta nams'
+        ));
 
         $this->assertEquals('seminari', ConsolidateCategoriesCommand::mapToCanonicalSlug('Izglītība & Semināri'));
         $this->assertEquals('seminari', ConsolidateCategoriesCommand::mapToCanonicalSlug('Semināri & Meistarklases'));

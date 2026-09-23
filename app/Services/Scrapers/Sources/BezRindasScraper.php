@@ -659,58 +659,59 @@ class BezRindasScraper extends BaseScraper
     {
         $text = mb_strtolower($title . ' ' . ($desc ?? ''), 'UTF-8');
 
-        // 1. Kids & Family (explicit family films, kids events, fairy tales, puppet theatre)
-        if (preg_match('/(ģimenēm|ģimenes\s+(?:filma|pasākum|kino|dien|svētk)|bērniem|bērnu\s+(?:izrāde|pasākum|koncert|rīts|darbnīc)|leļļu\s+teātr|pasaka|pasakas|multfilma|karuselis|bumbu\s+basein)/u', $text)) {
-            if (preg_match('/(filma|kino|kinoteātr)/u', $text)) {
-                return [['Ģimenēm & Bērniem', 'Filmas & Kino'], 'family'];
-            }
+        // Strip disclaimer clauses about admission for infants/children to avoid false positives for sports/concerts
+        $cleanForKids = preg_replace('/\b(?:bērniem|bērnam)\s+līdz\s+\d+\s*(?:gadu|gadiem|mēn)?\s*(?:vecumam)?\s*(?:\([^\)]*\))?\s*(?:ieeja|bez\s*maksas|brīva)?/ui', '', $text);
+        $cleanForKids = preg_replace('/\b(?:ieeja|bez\s*maksas|brīva\s*ieeja)\s*(?:bērniem|bērnam)\s+līdz\s+\d+/ui', '', $cleanForKids);
+
+        // 1. Cinema & Movies (Strict Priority per AGENTS.md)
+        if (preg_match('/(kino|filma|filmas|filmu|filmā|kinoseans|kinoteātr|seanss|kinofestivāl|spēlfilma|dokumentālā filma|animācijas filma|un poeta)/u', $text)) {
+            return [['Filmas & Kino'], 'chill'];
+        }
+
+        // 2. Sports & Active (basketbols, futbols, hokejs, florbols, turnīri, čempionāti, sacensības, spēles)
+        if (preg_match('/(sports|sporta|sacensīb|maratons|skrējiens|turnīrs|čempionāts|futbols|futbolā|basketbols|basketbolā|hokejs|hokejā|florbols|florbolā|volejbols|teniss|bokss|fiba|eurobasket|kvalifikācij|joga|pārgājiens|velobrauciens|orientēšan|mačs|spēle|līga)/u', $text)) {
+            return [['Sports & Aktīvā atpūta'], 'active'];
+        }
+
+        // 3. Kids & Family (explicit family productions, kids events, fairy tales, puppet theatre)
+        if (preg_match('/(ģimenēm|ģimenes\s+(?:filma|pasākum|kino|dien|svētk)|bērniem|bērnu\s+(?:izrāde|pasākum|koncert|rīts|darbnīc)|leļļu\s+teātr|pasaka|pasakas|multfilma|karuselis|bumbu\s+basein)/u', $cleanForKids)) {
             if (preg_match('/(izrāde|teātr)/u', $text)) {
                 return [['Ģimenēm & Bērniem', 'Teātris & Kino'], 'family'];
             }
             return [['Ģimenēm & Bērniem'], 'family'];
         }
 
-        // 2. Cinema & Movies
-        if (preg_match('/(kino|filma|kinoteātr|seanss|kinofestivāl|un poeta)/u', $text)) {
-            return [['Filmas & Kino'], 'chill'];
-        }
-
-        // 3. Theatre, Stage Plays & Stand-up Comedy
-        if (preg_match('/(teātr|izrāde|komēdij|stand up|stand-up|humor|aktier|drāma|pirmizrād)/u', $text)) {
+        // 4. Theatre, Stage Plays & Stand-up Comedy
+        if (preg_match('/(teātr|izrāde|komēdij|stand up|stand-up|humor|aktier|drāma|pirmizrād|luga|iestudējum|balets|opera)/u', $text)) {
             return [['Teātris & Kino'], 'chill'];
         }
 
-        // 3. Music & Concerts
-        if (preg_match('/(koncert|mūzik|muzika|jazz|džezs|orķestr|koris|dziesm|dzied|grupa|solist|vokāl|ģitār|klavier|simfonij|filharmon|oper|operet|roks|pops|dziesmu|jam session|soundtrack)/u', $text)) {
+        // 5. Music & Concerts
+        if (preg_match('/(koncert|mūzik|muzika|jazz|džezs|orķestr|koris|dziesm|dzied|grupa|solist|vokāl|ģitār|klavier|simfonij|filharmon|operet|roks|pops|dziesmu|jam session|soundtrack)/u', $text)) {
             return [['Mūzika & Koncerti'], 'concert'];
         }
 
-        // 4. Exhibitions, Art & Museums
+        // 6. Exhibitions, Art & Museums
         if (preg_match('/(izstāde|muzej|māksl|ekspozīcij|glezn|tūre|tour|guided|vēstur|ekskursij|galerij|glezniecīb|keramik|tēlniecīb)/u', $text)) {
             return [['Kultūra & Māksla'], 'exhibition'];
         }
 
-        // 5. Education, Workshops, Masterclasses
+        // 7. Education, Workshops, Masterclasses
         if (preg_match('/(meistarklas|seminār|lekcij|darbnīc|kursi|apmācīb|diskusij|konferenc)/u', $text)) {
             return [['Izglītība & Semināri'], 'workshop'];
         }
 
-        // 6. Sports & Active
-        if (preg_match('/(sports|maratons|skrējiens|turnīrs|čempionāts|futbols|basketbols|hokejs|joga|pārgājiens|velobrauciens|orientēšan)/u', $text)) {
-            return [['Sports & Aktīvā atpūta'], 'active'];
-        }
-
-        // 7. Nightlife, Parties & Clubs
+        // 8. Nightlife, Parties & Clubs
         if (preg_match('/(party|ballīte|disko|klubs|nakts|dejas|dīdžej|\bdj\b)/u', $text)) {
             return [['Naktsdzīve & Ballītes'], 'party'];
         }
 
-        // 8. Festivals & Celebrations
+        // 9. Festivals & Celebrations
         if (preg_match('/(festivāl|svētki|svinīb|gadskārt|jāņi|līgo)/u', $text)) {
             return [['Festivāli & Svētki'], 'party'];
         }
 
-        // 9. Food & Markets
+        // 10. Food & Markets
         if (preg_match('/(tirgus|tirdziņš|degustācij|gastronom|vīna|alus|street food|ēdien|kulinār)/u', $text)) {
             return [['Gastronomija & Tirgi'], 'chill'];
         }

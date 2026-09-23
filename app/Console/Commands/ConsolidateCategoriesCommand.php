@@ -342,7 +342,7 @@ class ConsolidateCategoriesCommand extends Command
         }
 
         // 6. Sports
-        if (str_contains($clean, 'sport') || str_contains($clean, 'skrie') || str_contains($clean, 'skrieš') || str_contains($clean, 'vel') || str_contains($clean, 'maraton') || str_contains($clean, 'dab') || str_contains($clean, 'pargaj') || str_contains($clean, 'pārgāj') || str_contains($clean, 'fitnes') || str_contains($clean, 'hike') || str_contains($clean, 'orientē') || str_contains($clean, 'orient') || str_contains($clean, 'turnir') || str_contains($clean, 'turnīr') || str_contains($clean, 'sacens') || str_contains($clean, 'futbol') || str_contains($clean, 'basketbol') || str_contains($clean, 'hokej') || str_contains($clean, 'pelde')) {
+        if (str_contains($clean, 'sport') || str_contains($clean, 'skrie') || str_contains($clean, 'skrieš') || str_contains($clean, 'vel') || str_contains($clean, 'maraton') || str_contains($clean, 'dab') || str_contains($clean, 'pargaj') || str_contains($clean, 'pārgāj') || str_contains($clean, 'fitnes') || str_contains($clean, 'hike') || str_contains($clean, 'orientē') || str_contains($clean, 'orient') || str_contains($clean, 'turnir') || str_contains($clean, 'turnīr') || str_contains($clean, 'sacens') || str_contains($clean, 'futbol') || str_contains($clean, 'basketbol') || str_contains($clean, 'hokej') || str_contains($clean, 'florbol') || str_contains($clean, 'volejbol') || str_contains($clean, 'tenis') || str_contains($clean, 'fiba') || str_contains($clean, 'eurobasket') || str_contains($clean, 'pelde')) {
             return 'sports';
         }
 
@@ -364,6 +364,10 @@ class ConsolidateCategoriesCommand extends Command
     {
         $text = mb_strtolower($title . ' ' . ($description ?? '') . ' ' . ($venue ?? ''), 'UTF-8');
         $rawCatText = mb_strtolower(implode(' ', $rawCategories), 'UTF-8');
+
+        // Clean disclaimer clauses about admission for infants/children to avoid false positives for sports/concerts
+        $cleanForKids = preg_replace('/\b(?:bērniem|bērnam)\s+līdz\s+\d+\s*(?:gadu|gadiem|mēn)?\s*(?:vecumam)?\s*(?:\([^\)]*\))?\s*(?:ieeja|bez\s*maksas|brīva)?/ui', '', $text);
+        $cleanForKids = preg_replace('/\b(?:ieeja|bez\s*maksas|brīva\s*ieeja)\s*(?:bērniem|bērnam)\s+līdz\s+\d+/ui', '', $cleanForKids);
 
         // 1. Cinema / Kino (K.Suns, Forum Cinema, Kino Rio, Apollo Kino, Cinamon, Splendid Palace, Kino Bize etc. are ALWAYS KINO, NEVER Theater)
         $isCinemaVenue = (
@@ -394,7 +398,22 @@ class ConsolidateCategoriesCommand extends Command
             return 'kino';
         }
 
-        // 2. Teātris (theatres, plays, performances, dramaturgy - strictly excluding cinema venues and film text)
+        // 2. Sports (basketbols, futbols, hokejs, florbols, turnīri, čempionāti, sacensības, spēles)
+        if (
+            str_contains($text, 'sports') || str_contains($text, 'sporta') || str_contains($text, 'sacensīb') ||
+            str_contains($text, 'maratons') || str_contains($text, 'skrējiens') || str_contains($text, 'velobrauciens') ||
+            str_contains($text, 'čempionāt') || str_contains($text, 'turnīrs') || str_contains($text, 'turnīrā') ||
+            str_contains($text, 'pārgājiens') || str_contains($text, 'basketbol') || str_contains($text, 'futbol') ||
+            str_contains($text, 'hokej') || str_contains($text, 'florbol') || str_contains($text, 'volejbol') ||
+            str_contains($text, 'tenis') || str_contains($text, 'bokss') || str_contains($text, 'fiba') ||
+            str_contains($text, 'eurobasket') || str_contains($text, 'kvalifikācij') || str_contains($text, 'valstsvienīb') ||
+            str_contains($text, 'spēle') || str_contains($text, 'spēles') || str_contains($text, 'mačs') ||
+            str_contains($text, 'līga') || str_contains($text, 'līgas') || str_contains($rawCatText, 'sport')
+        ) {
+            return 'sports';
+        }
+
+        // 3. Teātris (theatres, plays, performances, dramaturgy - strictly excluding cinema venues and film text)
         if (
             !$isCinemaVenue && !$hasFilmText &&
             (
@@ -409,19 +428,14 @@ class ConsolidateCategoriesCommand extends Command
             return 'teatris';
         }
 
-        // 3. Mūzika
+        // 4. Mūzika
         if (str_contains($text, 'koncerts') || str_contains($text, 'koncertā') || str_contains($text, 'mūzika') || str_contains($text, 'mūzikas') || str_contains($text, 'orķestr') || str_contains($text, 'koris') || str_contains($text, 'dziesm') || str_contains($text, 'solist') || str_contains($text, 'džezs') || str_contains($text, 'rokkoncert') || str_contains($text, 'dziedāt')) {
             return 'muzika';
         }
 
-        // 4. Bērniem
-        if (str_contains($text, 'bērniem') || str_contains($text, 'leļļu') || str_contains($text, 'pasaka') || str_contains($text, 'ģimenēm') || str_contains($text, 'mazuļiem') || str_contains($text, 'skolēniem')) {
+        // 5. Bērniem (checked with sanitized text to avoid free ticket disclaimer false positives)
+        if (str_contains($cleanForKids, 'bērniem') || str_contains($cleanForKids, 'leļļu') || str_contains($cleanForKids, 'pasaka') || str_contains($cleanForKids, 'ģimenēm') || str_contains($cleanForKids, 'mazuļiem') || str_contains($cleanForKids, 'skolēniem') || str_contains($cleanForKids, 'bērnu')) {
             return 'berniem';
-        }
-
-        // 5. Sports
-        if (str_contains($text, 'sports') || str_contains($text, 'sacensīb') || str_contains($text, 'maratons') || str_contains($text, 'skrējiens') || str_contains($text, 'velobrauciens') || str_contains($text, 'čempionāt') || str_contains($text, 'turnīrs') || str_contains($text, 'pārgājiens')) {
-            return 'sports';
         }
 
         // 6. Semināri
