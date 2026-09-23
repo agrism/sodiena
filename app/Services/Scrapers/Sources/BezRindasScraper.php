@@ -669,7 +669,7 @@ class BezRindasScraper extends BaseScraper
         }
 
         // 2. Sports & Active (basketbols, futbols, hokejs, florbols, turnīri, čempionāti, sacensības, spēles)
-        if (preg_match('/(sports|sporta|sacensīb|maratons|skrējiens|turnīrs|čempionāts|futbols|futbolā|basketbols|basketbolā|hokejs|hokejā|florbols|florbolā|volejbols|teniss|bokss|fiba|eurobasket|kvalifikācij|joga|pārgājiens|velobrauciens|orientēšan|mačs|spēle|līga)/u', $text)) {
+        if (preg_match('/(sports|sporta|sacensīb|maratons|skrējiens|turnīrs|čempionāts|futbols|futbolā|basketbols|basketbolā|hokejs|hokejā|florbols|florbolā|volejbols|teniss|bokss|fiba|eurobasket|kvalifikācij|\blīga\b|\blīgas\b|\blīgu\b|\blīgā\b|joga|pārgājiens|velobrauciens|orientēšan|mačs|\bspēle\b|\bspēles\b)/u', $text)) {
             return [['Sports & Aktīvā atpūta'], 'active'];
         }
 

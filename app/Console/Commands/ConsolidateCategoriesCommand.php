@@ -400,6 +400,7 @@ class ConsolidateCategoriesCommand extends Command
 
         // 2. Sports (basketbols, futbols, hokejs, florbols, turnīri, čempionāti, sacensības, spēles)
         if (
+            str_contains($rawCatText, 'sport') ||
             str_contains($text, 'sports') || str_contains($text, 'sporta') || str_contains($text, 'sacensīb') ||
             str_contains($text, 'maratons') || str_contains($text, 'skrējiens') || str_contains($text, 'velobrauciens') ||
             str_contains($text, 'čempionāt') || str_contains($text, 'turnīrs') || str_contains($text, 'turnīrā') ||
@@ -407,8 +408,7 @@ class ConsolidateCategoriesCommand extends Command
             str_contains($text, 'hokej') || str_contains($text, 'florbol') || str_contains($text, 'volejbol') ||
             str_contains($text, 'tenis') || str_contains($text, 'bokss') || str_contains($text, 'fiba') ||
             str_contains($text, 'eurobasket') || str_contains($text, 'kvalifikācij') || str_contains($text, 'valstsvienīb') ||
-            str_contains($text, 'spēle') || str_contains($text, 'spēles') || str_contains($text, 'mačs') ||
-            str_contains($text, 'līga') || str_contains($text, 'līgas') || str_contains($rawCatText, 'sport')
+            preg_match('/\b(?:līga|līgas|līgā|līgu|spēle|spēles|spēļu|mačs|mači|mačā)\b/ui', $text)
         ) {
             return 'sports';
         }

@@ -730,7 +730,7 @@ class Event extends Model
     public static function extractSearchStem(string $word): string
     {
         $word = mb_strtolower(trim($word));
-        if (mb_strlen($word) < 4) {
+        if (mb_strlen($word) < 5) {
             return $word;
         }
 
@@ -745,7 +745,7 @@ class Event extends Model
             $len = mb_strlen($ending);
             if (mb_substr($word, -$len) === $ending) {
                 $candidate = mb_substr($word, 0, mb_strlen($word) - $len);
-                if (mb_strlen($candidate) >= 3) {
+                if (mb_strlen($candidate) >= 4) {
                     return $candidate;
                 }
             }
