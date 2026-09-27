@@ -19,6 +19,10 @@ Artisan::command('inspire', function () {
     ->dailyAt('04:30')
     ->withoutOverlapping();
 
+\Illuminate\Support\Facades\Schedule::command('events:sync-translations')
+    ->dailyAt('04:45')
+    ->withoutOverlapping();
+
 \Illuminate\Support\Facades\Schedule::command('sitemap:refresh')
     ->dailyAt('00:15')
     ->withoutOverlapping();
