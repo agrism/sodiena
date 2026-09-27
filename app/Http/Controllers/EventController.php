@@ -102,8 +102,10 @@ class EventController extends Controller
     /**
      * Display the specified event.
      */
-    public function show(string $slug): View
+    public function show(Request $request, ?string $slug = null): View
     {
+        $slug = $request->route('slug') ?? $slug;
+
         $query = Event::with(['categories.translations', 'location.translations', 'source', 'translations'])
             ->where(function ($q) use ($slug) {
                 $q->where('slug', $slug)

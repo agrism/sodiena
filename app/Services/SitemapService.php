@@ -33,7 +33,7 @@ class SitemapService
     }
 
     /**
-     * Generate fresh sitemap XML content.
+     * Generate fresh sitemap XML content with hreflang multilingual alternate links.
      */
     public function generate(): string
     {
@@ -44,16 +44,20 @@ class SitemapService
             ->orderByDesc('start_at')
             ->get();
 
-        $baseUrl = config('app.url', 'https://sodiena.lv');
+        $baseUrl = rtrim(config('app.url', 'https://sodiena.lv'), '/');
         $today = now()->startOfDay();
 
         $lines = [];
         $lines[] = '<?xml version="1.0" encoding="UTF-8"?>';
-        $lines[] = '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">';
+        $lines[] = '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">';
 
         // Homepage
         $lines[] = '  <url>';
         $lines[] = '    <loc>' . htmlspecialchars($baseUrl, ENT_XML1, 'UTF-8') . '</loc>';
+        $lines[] = '    <xhtml:link rel="alternate" hreflang="lv" href="' . htmlspecialchars($baseUrl, ENT_XML1, 'UTF-8') . '"/>';
+        $lines[] = '    <xhtml:link rel="alternate" hreflang="en" href="' . htmlspecialchars($baseUrl . '/en', ENT_XML1, 'UTF-8') . '"/>';
+        $lines[] = '    <xhtml:link rel="alternate" hreflang="ru" href="' . htmlspecialchars($baseUrl . '/ru', ENT_XML1, 'UTF-8') . '"/>';
+        $lines[] = '    <xhtml:link rel="alternate" hreflang="x-default" href="' . htmlspecialchars($baseUrl, ENT_XML1, 'UTF-8') . '"/>';
         $lines[] = '    <lastmod>' . now()->toAtomString() . '</lastmod>';
         $lines[] = '    <changefreq>hourly</changefreq>';
         $lines[] = '    <priority>1.0</priority>';
@@ -61,7 +65,10 @@ class SitemapService
 
         // Events
         foreach ($events as $event) {
-            $loc = route('events.show', $event->slug);
+            $locLv = $baseUrl . '/events/' . $event->slug;
+            $locEn = $baseUrl . '/en/events/' . $event->slug;
+            $locRu = $baseUrl . '/ru/events/' . $event->slug;
+
             $lastmod = ($event->updated_at ?? now())->toAtomString();
             $imageUrl = $event->display_image_url;
 
@@ -70,7 +77,11 @@ class SitemapService
             $priority = $isUpcoming ? '0.9' : '0.4';
 
             $lines[] = '  <url>';
-            $lines[] = '    <loc>' . htmlspecialchars($loc, ENT_XML1, 'UTF-8') . '</loc>';
+            $lines[] = '    <loc>' . htmlspecialchars($locLv, ENT_XML1, 'UTF-8') . '</loc>';
+            $lines[] = '    <xhtml:link rel="alternate" hreflang="lv" href="' . htmlspecialchars($locLv, ENT_XML1, 'UTF-8') . '"/>';
+            $lines[] = '    <xhtml:link rel="alternate" hreflang="en" href="' . htmlspecialchars($locEn, ENT_XML1, 'UTF-8') . '"/>';
+            $lines[] = '    <xhtml:link rel="alternate" hreflang="ru" href="' . htmlspecialchars($locRu, ENT_XML1, 'UTF-8') . '"/>';
+            $lines[] = '    <xhtml:link rel="alternate" hreflang="x-default" href="' . htmlspecialchars($locLv, ENT_XML1, 'UTF-8') . '"/>';
             $lines[] = '    <lastmod>' . $lastmod . '</lastmod>';
             $lines[] = '    <changefreq>' . $changefreq . '</changefreq>';
             $lines[] = '    <priority>' . $priority . '</priority>';

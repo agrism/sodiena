@@ -2,7 +2,7 @@
 
 @section('title', 'Šodiena — ' . __('Find Events'))
 @section('meta_description', __('Discover future events'))
-@section('canonical_url', url('/'))
+@section('canonical_url', \App\Services\LocaleService::url(app()->getLocale(), url('/')))
 
 @if(isset($events) && $events->isNotEmpty())
     @push('styles')

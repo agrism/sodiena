@@ -1,6 +1,8 @@
 User-agent: *
 Allow: /
 Allow: /events/
+Allow: /en/
+Allow: /ru/
 Allow: /sitemap.xml
 Disallow: /admin
 Disallow: /admin/

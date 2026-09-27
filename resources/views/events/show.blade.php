@@ -4,7 +4,7 @@
 @section('meta_description', Str::limit($event->seo_description, 160))
 @section('og_type', 'article')
 @section('meta_image', $event->display_image_url)
-@section('canonical_url', route('events.show', $event->slug))
+@section('canonical_url', \App\Services\LocaleService::url(app()->getLocale(), route('events.show', $event->slug)))
 
 @push('styles')
     <link rel="preload" as="image" href="{{ $event->display_image_url }}" fetchpriority="high">
@@ -15,7 +15,7 @@
     
     <!-- Breadcrumb & Back Link -->
     <div class="mb-4 sm:mb-6 flex flex-wrap items-center justify-between gap-2.5">
-        <a href="{{ route('events.index') }}" class="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-slate-500 hover:text-emerald-700 transition-colors shrink-0">
+        <a href="{{ \App\Services\LocaleService::url(app()->getLocale(), route('events.index')) }}" class="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-slate-500 hover:text-emerald-700 transition-colors shrink-0">
             <i data-lucide="arrow-left" class="w-4 h-4"></i>
             <span>{{ __('Back to all events') }}</span>
         </a>
@@ -451,14 +451,14 @@
                     <p class="text-sm text-slate-500">{{ __('Other events in this region') }}</p>
                 </div>
 
-                <a href="{{ route('events.index') }}" class="text-sm font-bold text-emerald-700 hover:text-emerald-800">
+                <a href="{{ \App\Services\LocaleService::url(app()->getLocale(), route('events.index')) }}" class="text-sm font-bold text-emerald-700 hover:text-emerald-800">
                     {{ __('View all') }} &rarr;
                 </a>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                 @foreach($relatedEvents as $rel)
-                    <a href="{{ route('events.show', $rel->slug) }}" class="group block bg-white rounded-2xl border border-slate-200/90 overflow-hidden shadow-xs hover:shadow-md hover:border-slate-300 transition-all">
+                    <a href="{{ $rel->localized_url }}" class="group block bg-white rounded-2xl border border-slate-200/90 overflow-hidden shadow-xs hover:shadow-md hover:border-slate-300 transition-all">
                         <div class="relative aspect-video bg-slate-100 overflow-hidden">
                             <img 
                                 src="{{ $rel->display_image_url }}" 

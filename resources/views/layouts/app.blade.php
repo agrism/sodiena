@@ -6,11 +6,14 @@
     <title>@yield('title', 'Šodiena — ' . __('Find Events'))</title>
     <meta name="description" content="@yield('meta_description', __('Discover future events'))">
     <meta name="robots" content="index, follow">
-    <link rel="canonical" href="@yield('canonical_url', url()->current())">
+    <link rel="canonical" href="@yield('canonical_url', \App\Services\LocaleService::url(app()->getLocale()))">
+    @foreach(\App\Services\LocaleService::hreflangUrls() as $lang => $hreflangUrl)
+    <link rel="alternate" hreflang="{{ $lang }}" href="{{ $hreflangUrl }}">
+    @endforeach
     
     <!-- Open Graph / Meta -->
     <meta property="og:site_name" content="Šodiena">
-    <meta property="og:url" content="@yield('canonical_url', url()->current())">
+    <meta property="og:url" content="@yield('canonical_url', \App\Services\LocaleService::url(app()->getLocale()))">
     <meta property="og:title" content="@yield('title', 'Šodiena — ' . __('Find Events'))">
     <meta property="og:description" content="@yield('meta_description', __('Discover future events'))">
     <meta property="og:type" content="@yield('og_type', 'website')">
@@ -41,7 +44,7 @@
         <div class="max-w-7xl xl:max-w-[1400px] 2xl:max-w-[1600px] mx-auto px-2.5 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between h-14 sm:h-20 gap-1.5 sm:gap-4">
         <!-- Logo -->
-        <a href="{{ route('events.index') }}" aria-label="Šodiena.lv — {{ __('Find Events') }}" class="flex items-center gap-2 sm:gap-2.5 group shrink-0">
+        <a href="{{ \App\Services\LocaleService::url(app()->getLocale(), route('events.index')) }}" aria-label="Šodiena.lv — {{ __('Find Events') }}" class="flex items-center gap-2 sm:gap-2.5 group shrink-0">
             <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-md shadow-emerald-600/20 group-hover:scale-105 transition-transform duration-200 shrink-0">
                 <i data-lucide="compass" class="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.5]" aria-hidden="true"></i>
             </div>
@@ -54,7 +57,7 @@
         <!-- Navigation & User Menu -->
         <div class="flex items-center gap-1 sm:gap-3 shrink-0">
             <nav class="flex items-center gap-1 sm:gap-2" aria-label="Galvenā navigācija">
-                <a href="{{ route('events.index') }}" aria-label="{{ __('Events') }}" class="hidden md:inline-flex px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold transition-all {{ request()->routeIs('events.index') ? 'text-emerald-700 bg-emerald-50 border border-emerald-200/80' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100' }}">
+                <a href="{{ \App\Services\LocaleService::url(app()->getLocale(), route('events.index')) }}" aria-label="{{ __('Events') }}" class="hidden md:inline-flex px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold transition-all {{ request()->routeIs('events.index') || request()->routeIs('localized.events.index') ? 'text-emerald-700 bg-emerald-50 border border-emerald-200/80' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100' }}">
                     <span class="flex items-center gap-1.5">
                         <i data-lucide="calendar" class="w-4 h-4 text-emerald-600" aria-hidden="true"></i>
                         <span>{{ __('Events') }}</span>
@@ -74,12 +77,8 @@
                 @endauth
             </nav>
 
-            <!-- Language Selector (LV / EN / RU) -->
-            <div class="flex items-center gap-0.5 bg-slate-100 p-0.5 sm:p-1 rounded-xl border border-slate-200/90 text-[10px] sm:text-xs font-bold shadow-xs shrink-0" role="group" aria-label="Valodas izvēle">
-                <a href="{{ route('locale.switch', 'lv') }}" aria-label="Latviešu valoda" class="px-1.5 py-0.5 sm:px-2.5 sm:py-1 rounded-lg transition-all {{ app()->getLocale() === 'lv' ? 'bg-white text-emerald-700 shadow-xs font-extrabold' : 'text-slate-500 hover:text-slate-900' }}">LV</a>
-                <a href="{{ route('locale.switch', 'en') }}" aria-label="English language" class="px-1.5 py-0.5 sm:px-2.5 sm:py-1 rounded-lg transition-all {{ app()->getLocale() === 'en' ? 'bg-white text-emerald-700 shadow-xs font-extrabold' : 'text-slate-500 hover:text-slate-900' }}">EN</a>
-                <a href="{{ route('locale.switch', 'ru') }}" aria-label="Русский язык" class="px-1.5 py-0.5 sm:px-2.5 sm:py-1 rounded-lg transition-all {{ app()->getLocale() === 'ru' ? 'bg-white text-emerald-700 shadow-xs font-extrabold' : 'text-slate-500 hover:text-slate-900' }}">RU</a>
-            </div>
+            <!-- Language Switcher Dropdown (Globe + Flag + Code + Chevron) -->
+            <x-language-switcher />
 
             <!-- Auth Section -->
             <div class="flex items-center gap-1 sm:gap-2 border-l border-slate-200 pl-1 sm:pl-3 shrink-0">

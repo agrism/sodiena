@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\LocaleService;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\App;
@@ -11,27 +12,28 @@ use Symfony\Component\HttpFoundation\Response;
 class SetLocale
 {
     /**
-     * Handle an incoming request.
+     * Handle an incoming request and set application locale based on URL segment.
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $supportedLocales = ['lv', 'en', 'ru'];
+        $firstSegment = $request->segment(1);
 
-        // 1. Check query parameter ?lang=
-        if ($request->has('lang') && in_array($request->query('lang'), $supportedLocales)) {
-            $locale = $request->query('lang');
-            Session::put('locale', $locale);
+        // 1. If someone accesses /lv or /lv/events/..., 301 redirect to canonical non-prefixed URL
+        if ($firstSegment === 'lv') {
+            $canonicalUrl = LocaleService::url('lv', $request->fullUrl());
+            return redirect($canonicalUrl, 301);
         }
-        // 2. Check session
-        elseif (Session::has('locale') && in_array(Session::get('locale'), $supportedLocales)) {
-            $locale = Session::get('locale');
-        }
-        // 3. Fallback to default
-        else {
-            $locale = config('app.locale', 'lv');
+
+        // 2. If URL starts with /en or /ru, set locale accordingly
+        if (in_array($firstSegment, ['en', 'ru'], true)) {
+            $locale = $firstSegment;
+        } else {
+            // Default locale is Latvian
+            $locale = LocaleService::DEFAULT_LOCALE;
         }
 
         App::setLocale($locale);
+        Session::put('locale', $locale);
 
         return $next($request);
     }

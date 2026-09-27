@@ -4,19 +4,36 @@ use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\SitemapController;
+use App\Services\LocaleService;
 use Illuminate\Support\Facades\Route;
 
 // SEO & Sitemap
 Route::get('/sitemap.xml', [SitemapController::class, 'index'])->name('sitemap');
 
-// Public Event Routes
+// English & Russian Localized Public Routes (/en, /en/events/{slug}, /ru, /ru/events/{slug})
+Route::prefix('{locale}')
+    ->whereIn('locale', ['en', 'ru'])
+    ->group(function () {
+        Route::get('/', [EventController::class, 'index'])->name('localized.events.index');
+        Route::get('/events/{slug}', [EventController::class, 'show'])->name('localized.events.show');
+    });
+
+// Redirect /lv and /lv/{any} 301 to canonical non-prefixed Latvian URL
+Route::get('/lv', function () {
+    return redirect(request()->getQueryString() ? '/?' . request()->getQueryString() : '/', 301);
+});
+Route::get('/lv/{any}', function ($any) {
+    return redirect('/' . $any . (request()->getQueryString() ? '?' . request()->getQueryString() : ''), 301);
+})->where('any', '.*');
+
+// Default Latvian Public Routes (/, /events/{slug})
 Route::get('/', [EventController::class, 'index'])->name('events.index');
 Route::get('/events/{slug}', [EventController::class, 'show'])->name('events.show');
 
-// Locale Switcher
+// Legacy /locale/{locale} redirect helper
 Route::get('/locale/{locale}', function (string $locale) {
-    if (in_array($locale, ['lv', 'en', 'ru'])) {
-        session(['locale' => $locale]);
+    if (LocaleService::isSupported($locale)) {
+        return redirect(LocaleService::url($locale, url()->previous()));
     }
     return redirect()->back();
 })->name('locale.switch');

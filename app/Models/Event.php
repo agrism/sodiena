@@ -132,6 +132,11 @@ class Event extends Model
             ?: $this->translations()->first();
     }
 
+    public function getLocalizedUrlAttribute(): string
+    {
+        return \App\Services\LocaleService::url(app()->getLocale(), route('events.show', $this->slug));
+    }
+
     public function getTitleAttribute(?string $value): string
     {
         $trans = $this->translation();

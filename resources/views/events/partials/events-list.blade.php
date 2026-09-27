@@ -20,7 +20,7 @@
                 <!-- Event Image & Badges -->
                 <div class="relative aspect-[16/10] bg-slate-100 overflow-hidden group/img">
                     <!-- Clickable Link to Event Details -->
-                    <a href="{{ route('events.show', $event->slug) }}" class="block w-full h-full focus:outline-none" aria-label="{{ $event->title }}">
+                    <a href="{{ $event->localized_url }}" class="block w-full h-full focus:outline-none" aria-label="{{ $event->title }}">
                         <img 
                             src="{{ $event->display_image_url }}" 
                             alt="{{ $event->title }}"
@@ -113,7 +113,7 @@
 
                         <!-- Title -->
                         <h2 class="text-base font-bold text-slate-900 group-hover:text-emerald-700 transition-colors line-clamp-2 leading-snug">
-                            <a href="{{ route('events.show', $event->slug) }}" class="focus:outline-none">
+                            <a href="{{ $event->localized_url }}" class="focus:outline-none">
                                 {{ $event->title }}
                             </a>
                         </h2>
@@ -147,9 +147,9 @@
                             @endif
 
                             <a 
-                                href="{{ route('events.show', $event->slug) }}" 
+                                href="{{ $event->localized_url }}" 
                                 class="inline-flex items-center gap-1 text-slate-600 hover:text-emerald-700 font-bold transition-colors">
-                                {{ __('Details') }}
+                                <span>{{ __('Details') }}</span>
                                 <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
                             </a>
                         </div>
