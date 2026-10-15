@@ -106,5 +106,10 @@
     "User :name was deleted.": "User :name was deleted.",
     "Are you sure you want to delete user :name?": "Are you sure you want to delete user :name?",
     "Opening hours": "Opening hours",
-    "View all museum hours": "View all branch hours"
+    "View all museum hours": "View all branch hours",
+    "Izcelts": "Promoted",
+    "Izcelts pasākums": "Promoted event",
+    "Izcelt pasākumu augšpusē (Promote)": "Promote event to top",
+    "Noņemt izcelšanu (Promoted)": "Remove promotion",
+    "Izcelt augšpusē (is_promoted)": "Promote to top"
 }

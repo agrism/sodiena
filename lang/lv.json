@@ -106,5 +106,10 @@
     "User :name was deleted.": "Lietotājs :name tika izdzēsts.",
     "Are you sure you want to delete user :name?": "Vai tiešām vēlaties dzēst lietotāju :name?",
     "Opening hours": "Darba laiks",
-    "View all museum hours": "Skatīt visu filiāļu darba laikus"
+    "View all museum hours": "Skatīt visu filiāļu darba laikus",
+    "Izcelts": "Izcelts",
+    "Izcelts pasākums": "Izcelts pasākums",
+    "Izcelt pasākumu augšpusē (Promote)": "Izcelt pasākumu augšpusē (Promote)",
+    "Noņemt izcelšanu (Promoted)": "Noņemt izcelšanu (Promoted)",
+    "Izcelt augšpusē (is_promoted)": "Izcelt augšpusē (is_promoted)"
 }

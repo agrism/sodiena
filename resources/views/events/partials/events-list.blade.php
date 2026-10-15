@@ -15,7 +15,7 @@
 @else
     <div class="contents">
         @foreach($events as $event)
-            <article class="group bg-white rounded-3xl border border-slate-200/90 hover:border-slate-300 overflow-hidden shadow-xs hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between">
+            <article class="group bg-white rounded-3xl border {{ $event->is_promoted ? 'border-amber-300 ring-2 ring-amber-400/50 shadow-md shadow-amber-500/10' : 'border-slate-200/90 hover:border-slate-300 shadow-xs' }} overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between">
                 
                 <!-- Event Image & Badges -->
                 <div class="relative aspect-[16/10] bg-slate-100 overflow-hidden group/img">
@@ -41,11 +41,21 @@
 
                     <!-- Top Badges Row (Solid Z-Index, Direct Interaction) -->
                     <div class="absolute top-3 left-3 right-3 flex items-center justify-between gap-2 z-30">
-                        <!-- Date Badge -->
-                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-white/95 text-slate-900 backdrop-blur-md border border-slate-200/80 shadow-md select-none">
-                            <i data-lucide="calendar" class="w-3.5 h-3.5 text-emerald-600"></i>
-                            {{ $event->formatted_date }}
-                        </span>
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                            <!-- Promoted Badge -->
+                            @if($event->is_promoted)
+                                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-black bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md shadow-amber-500/25 border border-amber-300/40 select-none tracking-wide">
+                                    <i data-lucide="sparkles" class="w-3.5 h-3.5 fill-amber-100 text-amber-100"></i>
+                                    <span>{{ __('Izcelts') }}</span>
+                                </span>
+                            @endif
+
+                            <!-- Date Badge -->
+                            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-white/95 text-slate-900 backdrop-blur-md border border-slate-200/80 shadow-md select-none">
+                                <i data-lucide="calendar" class="w-3.5 h-3.5 text-emerald-600"></i>
+                                {{ $event->formatted_date }}
+                            </span>
+                        </div>
 
                         <div class="flex items-center gap-2">
                             <!-- Admin Afiro Indicator -->

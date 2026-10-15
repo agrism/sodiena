@@ -95,16 +95,22 @@
 
             <!-- Title & Description Card -->
             <div class="bg-white rounded-3xl p-5 sm:p-10 border border-slate-200/80 shadow-xs space-y-6 overflow-hidden">
-                <div>
+                    <div class="flex flex-wrap items-center gap-2 mb-3">
+                        @if($event->is_promoted)
+                            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md shadow-amber-500/20 select-none">
+                                <i data-lucide="sparkles" class="w-3.5 h-3.5 fill-amber-100"></i>
+                                <span>{{ __('Izcelts pasākums') }}</span>
+                            </span>
+                        @endif
+                        @if($event->localized_entertainment_type)
+                            <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-xs font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                {{ $event->localized_entertainment_type }}
+                            </div>
+                        @endif
+                    </div>
                     <h1 class="text-2xl sm:text-4xl font-extrabold text-slate-900 tracking-tight leading-tight break-words">
                         {{ $event->title }}
                     </h1>
-                    @if($event->localized_entertainment_type)
-                        <div class="mt-3 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-xs font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            {{ $event->localized_entertainment_type }}
-                        </div>
-                    @endif
-                </div>
 
                 <div class="prose prose-slate max-w-none text-slate-700 leading-relaxed text-sm sm:text-base break-words overflow-hidden">
                     {!! $event->formatted_description_html !!}
@@ -321,17 +327,25 @@
                                     <span>{{ __('Admin vadība') }}</span>
                                 </span>
                                 
-                                @if($event->isPublished())
-                                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
-                                        <span>Publicēts</span>
-                                    </span>
-                                @else
-                                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-amber-100 text-amber-800 border border-amber-200">
-                                        <span class="w-1.5 h-1.5 rounded-full bg-amber-600"></span>
-                                        <span>Melnraksts</span>
-                                    </span>
-                                @endif
+                                <div class="flex items-center gap-1.5 flex-wrap justify-end">
+                                    @if($event->is_promoted)
+                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-amber-100 text-amber-800 border border-amber-300">
+                                            <i data-lucide="sparkles" class="w-3 h-3 text-amber-600 fill-amber-500"></i>
+                                            <span>Izcelts</span>
+                                        </span>
+                                    @endif
+                                    @if($event->isPublished())
+                                        <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
+                                            <span>Publicēts</span>
+                                        </span>
+                                    @else
+                                        <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-amber-100 text-amber-800 border border-amber-200">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-amber-600"></span>
+                                            <span>Melnraksts</span>
+                                        </span>
+                                    @endif
+                                </div>
                             </div>
 
                             @if(session('status'))
@@ -357,6 +371,26 @@
                                         class="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-md shadow-emerald-600/25 transition-all cursor-pointer">
                                         <i data-lucide="check-circle" class="w-3.5 h-3.5"></i>
                                         <span>{{ __('Publicēt') }}</span>
+                                    </button>
+                                @endif
+                            </form>
+
+                            <!-- Promote / Demote Button -->
+                            <form action="{{ route('admin.events.toggle-promoted', $event->id) }}" method="POST">
+                                @csrf
+                                @if($event->is_promoted)
+                                    <button 
+                                        type="submit" 
+                                        class="w-full py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-md shadow-amber-500/25 transition-all cursor-pointer">
+                                        <i data-lucide="sparkles" class="w-3.5 h-3.5 fill-amber-200"></i>
+                                        <span>{{ __('Noņemt izcelšanu (Promoted)') }}</span>
+                                    </button>
+                                @else
+                                    <button 
+                                        type="submit" 
+                                        class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-md shadow-amber-500/25 transition-all cursor-pointer">
+                                        <i data-lucide="sparkles" class="w-3.5 h-3.5 fill-amber-100"></i>
+                                        <span>{{ __('Izcelt pasākumu augšpusē (Promote)') }}</span>
                                     </button>
                                 @endif
                             </form>
@@ -416,6 +450,22 @@
                                         </select>
                                         <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
                                     </div>
+                                </div>
+
+                                <div>
+                                    <label class="flex items-center gap-2.5 p-2 rounded-xl border text-xs font-bold cursor-pointer transition-colors select-none {{ $event->is_promoted ? 'bg-amber-50/80 text-amber-900 border-amber-300' : 'bg-slate-50 text-slate-700 border-slate-200/90 hover:bg-slate-100' }}">
+                                        <input 
+                                            type="checkbox" 
+                                            name="is_promoted" 
+                                            value="1" 
+                                            {{ $event->is_promoted ? 'checked' : '' }}
+                                            class="w-4 h-4 text-amber-500 rounded border-slate-300 focus:ring-amber-500 cursor-pointer">
+                                        <i data-lucide="sparkles" class="w-4 h-4 text-amber-500 shrink-0"></i>
+                                        <div class="flex flex-col">
+                                            <span class="leading-tight">{{ __('Izcelt augšpusē (is_promoted)') }}</span>
+                                            <span class="text-[10px] text-slate-400 font-normal">Rādīt šo pasākumu saraksta augšgalā</span>
+                                        </div>
+                                    </label>
                                 </div>
 
                                 <button 

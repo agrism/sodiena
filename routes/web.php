@@ -60,6 +60,7 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/admin/unpublished', [\App\Http\Controllers\Admin\EventController::class, 'unpublished'])->name('admin.events.unpublished');
     Route::get('/admin/unpublished/list', [\App\Http\Controllers\Admin\EventController::class, 'unpublishedList'])->name('admin.events.unpublished.list');
     Route::post('/admin/events/{event}/toggle-publish', [\App\Http\Controllers\Admin\EventController::class, 'togglePublish'])->name('admin.events.toggle-publish');
+    Route::post('/admin/events/{event}/toggle-promoted', [\App\Http\Controllers\Admin\EventController::class, 'togglePromoted'])->name('admin.events.toggle-promoted');
     Route::post('/admin/events/{event}/category', [\App\Http\Controllers\Admin\EventController::class, 'updateCategory'])->name('admin.events.update-category');
     Route::post('/admin/events/bulk-publish', [\App\Http\Controllers\Admin\EventController::class, 'bulkPublish'])->name('admin.events.bulk-publish');
 

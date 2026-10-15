@@ -26,6 +26,7 @@ class EventController extends Controller
         $city = $request->input('city', 'all');
         $locationId = $request->input('location_id', 'all');
         $published = $request->input('published', 'all');
+        $promoted = $request->input('promoted', 'all');
         $timeframe = $request->input('timeframe', $published === 'unpublished' ? 'all' : 'upcoming');
         $sortBy = $request->input('sort_by', 'start_at');
         $sortDir = strtolower($request->input('sort_dir', 'asc')) === 'desc' ? 'desc' : 'asc';
@@ -63,6 +64,13 @@ class EventController extends Controller
                   ->orWhere('published_at', '>', $now)
                   ->orWhere('status', '!=', 'published');
             });
+        }
+
+        // Filter by Promoted Status
+        if ($promoted === 'promoted') {
+            $query->where('is_promoted', true);
+        } elseif ($promoted === 'not_promoted') {
+            $query->where('is_promoted', false);
         }
 
         // Filter by Technical Robot / Scraper Source
@@ -128,7 +136,7 @@ class EventController extends Controller
         };
 
         // Sorting
-        $allowedSorts = ['id', 'start_at', 'title', 'price_min', 'views_count', 'created_at', 'published_at', 'location', 'venue', 'city'];
+        $allowedSorts = ['id', 'start_at', 'title', 'price_min', 'views_count', 'created_at', 'published_at', 'is_promoted', 'location', 'venue', 'city'];
         if ($sortBy === 'location' || $sortBy === 'venue') {
             $query->leftJoin('locations', 'events.location_id', '=', 'locations.id')
                   ->select('events.*')
@@ -215,11 +223,34 @@ class EventController extends Controller
             'categorySlug',
             'city',
             'published',
+            'promoted',
             'timeframe',
             'sortBy',
             'sortDir',
             'perPage'
         ));
+    }
+
+    /**
+     * Toggle event promoted status (admin click / action)
+     */
+    public function togglePromoted(Event $event, Request $request)
+    {
+        $isPromoted = !$event->is_promoted;
+        $event->update([
+            'is_promoted' => $isPromoted,
+        ]);
+
+        if ($request->wantsJson() || $request->header('HX-Request') || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'id' => $event->id,
+                'is_promoted' => $isPromoted,
+                'message' => $isPromoted ? 'Pasākums veiksmīgi izcelts augšpusē!' : 'Pasākuma izcelšana noņemta.',
+            ]);
+        }
+
+        return redirect()->back()->with('status', $isPromoted ? 'Pasākums veiksmīgi izcelts augšpusē!' : 'Pasākuma izcelšana noņemta.');
     }
 
     /**
@@ -258,6 +289,7 @@ class EventController extends Controller
             'category_ids' => 'nullable|array',
             'category_ids.*' => 'exists:categories,id',
             'entertainment_type' => 'nullable|string|max:50',
+            'is_promoted' => 'nullable|boolean',
         ]);
 
         if ($request->has('category_id') && !empty($validated['category_id'])) {
@@ -272,12 +304,19 @@ class EventController extends Controller
             ]);
         }
 
+        if ($request->has('is_promoted')) {
+            $event->update([
+                'is_promoted' => $request->boolean('is_promoted'),
+            ]);
+        }
+
         if ($request->wantsJson() || $request->ajax()) {
             return response()->json([
                 'success' => true,
-                'message' => 'Kategorija un izklaides veids veiksmīgi atjaunināti!',
+                'message' => 'Kategorija, izklaides veids un parametri veiksmīgi atjaunināti!',
                 'categories' => $event->fresh()->categories->pluck('name'),
                 'entertainment_type' => $event->fresh()->localized_entertainment_type,
+                'is_promoted' => (bool) $event->fresh()->is_promoted,
             ]);
         }
 

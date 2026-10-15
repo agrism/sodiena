@@ -22,6 +22,8 @@
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:site" content="@Sodiena_lv">
+    <meta name="twitter:creator" content="@Sodiena_lv">
     <meta name="twitter:title" content="@yield('title', 'Šodiena — ' . __('Find Events'))">
     <meta name="twitter:description" content="@yield('meta_description', __('Discover future events'))">
     <meta name="twitter:image" content="@yield('meta_image', asset('images/default-event.jpg'))">

@@ -46,6 +46,7 @@
     @php
         $isSearchActive = !empty($search);
         $isPublishedActive = ($published !== 'all');
+        $isPromotedActive = ($promoted !== 'all');
         $isOriginActive = ($originHost !== 'all');
         $isSourceActive = ($sourceSlug !== 'all');
         $isCategoryActive = ($categorySlug !== 'all');
@@ -54,10 +55,10 @@
         $isTimeframeActive = ($timeframe !== 'upcoming');
         $isPerPageActive = ($perPage !== 50);
 
-        $hasActiveFilters = ($isSearchActive || $isPublishedActive || $isOriginActive || $isSourceActive || $isCategoryActive || $isCityActive || $isLocationActive || $isTimeframeActive || $isPerPageActive);
+        $hasActiveFilters = ($isSearchActive || $isPublishedActive || $isPromotedActive || $isOriginActive || $isSourceActive || $isCategoryActive || $isCityActive || $isLocationActive || $isTimeframeActive || $isPerPageActive);
     @endphp
     <div class="bg-white p-3.5 rounded-2xl border border-slate-300 shadow-xs">
-        <form method="GET" action="{{ route('admin.events.index') }}" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-9 gap-2 text-xs">
+        <form method="GET" action="{{ route('admin.events.index') }}" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-10 gap-2 text-xs">
             
             <!-- Preserve active sorting across filter submissions -->
             <input type="hidden" name="sort_by" value="{{ $sortBy }}">
@@ -90,6 +91,23 @@
                     </option>
                     <option value="unpublished" {{ $published === 'unpublished' ? 'selected' : '' }} class="font-bold text-amber-700">
                         ⏳ Nepublicēti / melnraksti ({{ number_format($stats['unpublished'], 0, '.', ' ') }})
+                    </option>
+                </select>
+            </div>
+
+            <!-- Promoted Filter -->
+            <div>
+                <label class="block text-[10px] font-bold uppercase mb-1 font-mono {{ $isPromotedActive ? 'admin-filter-label-active flex items-center gap-1' : 'text-slate-500' }}">
+                    @if($isPromotedActive) <span class="w-1.5 h-1.5 rounded-full bg-red-600"></span> @endif
+                    Izcelts
+                </label>
+                <select name="promoted" aria-label="Izcelšanas statuss" class="w-full px-2 py-1.5 rounded text-xs transition-colors {{ $isPromotedActive ? 'admin-filter-active' : 'bg-slate-50 border border-slate-300 text-slate-800 focus:outline-none font-medium' }}">
+                    <option value="all">✨ Visi</option>
+                    <option value="promoted" {{ $promoted === 'promoted' ? 'selected' : '' }} class="font-bold text-amber-700">
+                        ⭐ Tikai izceltie
+                    </option>
+                    <option value="not_promoted" {{ $promoted === 'not_promoted' ? 'selected' : '' }}>
+                        Parastie
                     </option>
                 </select>
             </div>
@@ -377,6 +395,11 @@
                                 Publicēts {!! $sortBy === 'published_at' ? ($sortDir === 'asc' ? '▲' : '▼') : '' !!}
                             </a>
                         </th>
+                        <th class="py-2.5 px-3 border-r border-slate-300 w-28 text-center">
+                            <a href="{{ request()->fullUrlWithQuery(['sort_by' => 'is_promoted', 'sort_dir' => ($sortBy === 'is_promoted' && $sortDir === 'desc') ? 'asc' : 'desc']) }}" class="flex items-center justify-center gap-1 hover:text-emerald-700">
+                                Izcelts {!! $sortBy === 'is_promoted' ? ($sortDir === 'desc' ? '▼' : '▲') : '' !!}
+                            </a>
+                        </th>
                         <th class="py-2.5 px-3 border-r border-slate-300 w-44">
                             <a href="{{ request()->fullUrlWithQuery(['sort_by' => 'start_at', 'sort_dir' => ($sortBy === 'start_at' && $sortDir === 'asc') ? 'desc' : 'asc']) }}" class="flex items-center gap-1 hover:text-emerald-700">
                                 Sākuma Datums {!! $sortBy === 'start_at' ? ($sortDir === 'asc' ? '▲' : '▼') : '' !!}
@@ -440,6 +463,18 @@
                                         {{ $event->published_at->format('d.m.Y H:i') }}
                                     </span>
                                 @endif
+                            </td>
+
+                            <!-- Promoted Status & Instant Toggle -->
+                            <td class="py-2 px-3 border-r border-slate-200 text-center whitespace-nowrap" id="prom-cell-{{ $event->id }}">
+                                <button 
+                                    type="button" 
+                                    onclick="toggleEventPromote({{ $event->id }}, this)"
+                                    class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold border transition-all cursor-pointer {{ $event->is_promoted ? 'bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200' : 'bg-slate-100 text-slate-500 border-slate-300 hover:bg-slate-200 hover:text-slate-900' }}"
+                                    title="Noklikšķiniet, lai mainītu pasākuma izcelšanas statusu (rādīt augšpusē)">
+                                    <i data-lucide="sparkles" class="w-3 h-3 {{ $event->is_promoted ? 'text-amber-600 fill-amber-500' : 'text-slate-400' }}"></i>
+                                    <span>{{ $event->is_promoted ? 'Izcelts' : 'Parasts' }}</span>
+                                </button>
                             </td>
 
                             <!-- Start Date & Time -->
@@ -666,6 +701,51 @@
         } catch (e) {
             console.error('Publish toggle failed:', e);
             alert('Neizdevās nomainīt publicēšanas statusu. Lūdzu, mēģiniet vēlreiz.');
+        } finally {
+            btnElement.disabled = false;
+            btnElement.classList.remove('opacity-50');
+        }
+    }
+
+    async function toggleEventPromote(eventId, btnElement) {
+        if (!eventId || !btnElement) return;
+
+        btnElement.disabled = true;
+        btnElement.classList.add('opacity-50');
+
+        try {
+            const response = await fetch(`/admin/events/${eventId}/toggle-promoted`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken,
+                    'Accept': 'application/json',
+                }
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                const cell = document.getElementById(`prom-cell-${eventId}`);
+                if (cell) {
+                    const isProm = data.is_promoted;
+                    cell.innerHTML = `
+                        <button 
+                            type="button" 
+                            onclick="toggleEventPromote(${eventId}, this)"
+                            class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold border transition-all cursor-pointer ${isProm ? 'bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200' : 'bg-slate-100 text-slate-500 border-slate-300 hover:bg-slate-200 hover:text-slate-900'}"
+                            title="Noklikšķiniet, lai mainītu pasākuma izcelšanas statusu (rādīt augšpusē)">
+                            <i data-lucide="sparkles" class="w-3 h-3 ${isProm ? 'text-amber-600 fill-amber-500' : 'text-slate-400'}"></i>
+                            <span>${isProm ? 'Izcelts' : 'Parasts'}</span>
+                        </button>
+                    `;
+                    if (window.lucide) {
+                        window.lucide.createIcons();
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('Promote toggle failed:', e);
+            alert('Neizdevās nomainīt pasākuma izcelšanas statusu.');
         } finally {
             btnElement.disabled = false;
             btnElement.classList.remove('opacity-50');

@@ -29,6 +29,7 @@ class EventApiController extends Controller
         $isFree = $request->query('is_free');
         $sourceSlug = $request->query('source');
         $isFeatured = $request->query('is_featured');
+        $isPromoted = $request->query('is_promoted');
         $sort = $request->query('sort', 'date_asc');
         $perPage = min(max((int) ($request->query('per_page') ?: $request->query('limit', 20)), 1), 100);
 
@@ -92,19 +93,24 @@ class EventApiController extends Controller
             $query->where('is_featured', filter_var($isFeatured, FILTER_VALIDATE_BOOLEAN));
         }
 
+        // Promoted filter
+        if ($isPromoted !== null && $isPromoted !== '') {
+            $query->where('is_promoted', filter_var($isPromoted, FILTER_VALIDATE_BOOLEAN));
+        }
+
         // Search filter (keyword in title, description, categories, location)
         if (!empty($search)) {
             $query->search($search);
         }
 
-        // Sorting options
+        // Sorting options - promoted events remain at the top
         match ($sort) {
-            'date_desc' => $query->reorder('start_at', 'desc')->orderBy('id', 'desc'),
-            'views_desc', 'popular' => $query->reorder('views_count', 'desc')->orderBy('start_at', 'asc'),
-            'newest', 'created_desc' => $query->reorder('created_at', 'desc'),
-            'price_asc' => $query->reorder('is_free', 'desc')->orderBy('price_min', 'asc')->orderBy('start_at', 'asc'),
-            'price_desc' => $query->reorder('price_max', 'desc')->orderBy('start_at', 'asc'),
-            default => null, // Default ordering is preserved from forDateFilter/upcoming
+            'date_desc' => $query->reorder('is_promoted', 'desc')->orderBy('start_at', 'desc')->orderBy('id', 'desc'),
+            'views_desc', 'popular' => $query->reorder('is_promoted', 'desc')->orderBy('views_count', 'desc')->orderBy('start_at', 'asc'),
+            'newest', 'created_desc' => $query->reorder('is_promoted', 'desc')->orderBy('created_at', 'desc'),
+            'price_asc' => $query->reorder('is_promoted', 'desc')->orderBy('is_free', 'desc')->orderBy('price_min', 'asc')->orderBy('start_at', 'asc'),
+            'price_desc' => $query->reorder('is_promoted', 'desc')->orderBy('price_max', 'desc')->orderBy('start_at', 'asc'),
+            default => null, // Default ordering from forDateFilter/upcoming already places is_promoted DESC first
         };
 
         $events = $query->paginate($perPage);
@@ -143,21 +149,24 @@ class EventApiController extends Controller
 
     /**
      * Get 7 promoted events for homepage / featured spotlights.
-     * Prioritizes featured events and fills remainder with top upcoming popular events.
+     * Prioritizes promoted and featured events and fills remainder with top upcoming popular events.
      */
     public function promoted(Request $request): AnonymousResourceCollection
     {
         $limit = min(max((int) $request->query('limit', 7), 1), 20);
 
-        // 1. Fetch explicitly marked featured upcoming events
-        $featuredEvents = Event::with(['categories.translations', 'location.translations', 'source', 'translations'])
+        // 1. Fetch explicitly marked promoted or featured upcoming events
+        $promotedEvents = Event::with(['categories.translations', 'location.translations', 'source', 'translations'])
             ->upcoming()
-            ->where('is_featured', true)
+            ->where(function ($q) {
+                $q->where('is_promoted', true)
+                  ->orWhere('is_featured', true);
+            })
             ->take($limit)
             ->get();
 
-        $promotedCount = $featuredEvents->count();
-        $promotedIds = $featuredEvents->pluck('id')->all();
+        $promotedCount = $promotedEvents->count();
+        $promotedIds = $promotedEvents->pluck('id')->all();
 
         // 2. If fewer than requested limit, fill the rest with top upcoming popular events
         if ($promotedCount < $limit) {
@@ -171,9 +180,9 @@ class EventApiController extends Controller
                 ->take($needed)
                 ->get();
 
-            $allPromoted = $featuredEvents->concat($popularUpcoming);
+            $allPromoted = $promotedEvents->concat($popularUpcoming);
         } else {
-            $allPromoted = $featuredEvents;
+            $allPromoted = $promotedEvents;
         }
 
         return EventResource::collection($allPromoted);

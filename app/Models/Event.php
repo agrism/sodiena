@@ -41,6 +41,7 @@ class Event extends Model
         'status',
         'published_at',
         'is_featured',
+        'is_promoted',
         'views_count',
         'raw_data',
     ];
@@ -54,6 +55,7 @@ class Event extends Model
         'price_min' => 'float',
         'price_max' => 'float',
         'is_featured' => 'boolean',
+        'is_promoted' => 'boolean',
         'views_count' => 'integer',
         'raw_data' => 'array',
     ];
@@ -64,6 +66,7 @@ class Event extends Model
         'all_day' => false,
         'is_free' => false,
         'currency' => 'EUR',
+        'is_promoted' => false,
     ];
 
     protected static function booted(): void
@@ -491,6 +494,27 @@ class Event extends Model
         return $this;
     }
 
+    public function isPromoted(): bool
+    {
+        return (bool) $this->is_promoted;
+    }
+
+    public function promote(): self
+    {
+        $this->update([
+            'is_promoted' => true,
+        ]);
+        return $this;
+    }
+
+    public function unpromote(): self
+    {
+        $this->update([
+            'is_promoted' => false,
+        ]);
+        return $this;
+    }
+
     public function scopeUpcoming(Builder $query): Builder
     {
         $todayStart = now()->startOfDay();
@@ -501,7 +525,7 @@ class Event extends Model
                   $sub->whereNotNull('end_at')->where('end_at', '>=', now());
               });
         })->orderByRaw(
-            'CASE WHEN start_at >= ? THEN 0 ELSE 1 END ASC, CASE WHEN start_at >= ? THEN start_at ELSE end_at END ASC, id ASC',
+            'is_promoted DESC, CASE WHEN start_at >= ? THEN 0 ELSE 1 END ASC, CASE WHEN start_at >= ? THEN start_at ELSE end_at END ASC, id ASC',
             [$todayStart, $todayStart]
         );
     }
@@ -534,7 +558,7 @@ class Event extends Model
                               });
                       });
                 })->orderByRaw(
-                    'CASE WHEN start_at >= ? AND start_at <= ? THEN 0 ELSE 1 END ASC, CASE WHEN start_at >= ? THEN start_at ELSE end_at END ASC, id ASC',
+                    'is_promoted DESC, CASE WHEN start_at >= ? AND start_at <= ? THEN 0 ELSE 1 END ASC, CASE WHEN start_at >= ? THEN start_at ELSE end_at END ASC, id ASC',
                     [$targetStart, $targetEnd, $targetStart]
                 );
             } catch (\Throwable $e) {
@@ -559,7 +583,7 @@ class Event extends Model
                       });
                 })
                 ->orderByRaw(
-                    'CASE WHEN start_at >= ? AND start_at <= ? THEN 0 ELSE 1 END ASC, CASE WHEN start_at >= ? THEN start_at ELSE end_at END ASC, id ASC',
+                    'is_promoted DESC, CASE WHEN start_at >= ? AND start_at <= ? THEN 0 ELSE 1 END ASC, CASE WHEN start_at >= ? THEN start_at ELSE end_at END ASC, id ASC',
                     [$now->copy()->startOfDay(), $now->copy()->endOfDay(), $now->copy()->startOfDay()]
                 ),
 
@@ -573,7 +597,7 @@ class Event extends Model
                       });
                 })
                 ->orderByRaw(
-                    'CASE WHEN start_at >= ? AND start_at <= ? THEN 0 ELSE 1 END ASC, CASE WHEN start_at >= ? THEN start_at ELSE end_at END ASC, id ASC',
+                    'is_promoted DESC, CASE WHEN start_at >= ? AND start_at <= ? THEN 0 ELSE 1 END ASC, CASE WHEN start_at >= ? THEN start_at ELSE end_at END ASC, id ASC',
                     [$now->copy()->addDay()->startOfDay(), $now->copy()->addDay()->endOfDay(), $now->copy()->addDay()->startOfDay()]
                 ),
 
@@ -588,7 +612,7 @@ class Event extends Model
                       });
                 })
                 ->orderByRaw(
-                    'CASE WHEN start_at >= ? AND start_at <= ? THEN 0 ELSE 1 END ASC, CASE WHEN start_at >= ? THEN start_at ELSE end_at END ASC, id ASC',
+                    'is_promoted DESC, CASE WHEN start_at >= ? AND start_at <= ? THEN 0 ELSE 1 END ASC, CASE WHEN start_at >= ? THEN start_at ELSE end_at END ASC, id ASC',
                     [
                         $now->copy()->next(Carbon::SATURDAY)->startOfDay(),
                         $now->copy()->next(Carbon::SUNDAY)->endOfDay(),
@@ -607,7 +631,7 @@ class Event extends Model
                       });
                 })
                 ->orderByRaw(
-                    'CASE WHEN start_at >= ? AND start_at <= ? THEN 0 ELSE 1 END ASC, CASE WHEN start_at >= ? THEN start_at ELSE end_at END ASC, id ASC',
+                    'is_promoted DESC, CASE WHEN start_at >= ? AND start_at <= ? THEN 0 ELSE 1 END ASC, CASE WHEN start_at >= ? THEN start_at ELSE end_at END ASC, id ASC',
                     [$now->copy()->startOfWeek(), $now->copy()->endOfWeek(), $now->copy()->startOfWeek()]
                 ),
 
@@ -622,7 +646,7 @@ class Event extends Model
                       });
                 })
                 ->orderByRaw(
-                    'CASE WHEN start_at >= ? AND start_at <= ? THEN 0 ELSE 1 END ASC, CASE WHEN start_at >= ? THEN start_at ELSE end_at END ASC, id ASC',
+                    'is_promoted DESC, CASE WHEN start_at >= ? AND start_at <= ? THEN 0 ELSE 1 END ASC, CASE WHEN start_at >= ? THEN start_at ELSE end_at END ASC, id ASC',
                     [$now->copy()->startOfMonth(), $now->copy()->endOfMonth(), $now->copy()->startOfMonth()]
                 ),
 

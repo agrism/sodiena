@@ -46,6 +46,7 @@ class EventResource extends JsonResource
             'categories' => CategoryResource::collection($this->whenLoaded('categories', $this->categories, fn () => $this->categories)),
             'source_slug' => $this->source_slug,
             'is_featured' => (bool) $this->is_featured,
+            'is_promoted' => (bool) $this->is_promoted,
             'views_count' => (int) $this->views_count,
             'web_url' => $this->localized_url,
             'published_at' => $this->published_at?->toIso8601String(),
