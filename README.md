@@ -76,6 +76,7 @@ Atgriež publicēto pasākumu sarakstu ar pagināciju un elastīgām meklēšana
 | `price` | `string` | Cenu filtrs: `free` (bezmaksas) vai `paid` (maksas) | `price=free` |
 | `is_free` | `boolean` | Alternatīvs bezmaksas filtrs: `true` / `false` / `1` / `0` | `is_free=true` |
 | `is_featured` | `boolean` | Tikai izceltie pasākumi: `true` / `false` / `1` / `0` | `is_featured=true` |
+| `is_promoted` | `boolean` | Filtrēt pēc promovētiem pasākumiem: `true` / `false` / `1` / `0` (promovētie pasākumi sarakstos vienmēr tiek kārtoti pašā augšpusē) | `is_promoted=true` |
 | `source` | `string` | Datu avota `slug` (piem., `bilesu-paradize`, `bilesu-serviss`, `bezrindas`, `afiro-api`) | `source=bilesu-paradize` |
 | `sort` | `string` | Kārtošana: `date_asc` (noklusējums), `date_desc`, `views_desc` (vai `popular`), `newest` (vai `created_desc`), `price_asc`, `price_desc` | `sort=popular` |
 | `locale` | `string` | Atbildes valoda: `lv`, `en`, `ru` (noklusējums: `lv`) | `locale=lv` |
@@ -150,6 +151,7 @@ Authorization: Bearer sodiena_api_secret_token_change_me
       ],
       "source_slug": "bilesu-paradize",
       "is_featured": true,
+      "is_promoted": true,
       "views_count": 1420,
       "web_url": "https://sodiena.lv/pasakumi/grupas-instrumenti-lielkoncerts-abc123",
       "published_at": "2026-09-01T10:00:00+03:00",
@@ -253,6 +255,7 @@ Authorization: Bearer sodiena_api_secret_token_change_me
     ],
     "source_slug": "bilesu-paradize",
     "is_featured": true,
+    "is_promoted": true,
     "views_count": 1420,
     "web_url": "https://sodiena.lv/pasakumi/grupas-instrumenti-lielkoncerts-abc123",
     "published_at": "2026-09-01T10:00:00+03:00",
@@ -270,7 +273,7 @@ Authorization: Bearer sodiena_api_secret_token_change_me
 
 #### Atlases loģika:
 1. Atlasa tikai publicētus un nākotnes/šodienas pasākumus (`start_at >= šodiena` vai aktīvus vairāku dienu pasākumus).
-2. **Prioritāte:** Vispirms iekļauj administratora izceltos pasākumus (`is_featured = true`).
+2. **Prioritāte:** Vispirms iekļauj administratora izceltos un promovētos pasākumus (`is_promoted = true` vai `is_featured = true`).
 3. **Papildināšana:** Ja izcelto pasākumu ir mazāk par 7, atlikušās vietas tiek automātiski aizpildītas ar populārākajiem gaidāmajiem pasākumiem (kārtoti pēc `views_count DESC, start_at ASC`), tādējādi **garantējot tieši 7 pasākumu atgriešanu**.
 
 #### Pieprasījuma parametri (Query Parameters):
@@ -300,7 +303,8 @@ Authorization: Bearer sodiena_api_secret_token_change_me
       "display_venue": "Arēna Rīga",
       "ticket_url": "https://www.bilesuparadize.lv/lv/event/12345",
       "web_url": "https://sodiena.lv/pasakumi/grupas-instrumenti-lielkoncerts-abc123",
-      "is_featured": true
+      "is_featured": true,
+      "is_promoted": true
     }
   ]
 }
