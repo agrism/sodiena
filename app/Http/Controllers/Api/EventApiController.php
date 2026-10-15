@@ -187,4 +187,57 @@ class EventApiController extends Controller
 
         return EventResource::collection($allPromoted);
     }
+
+    /**
+     * Set the promoted status of an event by its ID or slug.
+     * Endpoint: POST/PATCH /api/v1/events/{id}/promote
+     * Body (optional): {"is_promoted": true/false} (default: true)
+     */
+    public function setPromoted(Request $request, int|string $id): JsonResponse
+    {
+        $event = Event::with(['categories.translations', 'location.translations', 'source', 'translations'])
+            ->where(function ($query) use ($id) {
+                if (is_numeric($id)) {
+                    $query->where('id', (int) $id);
+                } else {
+                    $query->where('slug', $id)
+                        ->orWhereHas('translations', function ($tq) use ($id) {
+                            $tq->where('slug', $id);
+                        });
+                }
+            })
+            ->first();
+
+        if (!$event) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Event not found.',
+            ], 404);
+        }
+
+        $isPromoted = $request->has('is_promoted')
+            ? filter_var($request->input('is_promoted'), FILTER_VALIDATE_BOOLEAN)
+            : true;
+
+        $event->update([
+            'is_promoted' => $isPromoted,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => $isPromoted ? 'Event marked as promoted.' : 'Event promotion removed.',
+            'is_promoted' => $isPromoted,
+            'data' => new EventResource($event->fresh()),
+        ]);
+    }
+
+    /**
+     * Remove the promoted status of an event by its ID or slug.
+     * Endpoint: POST/PATCH /api/v1/events/{id}/unpromote
+     */
+    public function unpromote(Request $request, int|string $id): JsonResponse
+    {
+        $request->merge(['is_promoted' => false]);
+        return $this->setPromoted($request, $id);
+    }
 }

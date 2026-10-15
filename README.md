@@ -13,6 +13,7 @@
    - [4.1. Pasākumu saraksts un filtrācija (`GET /api/v1/events`)](#41-pasākumu-saraksts-un-filtrācija-get-apiv1events)
    - [4.2. Viena pasākuma dati pēc ID (`GET /api/v1/events/{id}`)](#42-viena-pasākuma-dati-pēc-id-get-apiv1eventsid)
    - [4.3. 7 Promotētie / Izceltie pasākumi (`GET /api/v1/events/promoted`)](#43-7-promotētie--izceltie-pasākumi-get-apiv1eventspromoted)
+   - [4.4. Pasākuma izcelšanas uzstādīšana pēc ID (`POST /api/v1/events/{id}/promote`)](#44-pasākuma-izcelšanas-uzstādīšana-pēc-id-post-apiv1eventsidpromote)
 5. [Kļūdu kodi un Atbildes](#5-kļūdu-kodi-un-atbildes)
 6. [Koda Piemēri (cURL, JavaScript, PHP, Python)](#6-koda-piemēri)
 
@@ -307,6 +308,55 @@ Authorization: Bearer sodiena_api_secret_token_change_me
       "is_promoted": true
     }
   ]
+}
+```
+
+---
+
+### 4.4. Pasākuma izcelšanas uzstādīšana pēc ID (`POST /api/v1/events/{id}/promote`)
+
+Ļauj ar Bearer tokenu uzlikt vai noņemt pasākumam `is_promoted` statusu pēc pasākuma ID vai `slug`.
+
+#### Pieprasījuma metodes un ceļi:
+* `POST /api/v1/events/{id}/promote` *(atbalsta arī `PATCH`)*
+* `POST /api/v1/events/{id}/unpromote` *(tiešs noņemšanas ceļš)*
+* `PATCH /api/v1/events/{id}` ar ķermeni `{"is_promoted": true}`
+
+#### Ceļa parametri (Path Parameters):
+* `id` *(obligāts)* — Pasākuma ID vai unikālais `slug`.
+
+#### Pieprasījuma ķermenis (Request Body, neobligāts):
+```json
+{
+  "is_promoted": true
+}
+```
+*Piezīme:* Ja ķermenis netiek padots, izsaucot `/promote`, pasākumam pēc noklusējuma tiek uzlikts `is_promoted = true`. Lai noņemtu izcelšanu, sūtiet `{"is_promoted": false}` vai izsauciet `/unpromote`.
+
+#### Pieprasījuma piemērs:
+```http
+POST /api/v1/events/105/promote HTTP/1.1
+Host: sodiena.lv
+Authorization: Bearer sodiena_api_secret_token_change_me
+Content-Type: application/json
+
+{
+  "is_promoted": true
+}
+```
+
+#### Atbildes struktūra (`200 OK`):
+```json
+{
+  "success": true,
+  "message": "Event marked as promoted.",
+  "is_promoted": true,
+  "data": {
+    "id": 105,
+    "title": "Grupas 'Instrumenti' lielkoncerts",
+    "is_promoted": true,
+    ...
+  }
 }
 ```
 

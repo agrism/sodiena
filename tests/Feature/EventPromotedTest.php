@@ -242,4 +242,67 @@ class EventPromotedTest extends TestCase
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $eventRegular->id);
     }
+
+    public function test_api_can_set_event_promoted_by_id(): void
+    {
+        $event = Event::create([
+            'title' => 'Parasts pasākums priekš API promote testa',
+            'slug' => 'parasts-pasakums-api-promote',
+            'start_at' => now()->addDays(5),
+            'status' => 'published',
+            'published_at' => now(),
+            'is_promoted' => false,
+        ]);
+
+        // 1. Without token -> 401
+        $this->postJson("/api/v1/events/{$event->id}/promote")
+            ->assertStatus(401);
+
+        // 2. Promote by ID -> 200 and event becomes promoted
+        $resPromote = $this->withToken($this->apiToken)->postJson("/api/v1/events/{$event->id}/promote");
+        $resPromote->assertStatus(200)
+            ->assertJson([
+                'success' => true,
+                'is_promoted' => true,
+            ])
+            ->assertJsonPath('data.id', $event->id)
+            ->assertJsonPath('data.is_promoted', true);
+
+        $this->assertTrue($event->fresh()->is_promoted);
+
+        // 3. Unpromote with body {"is_promoted": false} -> 200
+        $resUnpromoteBody = $this->withToken($this->apiToken)->postJson("/api/v1/events/{$event->id}/promote", [
+            'is_promoted' => false,
+        ]);
+        $resUnpromoteBody->assertStatus(200)
+            ->assertJson([
+                'success' => true,
+                'is_promoted' => false,
+            ])
+            ->assertJsonPath('data.is_promoted', false);
+
+        $this->assertFalse($event->fresh()->is_promoted);
+
+        // 4. Promote again by slug
+        $resSlug = $this->withToken($this->apiToken)->patchJson("/api/v1/events/{$event->slug}/promote");
+        $resSlug->assertStatus(200)
+            ->assertJsonPath('data.is_promoted', true);
+
+        $this->assertTrue($event->fresh()->is_promoted);
+
+        // 5. Unpromote via unpromote endpoint
+        $resUnpromoteEndpoint = $this->withToken($this->apiToken)->postJson("/api/v1/events/{$event->id}/unpromote");
+        $resUnpromoteEndpoint->assertStatus(200)
+            ->assertJsonPath('data.is_promoted', false);
+
+        $this->assertFalse($event->fresh()->is_promoted);
+
+        // 6. 404 for non-existent event ID
+        $this->withToken($this->apiToken)->postJson('/api/v1/events/999999/promote')
+            ->assertStatus(404)
+            ->assertJson([
+                'success' => false,
+                'message' => 'Event not found.',
+            ]);
+    }
 }
