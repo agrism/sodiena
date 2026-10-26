@@ -110,6 +110,13 @@ class SourceSeeder extends Seeder
                 'scraper_class' => \App\Services\Scrapers\Sources\PassportixScraper::class,
                 'is_active' => true,
             ],
+            [
+                'name' => 'Siguldas novada tūrisms',
+                'slug' => 'sigulda-tourism',
+                'url' => 'https://tourism.sigulda.lv/events/',
+                'scraper_class' => \App\Services\Scrapers\Sources\SiguldaTourismScraper::class,
+                'is_active' => true,
+            ],
         ];
 
         foreach ($sources as $s) {

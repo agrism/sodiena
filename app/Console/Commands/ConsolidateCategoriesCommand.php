@@ -408,7 +408,9 @@ class ConsolidateCategoriesCommand extends Command
             str_contains($text, 'hokej') || str_contains($text, 'florbol') || str_contains($text, 'volejbol') ||
             str_contains($text, 'tenis') || str_contains($text, 'bokss') || str_contains($text, 'fiba') ||
             str_contains($text, 'eurobasket') || str_contains($text, 'kvalifikācij') || str_contains($text, 'valstsvienīb') ||
-            preg_match('/\b(?:līga|līgas|līgā|līgu|spēle|spēles|spēļu|mačs|mači|mačā)\b/ui', $text)
+            str_contains($text, 'virslīg') || str_contains($text, 'čempionu līg') ||
+            preg_match('/\b(?:mačs|mači|mačā|sporta spēl|mājas spēl|finālspēl|pusfinālspēl|līgas spēl)\b/ui', $text) ||
+            preg_match('/\b(?:līga|līgas|līgā|līgu|spēle|spēles|spēļu)\b/ui', $title)
         ) {
             return 'sports';
         }

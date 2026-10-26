@@ -136,6 +136,9 @@ class EventIngestionService
             $descLower = mb_strtolower($dto->description ?? '', 'UTF-8');
             $fullText = $titleLower . ' ' . $venueLower . ' ' . $descLower;
 
+            // Sanitize out copy-pasted ticketing disclaimers for cinema check
+            $cleanFullText = preg_replace('/biļete uz [^.\n]*filmu jāiegādājas[^\n.]*/ui', '', $fullText);
+
             $isStrictCinema = (
                 $smartSlug === 'kino' ||
                 str_contains($venueLower, 'k.suns') || str_contains($venueLower, 'k suns') || str_contains($venueLower, 'ksuns') ||
@@ -144,10 +147,14 @@ class EventIngestionService
                 str_contains($venueLower, 'kino rio') || str_contains($venueLower, 'kinorio') ||
                 str_contains($venueLower, 'kinoteātr') || str_contains($venueLower, 'kinoteatr') ||
                 str_contains($venueLower, 'apollo kino') || str_contains($venueLower, 'cinamon') ||
-                str_contains($venueLower, 'kino bize') ||
+                str_contains($venueLower, 'kino bize') || str_contains($venueLower, 'kino lora') ||
+                str_contains($venueLower, 'kino gaisma') || str_contains($venueLower, 'splendid palace') ||
                 str_contains($titleLower, 'k.suns') || str_contains($titleLower, 'forum cinema') || str_contains($titleLower, 'kino rio') ||
-                str_contains($fullText, 'filma') || str_contains($fullText, 'filmas') || str_contains($fullText, 'filmu') ||
-                str_contains($fullText, 'kinoseans') || str_contains($fullText, 'filmas seans')
+                str_contains($titleLower, 'kino lora') ||
+                str_contains($cleanFullText, 'filma') || str_contains($cleanFullText, 'filmas') || str_contains($cleanFullText, 'filmu') ||
+                str_contains($cleanFullText, 'filmā') || str_contains($cleanFullText, 'kinoseans') || str_contains($cleanFullText, 'filmas seans') ||
+                str_contains($cleanFullText, 'spēlfilma') || str_contains($cleanFullText, 'dokumentālā filma') ||
+                str_contains($cleanFullText, 'animācijas filma') || str_contains($cleanFullText, 'kinofestivāl')
             );
 
             if ($isStrictCinema) {
