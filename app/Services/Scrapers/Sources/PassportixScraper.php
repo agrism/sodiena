@@ -206,6 +206,22 @@ class PassportixScraper extends BaseScraper
     }
 
     /**
+     * Check if response is an actual Cloudflare challenge or block page
+     */
+    protected function isCloudflareChallenge(?string $html): bool
+    {
+        if (empty($html)) {
+            return true;
+        }
+
+        return str_contains($html, '<title>Just a moment...</title>')
+            || str_contains($html, '<title>Attention Required!')
+            || str_contains($html, 'cf-browser-verification')
+            || str_contains($html, 'id="cf-please-wait"')
+            || str_contains($html, 'Checking your browser before accessing');
+    }
+
+    /**
      * Fetch HTML and return a Symfony DomCrawler instance with Browserless fallback
      */
     protected function fetchCrawler(string $url): ?Crawler
@@ -214,7 +230,7 @@ class PassportixScraper extends BaseScraper
         try {
             $response = $this->httpClient->get($url);
             $html = (string) $response->getBody();
-            if ($html && !str_contains($html, 'challenge-platform') && !str_contains($html, 'Just a moment...')) {
+            if ($html && !$this->isCloudflareChallenge($html)) {
                 return new Crawler($html, $url);
             }
         } catch (\Throwable $e) {
@@ -231,7 +247,7 @@ class PassportixScraper extends BaseScraper
 
             if ($response->successful()) {
                 $html = $response->body();
-                if ($html && !str_contains($html, 'challenge-platform') && !str_contains($html, 'Just a moment...')) {
+                if ($html && !$this->isCloudflareChallenge($html)) {
                     return new Crawler($html, $url);
                 }
             }
@@ -266,7 +282,7 @@ class PassportixScraper extends BaseScraper
             ]);
 
             $json = (string) $response->getBody();
-            if ($json && !str_contains($json, 'challenge-platform') && !str_contains($json, 'Just a moment...')) {
+            if ($json && !$this->isCloudflareChallenge($json)) {
                 $decoded = json_decode($json, true);
                 if (is_array($decoded) && !empty($decoded['html'])) {
                     return $decoded;
