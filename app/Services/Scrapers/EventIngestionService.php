@@ -451,8 +451,8 @@ class EventIngestionService
                 'source_external_id' => $dto->sourceExternalId,
                 'fingerprint' => $fingerprint,
                 'entertainment_type' => $dto->entertainmentType ?: $this->guessEntertainmentType($dto->title, $dto->categoryNames),
-                'status' => 'draft',
-                'published_at' => null,
+                'status' => 'published',
+                'published_at' => now(),
                 'raw_data' => $dto->rawData,
             ]);
 

@@ -98,7 +98,8 @@ class BilesuParadizeScraperTest extends TestCase
 
         $event = Event::where('title', 'Dailes Teātra Jauniestudējums "Ziedonis"')->first();
         $this->assertNotNull($event);
-        $this->assertEquals('draft', $event->status);
+        $this->assertEquals('published', $event->status);
+        $this->assertTrue($event->isPublished());
         $this->assertEquals('Dailes teātris', $event->location?->name);
         $this->assertTrue($event->categories->pluck('slug')->contains('teatris'));
     }

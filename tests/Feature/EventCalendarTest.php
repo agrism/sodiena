@@ -156,7 +156,13 @@ class EventCalendarTest extends TestCase
         $this->assertGreaterThan(0, $log->items_found);
         $this->assertDatabaseHas('events', [
             'source_id' => $source->id,
+            'status' => 'published',
         ]);
+
+        $firstEvent = Event::where('source_id', $source->id)->first();
+        $this->assertEquals('published', $firstEvent->status);
+        $this->assertNotNull($firstEvent->published_at);
+        $this->assertTrue($firstEvent->isPublished());
 
         // Second ingestion should deduplicate and update rather than duplicate
         $secondLog = $service->ingest($source);
