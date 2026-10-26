@@ -233,20 +233,44 @@ class EventIngestionService
 
                     $cleanCand = preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower($candidate->title, 'UTF-8'));
 
-                    // 1. Direct string similarity
+                    // 1. Number differentiator guard (e.g. 5 vs 10 spēļu abonements, 1. daļa vs 2. daļa)
+                    preg_match_all('/\b\d+\b/', $cleanCand, $candNums);
+                    preg_match_all('/\b\d+\b/', $cleanDto, $dtoNums);
+                    $candNumDiff = array_diff($candNums[0] ?? [], $dtoNums[0] ?? []);
+                    $dtoNumDiff = array_diff($dtoNums[0] ?? [], $candNums[0] ?? []);
+                    $candNonYear = array_filter($candNumDiff, fn ($n) => (int)$n < 2000 || (int)$n > 2100);
+                    $dtoNonYear = array_filter($dtoNumDiff, fn ($n) => (int)$n < 2000 || (int)$n > 2100);
+                    if (!empty($candNonYear) || !empty($dtoNonYear)) {
+                        continue;
+                    }
+
+                    // 2. Package modifier guard (e.g. 'enbl', 'biznesa', 'vip')
+                    $distinguishingModifiers = ['enbl', 'biznesa', 'vip', 'premium', 'standart'];
+                    $hasModifierMismatch = false;
+                    foreach ($distinguishingModifiers as $mod) {
+                        if (str_contains($cleanCand, $mod) !== str_contains($cleanDto, $mod)) {
+                            $hasModifierMismatch = true;
+                            break;
+                        }
+                    }
+                    if ($hasModifierMismatch) {
+                        continue;
+                    }
+
+                    // 3. Direct string similarity
                     similar_text($cleanCand, $cleanDto, $percent);
                     if ($percent >= 75) {
                         $existingEvent = $candidate;
                         break;
                     }
 
-                    // 2. Substring check
+                    // 4. Substring check
                     if ((mb_strlen($cleanDto, 'UTF-8') > 12 && str_contains($cleanCand, $cleanDto)) || (mb_strlen($cleanCand, 'UTF-8') > 12 && str_contains($cleanDto, $cleanCand))) {
                         $existingEvent = $candidate;
                         break;
                     }
 
-                    // 3. Exact word token overlap on same day
+                    // 5. Exact word token overlap on same day
                     if (!empty($dtoWords)) {
                         $candWords = array_values(array_filter(explode(' ', $cleanCand), fn ($w) => mb_strlen($w, 'UTF-8') > 2 && !in_array($w, ['un', 'par', 'ar', 'pie', 'uz', 'no', 'vai'])));
                         $common = array_intersect($dtoWords, $candWords);
@@ -259,12 +283,12 @@ class EventIngestionService
                         }
                     }
 
-                    // 4. Stemmed word overlap (Latvian declension-aware)
+                    // 6. Stemmed word overlap (Latvian declension-aware)
                     $candStems = $this->getLatvianWordStems($candidate->title);
                     $commonStems = array_intersect($dtoStems, $candStems);
                     if (count($commonStems) >= 2) {
                         $stemOverlap = (count($commonStems) / min(count($dtoStems), count($candStems))) * 100;
-                        if ($stemOverlap >= 40) {
+                        if ($stemOverlap >= 65) {
                             $existingEvent = $candidate;
                             break;
                         }
