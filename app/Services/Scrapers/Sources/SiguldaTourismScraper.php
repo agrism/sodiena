@@ -271,7 +271,12 @@ class SiguldaTourismScraper extends BaseScraper
             return null;
         }
 
-        $dateStr = $details['dateText'] ?: $cardDate;
+        $dateStr = $details['dateText'];
+        if ($cardDate && str_contains($cardDate, '-') && (!$dateStr || !str_contains($dateStr, '-'))) {
+            $dateStr = $cardDate;
+        } elseif (empty($dateStr)) {
+            $dateStr = $cardDate;
+        }
         $timeStr = $details['timeText'];
 
         [$startAt, $endAt] = $this->parseDates($dateStr, $timeStr, $today);
