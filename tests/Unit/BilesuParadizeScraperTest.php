@@ -114,6 +114,9 @@ class BilesuParadizeScraperTest extends TestCase
             'is_active' => true,
         ]);
 
+        $date1 = today('Europe/Riga')->addDays(5)->format('Y-m-d') . ' 19:00:00';
+        $date2 = today('Europe/Riga')->addDays(6)->format('Y-m-d') . ' 19:00:00';
+
         $nuxtData = [
             "DZIMŠANAS DIENAS KŪKA — Biļešu Paradīze",
             [
@@ -123,7 +126,7 @@ class BilesuParadizeScraperTest extends TestCase
                 "hall_titles" => 5,
                 "price_groups" => [9, 10],
             ],
-            "2026-10-21 19:00:00",
+            $date1,
             100,
             175373,
             "Jaunais Rīgas teātris, Lielā zāle",
@@ -133,7 +136,7 @@ class BilesuParadizeScraperTest extends TestCase
                 "id" => 8,
                 "hall_titles" => 5,
             ],
-            "2026-10-22 19:00:00",
+            $date2,
             175374,
             ["price" => 11],
             ["price" => 12],
@@ -149,11 +152,11 @@ class BilesuParadizeScraperTest extends TestCase
         $this->assertEquals('DZIMŠANAS DIENAS KŪKA', $dtos[0]->title);
         $this->assertEquals('https://www.bilesuparadize.lv/lv/event/175373', $dtos[0]->ticketUrl);
         $this->assertEquals('Jaunais Rīgas teātris, Lielā zāle', $dtos[0]->venueName);
-        $this->assertEquals('2026-10-21 19:00:00', $dtos[0]->startAt->format('Y-m-d H:i:s'));
+        $this->assertEquals($date1, $dtos[0]->startAt->format('Y-m-d H:i:s'));
         $this->assertEquals(60.0, $dtos[0]->priceMin);
         $this->assertEquals(140.0, $dtos[0]->priceMax);
 
         $this->assertEquals('https://www.bilesuparadize.lv/lv/event/175374', $dtos[1]->ticketUrl);
-        $this->assertEquals('2026-10-22 19:00:00', $dtos[1]->startAt->format('Y-m-d H:i:s'));
+        $this->assertEquals($date2, $dtos[1]->startAt->format('Y-m-d H:i:s'));
     }
 }

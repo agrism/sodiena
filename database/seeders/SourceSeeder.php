@@ -103,6 +103,13 @@ class SourceSeeder extends Seeder
                 'scraper_class' => \App\Services\Scrapers\Sources\DaugavpilsScraper::class,
                 'is_active' => true,
             ],
+            [
+                'name' => 'Passportix',
+                'slug' => 'passportix',
+                'url' => 'https://www.passportix.eu/pasakumi',
+                'scraper_class' => \App\Services\Scrapers\Sources\PassportixScraper::class,
+                'is_active' => true,
+            ],
         ];
 
         foreach ($sources as $s) {
