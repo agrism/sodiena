@@ -117,6 +117,13 @@ class SourceSeeder extends Seeder
                 'scraper_class' => \App\Services\Scrapers\Sources\SiguldaTourismScraper::class,
                 'is_active' => true,
             ],
+            [
+                'name' => 'Visit Alūksne',
+                'slug' => 'aluksne-tourism',
+                'url' => 'https://visitaluksne.lv/pasakumi-un-turisma-aktualitates/',
+                'scraper_class' => \App\Services\Scrapers\Sources\AluksneTourismScraper::class,
+                'is_active' => true,
+            ],
         ];
 
         foreach ($sources as $s) {
