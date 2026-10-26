@@ -15,8 +15,6 @@ use Symfony\Component\DomCrawler\Crawler;
 class PassportixScraper extends BaseScraper
 {
     protected array $detailCache = [];
-    protected ?string $cloudflareCookies = null;
-    protected ?string $cloudflareUserAgent = null;
 
     protected array $venueCityMap = [
         'skonto stadions' => [
@@ -208,104 +206,40 @@ class PassportixScraper extends BaseScraper
     }
 
     /**
-     * Ensure Cloudflare clearance session cookies via FlareSolverr
-     */
-    protected function ensureCloudflareSession(string $targetUrl): void
-    {
-        if ($this->cloudflareCookies !== null) {
-            return;
-        }
-
-        $flaresolverrUrl = config('services.flaresolverr.url', env('FLARESOLVERR_URL', 'http://127.0.0.1:8191'));
-        try {
-            $response = Http::timeout(45)->post("{$flaresolverrUrl}/v1", [
-                'cmd' => 'request.get',
-                'url' => $targetUrl,
-                'maxTimeout' => 45000,
-            ]);
-
-            if ($response->successful() && $response->json('status') === 'ok') {
-                $cookies = $response->json('solution.cookies', []);
-                $cookiePairs = [];
-                foreach ($cookies as $c) {
-                    if (!empty($c['name']) && isset($c['value'])) {
-                        $cookiePairs[] = $c['name'] . '=' . $c['value'];
-                    }
-                }
-                if (!empty($cookiePairs)) {
-                    $this->cloudflareCookies = implode('; ', $cookiePairs);
-                }
-                $ua = $response->json('solution.userAgent');
-                if (!empty($ua)) {
-                    $this->cloudflareUserAgent = $ua;
-                }
-            }
-        } catch (\Throwable $e) {
-            Log::warning("Passportix: FlareSolverr session init failed: " . $e->getMessage());
-        }
-    }
-
-    /**
-     * Fetch HTML and return a Symfony DomCrawler instance with Cloudflare bypass support
+     * Fetch HTML and return a Symfony DomCrawler instance with Browserless fallback
      */
     protected function fetchCrawler(string $url): ?Crawler
     {
-        $headers = [
-            'User-Agent' => $this->cloudflareUserAgent ?: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-            'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Referer' => 'https://www.passportix.eu/pasakumi',
-        ];
-        if ($this->cloudflareCookies) {
-            $headers['Cookie'] = $this->cloudflareCookies;
-        }
-
+        // 1. Try direct HTTP client
         try {
-            $response = $this->httpClient->get($url, ['headers' => $headers]);
+            $response = $this->httpClient->get($url);
             $html = (string) $response->getBody();
-
-            if (str_contains($html, 'challenge-platform') || str_contains($html, 'cf-browser-verification')) {
-                throw new \RuntimeException("Cloudflare challenge encountered");
+            if ($html && !str_contains($html, 'challenge-platform') && !str_contains($html, 'Just a moment...')) {
+                return new Crawler($html, $url);
             }
-
-            return new Crawler($html, $url);
         } catch (\Throwable $e) {
-            $this->ensureCloudflareSession($url);
-
-            if ($this->cloudflareCookies) {
-                $headers['Cookie'] = $this->cloudflareCookies;
-                if ($this->cloudflareUserAgent) {
-                    $headers['User-Agent'] = $this->cloudflareUserAgent;
-                }
-
-                try {
-                    $response = $this->httpClient->get($url, ['headers' => $headers]);
-                    $html = (string) $response->getBody();
-                    return new Crawler($html, $url);
-                } catch (\Throwable $e2) {
-                    Log::warning("Passportix: Retry fetch failed for {$url}: " . $e2->getMessage());
-                }
-            }
-
-            // Direct FlareSolverr request.get fallback
-            $flaresolverrUrl = config('services.flaresolverr.url', env('FLARESOLVERR_URL', 'http://127.0.0.1:8191'));
-            try {
-                $fsResp = Http::timeout(45)->post("{$flaresolverrUrl}/v1", [
-                    'cmd' => 'request.get',
-                    'url' => $url,
-                    'maxTimeout' => 45000,
-                ]);
-                if ($fsResp->successful() && $fsResp->json('status') === 'ok') {
-                    $fsHtml = $fsResp->json('solution.response');
-                    if ($fsHtml && !str_contains($fsHtml, 'challenge-platform')) {
-                        return new Crawler($fsHtml, $url);
-                    }
-                }
-            } catch (\Throwable $fsEx) {
-                Log::error("Passportix: FlareSolverr direct fetch failed for {$url}: " . $fsEx->getMessage());
-            }
-
-            return null;
+            // Direct request failed (e.g. Cloudflare challenge), fall through to Browserless
         }
+
+        // 2. Try Browserless
+        $browserlessUrl = config('services.browserless.url', env('BROWSERLESS_URL', 'http://localhost:4007'));
+        try {
+            $response = Http::timeout(30)->post("{$browserlessUrl}/content?stealth=true", [
+                'url' => $url,
+                'gotoOptions' => ['waitUntil' => 'networkidle2'],
+            ]);
+
+            if ($response->successful()) {
+                $html = $response->body();
+                if ($html && !str_contains($html, 'challenge-platform') && !str_contains($html, 'Just a moment...')) {
+                    return new Crawler($html, $url);
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::warning("Passportix: Browserless content fetch failed for {$url}: " . $e->getMessage());
+        }
+
+        return null;
     }
 
     /**
@@ -313,20 +247,15 @@ class PassportixScraper extends BaseScraper
      */
     protected function fetchAjaxPage(string $url, int $page): ?array
     {
-        $doRequest = function () use ($url, $page) {
-            $headers = [
-                'User-Agent' => $this->cloudflareUserAgent ?: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-                'Accept' => 'application/json, text/javascript, */*; q=0.01',
-                'X-Requested-With' => 'XMLHttpRequest',
-                'Origin' => 'https://www.passportix.eu',
-                'Referer' => $url,
-            ];
-            if ($this->cloudflareCookies) {
-                $headers['Cookie'] = $this->cloudflareCookies;
-            }
-
+        // 1. Try direct HTTP client
+        try {
             $response = $this->httpClient->post($url, [
-                'headers' => $headers,
+                'headers' => [
+                    'Accept' => 'application/json, text/javascript, */*; q=0.01',
+                    'X-Requested-With' => 'XMLHttpRequest',
+                    'Origin' => 'https://www.passportix.eu',
+                    'Referer' => $url,
+                ],
                 'form_params' => [
                     'act' => 'more_post_ajax',
                     'page' => $page,
@@ -337,48 +266,53 @@ class PassportixScraper extends BaseScraper
             ]);
 
             $json = (string) $response->getBody();
-            if (str_contains($json, 'challenge-platform') || str_contains($json, 'cf-browser-verification')) {
-                throw new \RuntimeException("Cloudflare challenge encountered");
-            }
-
-            return json_decode($json, true);
-        };
-
-        try {
-            $res = $doRequest();
-            if (is_array($res)) {
-                return $res;
+            if ($json && !str_contains($json, 'challenge-platform') && !str_contains($json, 'Just a moment...')) {
+                $decoded = json_decode($json, true);
+                if (is_array($decoded) && !empty($decoded['html'])) {
+                    return $decoded;
+                }
             }
         } catch (\Throwable $e) {
-            $this->ensureCloudflareSession($url);
-
-            if ($this->cloudflareCookies) {
-                try {
-                    $res = $doRequest();
-                    if (is_array($res)) {
-                        return $res;
-                    }
-                } catch (\Throwable $e2) {
-                    Log::error("Passportix: AJAX retry failed for URL {$url} page {$page}: " . $e2->getMessage());
-                }
-            }
+            // Direct request failed (e.g. Cloudflare challenge), fall through to Browserless
         }
 
-        // Fallback for page 1 if AJAX is blocked/fails
-        if ($page === 1) {
-            $crawler = $this->fetchCrawler($url);
-            if ($crawler) {
-                $articlesHtml = '';
-                foreach ($crawler->filter('article.event-article') as $article) {
-                    $articlesHtml .= $article->ownerDocument->saveHTML($article);
-                }
-                if (!empty($articlesHtml)) {
-                    return [
-                        'status' => 'hide',
-                        'html' => $articlesHtml,
-                    ];
+        // 2. Try Browserless function
+        $browserlessUrl = config('services.browserless.url', env('BROWSERLESS_URL', 'http://localhost:4007'));
+        try {
+            $script = "export default async ({ page }) => {
+  await page.goto('{$url}', { waitUntil: 'networkidle0' });
+  const result = await page.evaluate(async () => {
+    const formData = new FormData();
+    formData.append('act', 'more_post_ajax');
+    formData.append('page', {$page});
+    formData.append('loadAll', 0);
+    formData.append('cat', '');
+    formData.append('orderby', 'date');
+    const res = await fetch('{$url}', {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+      body: formData,
+    });
+    return await res.json();
+  });
+  return { data: result, type: 'application/json' };
+};";
+
+            $response = Http::timeout(35)
+                ->withBody($script, 'application/javascript')
+                ->post("{$browserlessUrl}/function?stealth=true");
+
+            if ($response->successful()) {
+                $data = $response->json('data');
+                if (is_array($data) && !empty($data['html'])) {
+                    return $data;
                 }
             }
+        } catch (\Throwable $e) {
+            Log::warning("Passportix: Browserless AJAX function failed for page {$page}: " . $e->getMessage());
         }
 
         return null;
