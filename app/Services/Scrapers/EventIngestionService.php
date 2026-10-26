@@ -195,12 +195,26 @@ class EventIngestionService
                               ->where('end_at', '>=', $dto->startAt);
                         });
                 }
-                $sameDayEvents = $candidatesQuery->get();
+                $sameDayEvents = $candidatesQuery->with('location')->get();
                 $cleanDto = preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower($dto->title, 'UTF-8'));
                 $dtoStems = $this->getLatvianWordStems($dto->title);
                 $dtoWords = array_values(array_filter(explode(' ', $cleanDto), fn ($w) => mb_strlen($w, 'UTF-8') > 2 && !in_array($w, ['un', 'par', 'ar', 'pie', 'uz', 'no', 'vai'])));
 
                 foreach ($sameDayEvents as $candidate) {
+                    // 1. Never fuzzy-match two distinct events from the SAME source with different external IDs
+                    if ($candidate->source_id === $source->id && $dto->sourceExternalId && $candidate->source_external_id && $candidate->source_external_id !== $dto->sourceExternalId) {
+                        continue;
+                    }
+
+                    // 2. City mismatch guard: If both candidate and dto have known cities and they differ, they are distinct events
+                    if (!empty($dto->city) && $candidate->location && !empty($candidate->location->city)) {
+                        $candCity = mb_strtolower(trim($candidate->location->city), 'UTF-8');
+                        $dtoCity = mb_strtolower(trim($dto->city), 'UTF-8');
+                        if ($candCity !== $dtoCity && !str_contains($candCity, $dtoCity) && !str_contains($dtoCity, $candCity)) {
+                            continue;
+                        }
+                    }
+
                     $isCandidateMultiDay = $candidate->end_at && $candidate->start_at && $candidate->start_at->toDateString() !== $candidate->end_at->toDateString();
                     $isDtoMultiDay = $dto->endAt && $dto->startAt && $dto->startAt->toDateString() !== $dto->endAt->toDateString();
 
