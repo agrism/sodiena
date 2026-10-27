@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
 class Location extends Model
@@ -33,6 +34,14 @@ class Location extends Model
             if (empty($location->slug)) {
                 $location->slug = Str::slug($location->name . '-' . $location->city);
             }
+        });
+
+        static::saved(function () {
+            Cache::forget('locations_distinct_cities');
+        });
+
+        static::deleted(function () {
+            Cache::forget('locations_distinct_cities');
         });
     }
 

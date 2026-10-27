@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('auth.bearer')->group(function () {
     // API Version 1
     Route::prefix('v1')->group(function () {
+        Route::get('/events/sync', [EventApiController::class, 'sync'])->name('api.v1.events.sync');
         Route::get('/events', [EventApiController::class, 'index'])->name('api.v1.events.index');
         Route::get('/events/promoted', [EventApiController::class, 'promoted'])->name('api.v1.events.promoted');
         Route::get('/events/{id}', [EventApiController::class, 'show'])->name('api.v1.events.show');
@@ -26,6 +27,7 @@ Route::middleware('auth.bearer')->group(function () {
     });
 
     // Default unversioned aliases
+    Route::get('/events/sync', [EventApiController::class, 'sync'])->name('api.events.sync');
     Route::get('/events', [EventApiController::class, 'index'])->name('api.events.index');
     Route::get('/events/promoted', [EventApiController::class, 'promoted'])->name('api.events.promoted');
     Route::get('/events/{id}', [EventApiController::class, 'show'])->name('api.events.show');

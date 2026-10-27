@@ -24,6 +24,7 @@ class EventApiController extends Controller
         $date = $request->query('date');
         $dateFrom = $request->query('date_from');
         $dateTo = $request->query('date_to');
+        $updatedSince = $request->query('updated_since') ?: $request->query('since');
         $type = $request->query('type') ?: $request->query('entertainment_type');
         $price = $request->query('price');
         $isFree = $request->query('is_free');
@@ -31,10 +32,22 @@ class EventApiController extends Controller
         $isFeatured = $request->query('is_featured');
         $isPromoted = $request->query('is_promoted');
         $sort = $request->query('sort', 'date_asc');
-        $perPage = min(max((int) ($request->query('per_page') ?: $request->query('limit', 20)), 1), 100);
+        $perPage = min(max((int) ($request->query('per_page') ?: $request->query('limit', 20)), 1), 250);
 
         $query = Event::with(['categories.translations', 'location.translations', 'source', 'translations'])
             ->published();
+
+        // Updated since filter
+        if (!empty($updatedSince)) {
+            try {
+                $sinceDate = is_numeric($updatedSince)
+                    ? Carbon::createFromTimestamp((int) $updatedSince)
+                    : Carbon::parse($updatedSince);
+                $query->where('updated_at', '>=', $sinceDate);
+            } catch (\Throwable $e) {
+                // Ignore parse errors
+            }
+        }
 
         // Custom date range filtering if provided
         if (!empty($dateFrom) || !empty($dateTo)) {
@@ -51,7 +64,7 @@ class EventApiController extends Controller
                     $q->where('start_at', '<=', $to);
                 }
             });
-        } else {
+        } elseif (empty($updatedSince)) {
             $query->forDateFilter($period, $date);
         }
 
@@ -108,6 +121,8 @@ class EventApiController extends Controller
             'date_desc' => $query->reorder('is_promoted', 'desc')->orderBy('start_at', 'desc')->orderBy('id', 'desc'),
             'views_desc', 'popular' => $query->reorder('is_promoted', 'desc')->orderBy('views_count', 'desc')->orderBy('start_at', 'asc'),
             'newest', 'created_desc' => $query->reorder('is_promoted', 'desc')->orderBy('created_at', 'desc'),
+            'updated_desc' => $query->reorder('is_promoted', 'desc')->orderBy('updated_at', 'desc')->orderBy('id', 'desc'),
+            'updated_asc' => $query->reorder('updated_at', 'asc')->orderBy('id', 'asc'),
             'price_asc' => $query->reorder('is_promoted', 'desc')->orderBy('is_free', 'desc')->orderBy('price_min', 'asc')->orderBy('start_at', 'asc'),
             'price_desc' => $query->reorder('is_promoted', 'desc')->orderBy('price_max', 'desc')->orderBy('start_at', 'asc'),
             default => null, // Default ordering from forDateFilter/upcoming already places is_promoted DESC first
@@ -116,6 +131,127 @@ class EventApiController extends Controller
         $events = $query->paginate($perPage);
 
         return EventResource::collection($events);
+    }
+
+    /**
+     * Incremental synchronization endpoint for third-party platforms (e.g. piedzivo.lv).
+     * Endpoint: GET /api/v1/events/sync
+     *
+     * Returns:
+     * - sync_timestamp: Current server ISO 8601 timestamp (client stores this for next call)
+     * - data: Array of created or updated events matching filters
+     * - deleted_ids: Array of event IDs deleted or unpublished since "since"
+     * - meta: Pagination and totals metadata
+     */
+    public function sync(Request $request): JsonResponse
+    {
+        $since = $request->query('since') ?: $request->query('updated_since');
+        $city = $request->query('city');
+        $categorySlug = $request->query('category');
+        $perPage = min(max((int) ($request->query('per_page') ?: $request->query('limit', 100)), 1), 250);
+        $page = max((int) $request->query('page', 1), 1);
+
+        $sinceDate = null;
+        if (!empty($since)) {
+            try {
+                $sinceDate = is_numeric($since)
+                    ? Carbon::createFromTimestamp((int) $since)
+                    : Carbon::parse($since);
+            } catch (\Throwable $e) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid timestamp format for "since". Please use ISO 8601 (e.g. 2026-10-27T14:00:00Z) or a UNIX timestamp.',
+                ], 422);
+            }
+        }
+
+        // Determine upcoming_only
+        $upcomingOnly = $request->has('upcoming_only')
+            ? filter_var($request->query('upcoming_only'), FILTER_VALIDATE_BOOLEAN)
+            : ($sinceDate === null); // Default true for initial sync, false for incremental sync
+
+        // Base query for modified / created events
+        $query = Event::with(['categories.translations', 'location.translations', 'source', 'translations'])
+            ->published();
+
+        if ($sinceDate !== null) {
+            $query->where('updated_at', '>=', $sinceDate);
+        }
+
+        if ($upcomingOnly) {
+            $todayStart = now()->startOfDay();
+            $query->where(function ($q) use ($todayStart) {
+                $q->where('start_at', '>=', $todayStart)
+                  ->orWhere(function ($sub) {
+                      $sub->whereNotNull('end_at')->where('end_at', '>=', now());
+                  });
+            });
+        }
+
+        if (!empty($city) && $city !== 'all') {
+            $query->filterByCity($city);
+        }
+
+        if (!empty($categorySlug) && $categorySlug !== 'all') {
+            if (is_numeric($categorySlug)) {
+                $query->whereHas('categories', function ($q) use ($categorySlug) {
+                    $q->where('categories.id', (int) $categorySlug);
+                });
+            } else {
+                $query->filterByCategory($categorySlug);
+            }
+        }
+
+        // Deterministic ordering by updated_at ASC, id ASC
+        $query->orderBy('updated_at', 'asc')->orderBy('id', 'asc');
+
+        $paginator = $query->paginate($perPage, ['*'], 'page', $page);
+
+        // Gather deleted / unpublished event IDs if "since" timestamp is provided
+        $deletedIds = [];
+        if ($sinceDate !== null) {
+            $trashedQuery = Event::onlyTrashed()->where('deleted_at', '>=', $sinceDate);
+            if (!empty($city) && $city !== 'all') {
+                $trashedQuery->filterByCity($city);
+            }
+            $trashedIds = $trashedQuery->pluck('id')->all();
+
+            $unpublishedQuery = Event::withoutTrashed()
+                ->where(function ($q) {
+                    $q->where('status', '!=', 'published')
+                      ->orWhereNull('published_at');
+                })
+                ->where('updated_at', '>=', $sinceDate);
+            if (!empty($city) && $city !== 'all') {
+                $unpublishedQuery->filterByCity($city);
+            }
+            $unpublishedIds = $unpublishedQuery->pluck('id')->all();
+
+            $deletedIds = array_values(array_unique(array_merge($trashedIds, $unpublishedIds)));
+        }
+
+        $serverTime = now()->toIso8601String();
+
+        return response()->json([
+            'success' => true,
+            'sync_timestamp' => $serverTime,
+            'data' => EventResource::collection($paginator->items()),
+            'deleted_ids' => $deletedIds,
+            'meta' => [
+                'total_updated' => $paginator->total(),
+                'total_deleted' => count($deletedIds),
+                'current_page' => $paginator->currentPage(),
+                'last_page' => $paginator->lastPage(),
+                'per_page' => $paginator->perPage(),
+                'has_more' => $paginator->hasMorePages(),
+            ],
+            'links' => [
+                'first' => $paginator->url(1),
+                'last' => $paginator->url($paginator->lastPage()),
+                'prev' => $paginator->previousPageUrl(),
+                'next' => $paginator->nextPageUrl(),
+            ],
+        ]);
     }
 
     /**

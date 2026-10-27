@@ -18,6 +18,7 @@ class EventResource extends JsonResource
             'id' => $this->id,
             'title' => $this->title,
             'slug' => $this->localized_slug ?: $this->slug,
+            'status' => $this->status,
             'short_description' => $this->short_description,
             'description' => $this->description,
             'seo_description' => $this->seo_description,
@@ -52,6 +53,8 @@ class EventResource extends JsonResource
             'published_at' => $this->published_at?->toIso8601String(),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
+            'is_deleted' => (bool) $this->trashed(),
+            'deleted_at' => $this->deleted_at?->toIso8601String(),
         ];
     }
 }

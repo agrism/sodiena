@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
 class Event extends Model
@@ -671,8 +672,32 @@ class Event extends Model
             return $query;
         }
 
-        return $query->whereHas('location', function ($q) use ($city) {
-            $q->where('city', $city);
+        $allCities = Cache::remember('locations_distinct_cities', 3600, function () {
+            return Location::query()->distinct()->pluck('city')->filter()->values()->all();
+        });
+
+        $inputs = array_map('trim', explode(',', $city));
+        $matched = [];
+
+        foreach ($inputs as $in) {
+            $inSlug = Str::slug($in);
+            $inLower = mb_strtolower($in);
+
+            foreach ($allCities as $c) {
+                if (mb_strtolower($c) === $inLower || Str::slug($c) === $inSlug) {
+                    $matched[] = $c;
+                }
+            }
+        }
+
+        $matched = array_values(array_unique($matched));
+
+        return $query->whereHas('location', function ($q) use ($matched, $city) {
+            if (!empty($matched)) {
+                $q->whereIn('city', $matched);
+            } else {
+                $q->where('city', $city);
+            }
         });
     }
 

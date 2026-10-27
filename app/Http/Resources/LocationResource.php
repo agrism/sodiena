@@ -19,6 +19,7 @@ class LocationResource extends JsonResource
             'name' => $this->name,
             'slug' => $this->slug,
             'city' => $this->city,
+            'city_slug' => $this->city ? \Illuminate\Support\Str::slug($this->city) : null,
             'region' => $this->region,
             'address' => $this->address,
             'latitude' => $this->latitude,

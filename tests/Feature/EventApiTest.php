@@ -146,4 +146,192 @@ class EventApiTest extends TestCase
         $response->assertStatus(200)
             ->assertJsonCount(7, 'data');
     }
+
+    public function test_api_events_sync_initial_full_sync(): void
+    {
+        $location = Location::create([
+            'name' => 'Alūksnes Kultūras centrs',
+            'city' => 'Alūksne',
+            'region' => 'Vidzeme',
+        ]);
+
+        $event = Event::create([
+            'title' => 'Alūksnes pilsētas svētki',
+            'slug' => 'aluksnes-pilsetas-svetki',
+            'start_at' => now()->addDays(5),
+            'status' => 'published',
+            'published_at' => now()->subHour(),
+            'location_id' => $location->id,
+        ]);
+
+        $response = $this->withToken($this->token)->getJson('/api/v1/events/sync');
+
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true)
+            ->assertJsonStructure([
+                'success',
+                'sync_timestamp',
+                'data',
+                'deleted_ids',
+                'meta' => [
+                    'total_updated',
+                    'total_deleted',
+                    'current_page',
+                    'last_page',
+                    'per_page',
+                    'has_more',
+                ],
+                'links',
+            ])
+            ->assertJsonPath('deleted_ids', [])
+            ->assertJsonPath('data.0.id', $event->id)
+            ->assertJsonPath('data.0.status', 'published')
+            ->assertJsonPath('data.0.location.city_slug', 'aluksne');
+    }
+
+    public function test_api_events_sync_incremental_and_deleted_ids(): void
+    {
+        $cutoff = now()->subHour();
+
+        // 1. Old event before cutoff (not modified)
+        $oldEvent = Event::create([
+            'title' => 'Vecs pasākums',
+            'slug' => 'vecs-pasakums',
+            'start_at' => now()->addDays(10),
+            'status' => 'published',
+            'published_at' => now()->subDays(5),
+            'created_at' => now()->subDays(5),
+        ]);
+        Event::where('id', $oldEvent->id)->update(['updated_at' => now()->subDays(2)]);
+
+        // 2. Newly modified event
+        $newEvent = Event::create([
+            'title' => 'Jauns pasākums',
+            'slug' => 'jauns-pasakums',
+            'start_at' => now()->addDays(12),
+            'status' => 'published',
+            'published_at' => now()->subMinutes(10),
+            'created_at' => now()->subMinutes(10),
+            'updated_at' => now()->subMinutes(10),
+        ]);
+
+        // 3. Event that was soft deleted recently
+        $deletedEvent = Event::create([
+            'title' => 'Dzēsts pasākums',
+            'slug' => 'dzests-pasakums',
+            'start_at' => now()->addDays(15),
+            'status' => 'published',
+            'published_at' => now()->subDays(2),
+            'created_at' => now()->subDays(2),
+            'updated_at' => now()->subMinutes(5),
+        ]);
+        $deletedEvent->delete(); // sets deleted_at to now
+
+        // 4. Event that was unpublished (status changed to draft) recently
+        $unpublishedEvent = Event::create([
+            'title' => 'Atcelts pasākums',
+            'slug' => 'atcelts-pasakums',
+            'start_at' => now()->addDays(16),
+            'status' => 'draft',
+            'published_at' => null,
+            'created_at' => now()->subDays(2),
+            'updated_at' => now()->subMinutes(5),
+        ]);
+
+        $response = $this->withToken($this->token)->getJson('/api/v1/events/sync?since=' . urlencode($cutoff->toIso8601String()));
+
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true)
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $newEvent->id)
+            ->assertJsonPath('meta.total_updated', 1);
+
+        $deletedIds = $response->json('deleted_ids');
+        $this->assertContains($deletedEvent->id, $deletedIds);
+        $this->assertContains($unpublishedEvent->id, $deletedIds);
+        $this->assertNotContains($oldEvent->id, $deletedIds);
+    }
+
+    public function test_api_city_slug_filtering_aluksne(): void
+    {
+        $locationAluksne = Location::create([
+            'name' => 'Alūksnes Pils parks',
+            'city' => 'Alūksne',
+            'region' => 'Vidzeme',
+        ]);
+
+        $locationRiga = Location::create([
+            'name' => 'Vērmanes dārzs',
+            'city' => 'Rīga',
+            'region' => 'Rīga',
+        ]);
+
+        $eventAluksne = Event::create([
+            'title' => 'Koncerts Alūksnē',
+            'slug' => 'koncerts-aluksne',
+            'start_at' => now()->addDays(2),
+            'status' => 'published',
+            'published_at' => now()->subHour(),
+            'location_id' => $locationAluksne->id,
+        ]);
+
+        $eventRiga = Event::create([
+            'title' => 'Koncerts Rīgā',
+            'slug' => 'koncerts-riga',
+            'start_at' => now()->addDays(2),
+            'status' => 'published',
+            'published_at' => now()->subHour(),
+            'location_id' => $locationRiga->id,
+        ]);
+
+        // 1. Search index with city slug "aluksne"
+        $response = $this->withToken($this->token)->getJson('/api/v1/events?city=aluksne');
+        $response->assertStatus(200)
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $eventAluksne->id)
+            ->assertJsonPath('data.0.location.city', 'Alūksne')
+            ->assertJsonPath('data.0.location.city_slug', 'aluksne');
+
+        // 2. Search sync with city slug "aluksne"
+        $responseSync = $this->withToken($this->token)->getJson('/api/v1/events/sync?city=aluksne');
+        $responseSync->assertStatus(200)
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $eventAluksne->id);
+    }
+
+    public function test_api_events_index_updated_since_and_sort(): void
+    {
+        $old = Event::create([
+            'title' => 'Pirms stundas',
+            'slug' => 'pirms-stundas',
+            'start_at' => now()->addDays(3),
+            'status' => 'published',
+            'published_at' => now()->subHours(2),
+            'created_at' => now()->subHours(2),
+        ]);
+        Event::where('id', $old->id)->update(['updated_at' => now()->subHours(2)]);
+
+        $recent = Event::create([
+            'title' => 'Tikko atjaunots',
+            'slug' => 'tikko-atjaunots',
+            'start_at' => now()->addDays(4),
+            'status' => 'published',
+            'published_at' => now()->subMinutes(5),
+            'created_at' => now()->subMinutes(5),
+            'updated_at' => now()->subMinutes(5),
+        ]);
+
+        $response = $this->withToken($this->token)->getJson('/api/v1/events?updated_since=' . urlencode(now()->subHour()->toIso8601String()) . '&sort=updated_desc');
+
+        $response->assertStatus(200)
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $recent->id);
+    }
+
+    public function test_api_events_sync_invalid_since_returns_422(): void
+    {
+        $response = $this->withToken($this->token)->getJson('/api/v1/events/sync?since=invalid-date');
+        $response->assertStatus(422)
+            ->assertJsonPath('success', false);
+    }
 }
