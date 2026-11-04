@@ -26,8 +26,10 @@ class EventImageStorageService
             return null;
         }
 
-        // If internal_image_url is already set and not forcing re-upload, return existing
-        if (!$force && !empty($event->internal_image_url)) {
+        $isLocal = $this->isLocalPath($event->image_url);
+
+        // If internal_image_url is already set to S3 and not forcing re-upload, return existing
+        if (!$force && !empty($event->internal_image_url) && !$this->isLocalPath($event->internal_image_url) && !$isLocal) {
             return $event->internal_image_url;
         }
 
@@ -36,10 +38,17 @@ class EventImageStorageService
             return null;
         }
 
-        $s3Url = $this->uploadFromUrl($event->image_url, $event);
+        $s3Url = $isLocal
+            ? $this->uploadFromLocalPath($event->image_url, $event)
+            : $this->uploadFromUrl($event->image_url, $event);
 
         if ($s3Url) {
-            $event->update(['internal_image_url' => $s3Url]);
+            $updates = ['internal_image_url' => $s3Url];
+            if ($isLocal) {
+                // If it was a local storage file, point image_url directly to S3 as well
+                $updates['image_url'] = $s3Url;
+            }
+            $event->update($updates);
             return $s3Url;
         }
 
@@ -47,18 +56,37 @@ class EventImageStorageService
     }
 
     /**
-     * Download an image from an external URL and upload it to S3.
+     * Determine whether a given URL or path points to a local file.
      */
-    public function uploadFile(\Illuminate\Http\UploadedFile $file, ?Event $event = null): ?string
+    public function isLocalPath(string $url): bool
+    {
+        $trimmed = trim($url);
+
+        if (str_starts_with($trimmed, '/storage/') || str_starts_with($trimmed, 'storage/')) {
+            return true;
+        }
+
+        if (preg_match('#^https?://[^/]+/storage/#i', $trimmed)) {
+            return true;
+        }
+
+        if (!str_starts_with($trimmed, 'http://') && !str_starts_with($trimmed, 'https://')) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Upload an image binary to S3 with WebP optimization and public cache headers.
+     */
+    public function uploadBinary(string $body, string $mimeType, ?Event $event = null, ?string $originalExtension = null): ?string
     {
         try {
-            $body = file_get_contents($file->getRealPath());
             if (empty($body)) {
-                Log::warning("Empty image uploaded file");
+                Log::warning("Empty image binary passed for S3 upload");
                 return null;
             }
-
-            $mimeType = $file->getMimeType() ?: 'image/jpeg';
 
             // Optimize and convert to WebP
             $optimized = $this->optimizeImage($body, $mimeType);
@@ -67,7 +95,7 @@ class EventImageStorageService
                 $mimeType = $optimized['mimeType'];
                 $extension = $optimized['extension'];
             } else {
-                $extension = $file->getClientOriginalExtension() ?: 'webp';
+                $extension = $originalExtension ?: $this->extensionFromMimeType($mimeType, '');
             }
 
             $dateFolder = ($event && $event->start_at) ? $event->start_at->format('Y-m') : now()->format('Y-m');
@@ -88,7 +116,81 @@ class EventImageStorageService
 
             Log::error("Failed to store image in S3 at path: {$s3Path}");
         } catch (\Throwable $e) {
-            Log::error("Exception uploading image file to S3: " . $e->getMessage(), [
+            Log::error("Exception uploading image binary to S3: " . $e->getMessage(), [
+                'event_id' => $event?->id,
+                'exception' => $e,
+            ]);
+        }
+
+        return null;
+    }
+
+    /**
+     * Upload a local storage file to S3.
+     */
+    public function uploadFromLocalPath(string $path, ?Event $event = null): ?string
+    {
+        $path = trim($path);
+
+        // Strip host/protocol if a full URL like https://sodiena.lv/storage/... was passed
+        $path = preg_replace('#^https?://[^/]+/#', '/', $path);
+
+        $possiblePaths = [];
+
+        if (str_starts_with($path, '/storage/') || str_starts_with($path, 'storage/')) {
+            $storageRel = preg_replace('#^/?storage/#', '', $path);
+            $possiblePaths[] = Storage::disk('public')->path($storageRel);
+            $possiblePaths[] = public_path('storage/' . $storageRel);
+            $possiblePaths[] = storage_path('app/public/' . $storageRel);
+        } else {
+            $possiblePaths[] = public_path(ltrim($path, '/'));
+            $possiblePaths[] = storage_path('app/public/' . ltrim($path, '/'));
+            $possiblePaths[] = $path;
+        }
+
+        $realPath = null;
+        foreach ($possiblePaths as $candidate) {
+            if (file_exists($candidate) && is_file($candidate)) {
+                $realPath = $candidate;
+                break;
+            }
+        }
+
+        if (!$realPath) {
+            Log::warning("Local image file not found for S3 upload: {$path}");
+            return null;
+        }
+
+        $body = @file_get_contents($realPath);
+        if (empty($body)) {
+            Log::warning("Local image file is empty: {$realPath}");
+            return null;
+        }
+
+        $finfo = new \finfo(FILEINFO_MIME_TYPE);
+        $mimeType = $finfo->buffer($body) ?: 'image/jpeg';
+        $originalExt = pathinfo($realPath, PATHINFO_EXTENSION);
+
+        return $this->uploadBinary($body, $mimeType, $event, $originalExt);
+    }
+
+    /**
+     * Upload an uploaded file to S3 (with fallback to local storage on S3 failure).
+     */
+    public function uploadFile(\Illuminate\Http\UploadedFile $file, ?Event $event = null): ?string
+    {
+        try {
+            $body = file_get_contents($file->getRealPath());
+            if (!empty($body)) {
+                $mimeType = $file->getMimeType() ?: 'image/jpeg';
+                $ext = $file->getClientOriginalExtension() ?: 'webp';
+                $s3Url = $this->uploadBinary($body, $mimeType, $event, $ext);
+                if ($s3Url) {
+                    return $s3Url;
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::error("Exception reading uploaded file for S3: " . $e->getMessage(), [
                 'event_id' => $event?->id,
                 'exception' => $e,
             ]);
@@ -100,11 +202,27 @@ class EventImageStorageService
     }
 
     /**
+     * Upload from either local path or remote URL to S3.
+     */
+    public function uploadLocalOrRemote(string $urlOrPath, ?Event $event = null): ?string
+    {
+        if ($this->isLocalPath($urlOrPath)) {
+            return $this->uploadFromLocalPath($urlOrPath, $event);
+        }
+
+        return $this->uploadFromUrl($urlOrPath, $event);
+    }
+
+    /**
      * Download an image from an external URL and upload it to S3.
      */
     public function uploadFromUrl(string $url, ?Event $event = null): ?string
     {
         $url = trim($url);
+
+        if ($this->isLocalPath($url)) {
+            return $this->uploadFromLocalPath($url, $event);
+        }
 
         if (!filter_var($url, FILTER_VALIDATE_URL)) {
             Log::warning("Invalid image URL provided for upload: {$url}");
@@ -144,36 +262,9 @@ class EventImageStorageService
                 return null;
             }
 
-            // Optimize and convert to WebP for maximum web performance
-            $optimized = $this->optimizeImage($body, $mimeType);
-            if ($optimized) {
-                $body = $optimized['body'];
-                $mimeType = $optimized['mimeType'];
-                $extension = $optimized['extension'];
-            } else {
-                $extension = $this->extensionFromMimeType($mimeType, $url);
-            }
+            $extension = $this->extensionFromMimeType($mimeType, $url);
 
-            // Generate structured file path: events/YYYY-MM/{id_or_random}_{hash}.{ext}
-            $dateFolder = ($event && $event->start_at) ? $event->start_at->format('Y-m') : now()->format('Y-m');
-            $identifier = $event ? (string)$event->id : Str::random(8);
-            $contentHash = substr(md5($body), 0, 10);
-            $fileName = "{$identifier}_{$contentHash}.{$extension}";
-            $s3Path = "events/{$dateFolder}/{$fileName}";
-
-            // Upload to S3 with public read access, mime type header and 1-year cache control
-            $stored = Storage::disk($this->disk)->put($s3Path, $body, [
-                'visibility' => 'public',
-                'ContentType' => $mimeType,
-                'CacheControl' => 'max-age=31536000, public',
-            ]);
-
-            if (!$stored) {
-                Log::error("Failed to store image in S3 at path: {$s3Path}");
-                return null;
-            }
-
-            return Storage::disk($this->disk)->url($s3Path);
+            return $this->uploadBinary($body, $mimeType, $event, $extension);
         } catch (\Throwable $e) {
             Log::error("Exception uploading image from {$url} to S3: " . $e->getMessage(), [
                 'event_id' => $event?->id,

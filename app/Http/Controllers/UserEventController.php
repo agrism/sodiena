@@ -138,7 +138,7 @@ class UserEventController extends Controller
                 $imageUrl = $s3Service->uploadFile($request->file('image'));
             } elseif (! empty($validated['image_url'])) {
                 $rawUrl = trim($validated['image_url']);
-                $s3Url = $s3Service->uploadFromUrl($rawUrl);
+                $s3Url = $s3Service->uploadLocalOrRemote($rawUrl);
                 $imageUrl = $s3Url ?: $rawUrl;
             }
 
@@ -378,9 +378,15 @@ class UserEventController extends Controller
                 }
             } elseif (! empty($validated['image_url']) && $validated['image_url'] !== $event->image_url) {
                 $rawUrl = trim($validated['image_url']);
-                $s3Url = $s3Service->uploadFromUrl($rawUrl, $event);
+                $s3Url = $s3Service->uploadLocalOrRemote($rawUrl, $event);
                 $imageUrl = $s3Url ?: $rawUrl;
                 $internalImageUrl = $s3Url ?: null;
+            } elseif (! empty($event->image_url) && (empty($event->internal_image_url) || $s3Service->isLocalPath((string) $event->image_url))) {
+                $s3Url = $s3Service->mirrorEventImage($event);
+                if ($s3Url) {
+                    $internalImageUrl = $s3Url;
+                    $imageUrl = $s3Url;
+                }
             }
 
             $isFree = (bool) ($validated['is_free'] ?? false);

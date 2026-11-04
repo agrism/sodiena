@@ -61,7 +61,12 @@ class SyncEventImagesCommand extends Command
 
             if (!$force) {
                 $query->where(function ($q) {
-                    $q->whereNull('internal_image_url')->orWhere('internal_image_url', '');
+                    $q->whereNull('internal_image_url')
+                      ->orWhere('internal_image_url', '')
+                      ->orWhere('image_url', 'like', '%/storage/%')
+                      ->orWhere('image_url', 'like', 'storage/%')
+                      ->orWhere('internal_image_url', 'like', '%/storage/%')
+                      ->orWhere('internal_image_url', 'like', 'storage/%');
                 });
             }
         }

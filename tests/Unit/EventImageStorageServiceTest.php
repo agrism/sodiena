@@ -146,4 +146,48 @@ class EventImageStorageServiceTest extends TestCase
 
         $this->assertNull($event->fresh()->internal_image_url);
     }
+
+    public function test_mirror_event_image_uploads_local_storage_file_to_s3_and_updates_both_urls(): void
+    {
+        Storage::fake('public');
+        $fakeJpg = base64_decode('/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=');
+        Storage::disk('public')->put('events/test-local-poster.jpg', $fakeJpg);
+
+        $event = Event::create([
+            'title' => 'Vietējais pasākums ar lokālo bildi',
+            'start_at' => now()->addDays(2),
+            'image_url' => '/storage/events/test-local-poster.jpg',
+        ]);
+
+        $service = app(EventImageStorageService::class);
+        $s3Url = $service->mirrorEventImage($event);
+
+        $this->assertNotNull($s3Url);
+        $this->assertStringEndsWith('.webp', $s3Url);
+
+        $event->refresh();
+        $this->assertEquals($s3Url, $event->internal_image_url);
+        $this->assertEquals($s3Url, $event->image_url);
+    }
+
+    public function test_sync_event_images_command_migrates_local_storage_events(): void
+    {
+        Storage::fake('public');
+        $fakeJpg = base64_decode('/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=');
+        Storage::disk('public')->put('events/another-local.jpg', $fakeJpg);
+
+        $event = Event::create([
+            'title' => 'Vēl viens lokāls pasākums',
+            'start_at' => now()->addDays(5),
+            'image_url' => '/storage/events/another-local.jpg',
+        ]);
+
+        $this->artisan('events:sync-images', ['--id' => $event->id])
+            ->assertSuccessful();
+
+        $event->refresh();
+        $this->assertNotNull($event->internal_image_url);
+        $this->assertStringEndsWith('.webp', $event->internal_image_url);
+        $this->assertEquals($event->internal_image_url, $event->image_url);
+    }
 }
