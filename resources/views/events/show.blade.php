@@ -506,44 +506,52 @@
                 </a>
             </div>
 
-            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2.5 sm:gap-3 lg:gap-3.5">
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3.5 sm:gap-4">
                 @foreach($relatedEvents as $rel)
-                    <article class="event-card group relative flex flex-col rounded-lg transition-all duration-300">
-                        <a href="{{ $rel->localized_url }}" class="flex flex-col gap-1.5 text-slate-900 no-underline focus:outline-none" aria-label="{{ $rel->title }}">
-                            <div class="poster relative aspect-[4/5] overflow-hidden rounded-lg border border-slate-200/90 group-hover:border-slate-300 shadow-xs bg-slate-100">
+                    <article class="event-card group relative bg-white rounded-xl border border-slate-200/85 hover:border-slate-300 shadow-xs hover:shadow-md overflow-hidden transition-all duration-300 flex flex-col justify-between">
+                        <a href="{{ $rel->localized_url }}" class="flex flex-col h-full text-slate-900 no-underline focus:outline-none" aria-label="{{ $rel->title }}">
+                            <div class="relative aspect-[16/10] w-full overflow-hidden bg-slate-100">
                                 <img 
                                     src="{{ $rel->display_image_url }}" 
                                     alt="{{ $rel->title }}" 
-                                    width="400"
-                                    height="533"
+                                    width="480"
+                                    height="300"
                                     loading="lazy"
                                     decoding="async"
                                     class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ease-out">
                                 <div class="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
                                 @if($rel->is_free)
                                     <div class="absolute bottom-2 left-2 z-10 pointer-events-none">
-                                        <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-emerald-600 text-white shadow-xs select-none">
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-emerald-600 text-white shadow-xs select-none uppercase tracking-wider">
                                             {{ __('Free') }}
                                         </span>
                                     </div>
                                 @endif
                             </div>
-                            <div class="flex flex-col gap-1 px-0.5 pt-0.5">
-                                <h3 class="line-clamp-2 text-sm font-semibold leading-snug text-slate-900 group-hover:text-emerald-700 transition-colors" title="{{ $rel->title }}">
-                                    {{ $rel->title }}
-                                </h3>
-                                <div class="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-xs">
-                                    <span class="font-semibold text-emerald-700">
-                                        {{ $rel->card_formatted_date }}
-                                    </span>
-                                </div>
-                                @if(!$rel->is_free && $rel->formatted_price)
-                                    <div class="text-xs font-semibold tracking-wide tabular-nums text-slate-700">
-                                        {{ $rel->formatted_price }}
+                            <div class="p-3 flex flex-col flex-grow justify-between gap-2">
+                                <div class="flex flex-col gap-1">
+                                    <h3 class="line-clamp-2 text-sm sm:text-[15px] font-bold leading-snug text-slate-900 group-hover:text-emerald-700 transition-colors" title="{{ $rel->title }}">
+                                        {{ $rel->title }}
+                                    </h3>
+                                    <div class="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-xs">
+                                        <span class="font-semibold text-emerald-700">
+                                            {{ $rel->card_formatted_date }}
+                                        </span>
+                                        @if(!$rel->all_day && $rel->start_at)
+                                            <span class="text-slate-400 font-normal">·</span>
+                                            <span class="text-slate-500 font-medium">
+                                                {{ $rel->start_at->format('H:i') }}
+                                            </span>
+                                        @endif
                                     </div>
-                                @endif
-                                <div class="line-clamp-1 text-xs leading-snug text-slate-500">
-                                    {{ $rel->location?->city ?: 'Latvija' }}
+                                    @if(!$rel->is_free && $rel->formatted_price)
+                                        <div class="text-xs font-semibold tracking-wide tabular-nums text-slate-700">
+                                            {{ $rel->formatted_price }}
+                                        </div>
+                                    @endif
+                                    <div class="line-clamp-1 text-xs leading-snug text-slate-500">
+                                        {{ $rel->location?->city ?: 'Latvija' }}
+                                    </div>
                                 </div>
                             </div>
                         </a>
