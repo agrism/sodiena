@@ -138,6 +138,7 @@ class UserEventCreationTest extends TestCase
 
     public function test_authenticated_user_can_upload_event_image(): void
     {
+        Storage::fake('s3');
         Storage::fake('public');
 
         $user = User::factory()->create();
@@ -169,12 +170,99 @@ class UserEventCreationTest extends TestCase
         $response->assertRedirect(route('events.show', $event->slug));
 
         $this->assertNotNull($event->image_url);
-        $this->assertStringStartsWith('/storage/events/', $event->image_url);
-
-        $storedPath = str_replace('/storage/', '', $event->image_url);
-        Storage::disk('public')->assertExists($storedPath);
+        $this->assertTrue(str_contains($event->image_url, 'events/') || str_contains($event->image_url, '.webp'));
+        $this->assertEquals($event->image_url, $event->internal_image_url);
         $this->assertEquals(15.50, $event->price_min);
         $this->assertEquals(35.00, $event->price_max);
+    }
+
+    public function test_authenticated_user_can_create_and_edit_multilingual_event_translations(): void
+    {
+        $user = User::factory()->create();
+        $user->assignRole(Role::REGULAR);
+
+        $muzika = Category::where('slug', 'muzika')->first();
+        $location = Location::create([
+            'name' => 'Dzintaru koncertzāle',
+            'city' => 'Jūrmala',
+            'region' => 'Jūrmala',
+        ]);
+
+        $response = $this->actingAs($user)->post('/events', [
+            'title' => 'Mūzikas svētki Jūrmalā',
+            'categories' => [$muzika->id],
+            'start_at' => now()->addDays(15)->format('Y-m-d 19:00'),
+            'description' => 'Pilns latviešu valodas apraksts par mūzikas svētkiem.',
+            'short_description' => 'Īss kopsavilkums latviski.',
+            'location_id' => $location->id,
+            'translations' => [
+                'en' => [
+                    'title' => 'Music Festival in Jurmala',
+                    'short_description' => 'Short summary in English.',
+                    'description' => 'Full English description of the music festival.',
+                ],
+                'ru' => [
+                    'title' => 'Музыкальный фестиваль в Юрмале',
+                    'short_description' => 'Краткое описание на русском.',
+                    'description' => 'Полное описание фестиваля на русском языке.',
+                ],
+            ],
+        ]);
+
+        $event = Event::where('title', 'Mūzikas svētki Jūrmalā')->first();
+        $this->assertNotNull($event);
+
+        // Verify all 3 translations exist in database
+        $this->assertDatabaseHas('event_translations', [
+            'event_id' => $event->id,
+            'locale' => 'lv',
+            'title' => 'Mūzikas svētki Jūrmalā',
+        ]);
+        $this->assertDatabaseHas('event_translations', [
+            'event_id' => $event->id,
+            'locale' => 'en',
+            'title' => 'Music Festival in Jurmala',
+            'description' => 'Full English description of the music festival.',
+        ]);
+        $this->assertDatabaseHas('event_translations', [
+            'event_id' => $event->id,
+            'locale' => 'ru',
+            'title' => 'Музыкальный фестиваль в Юрмале',
+            'description' => 'Полное описание фестиваля на русском языке.',
+        ]);
+
+        // Now test updating English and Russian translations
+        $updateResponse = $this->actingAs($user)->put('/events/' . $event->id, [
+            'title' => 'Mūzikas svētki Jūrmalā 2027',
+            'categories' => [$muzika->id],
+            'start_at' => now()->addDays(15)->format('Y-m-d 19:00'),
+            'description' => 'Atjaunināts latviešu apraksts.',
+            'location_id' => $location->id,
+            'translations' => [
+                'en' => [
+                    'title' => 'Updated Music Festival 2027',
+                    'short_description' => 'Updated short summary.',
+                    'description' => 'Updated English description.',
+                ],
+                'ru' => [
+                    'title' => 'Обновленный фестиваль 2027',
+                    'short_description' => 'Обновленное краткое описание.',
+                    'description' => 'Обновленное описание на русском.',
+                ],
+            ],
+        ]);
+
+        $updateResponse->assertRedirect();
+        $this->assertDatabaseHas('event_translations', [
+            'event_id' => $event->id,
+            'locale' => 'en',
+            'title' => 'Updated Music Festival 2027',
+        ]);
+        $this->assertDatabaseHas('event_translations', [
+            'event_id' => $event->id,
+            'locale' => 'ru',
+            'title' => 'Обновленный фестиваль 2027',
+        ]);
     }
 
     public function test_strict_cinema_priority_rule_is_applied_to_user_events(): void

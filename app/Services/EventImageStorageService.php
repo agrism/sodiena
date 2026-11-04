@@ -49,6 +49,59 @@ class EventImageStorageService
     /**
      * Download an image from an external URL and upload it to S3.
      */
+    public function uploadFile(\Illuminate\Http\UploadedFile $file, ?Event $event = null): ?string
+    {
+        try {
+            $body = file_get_contents($file->getRealPath());
+            if (empty($body)) {
+                Log::warning("Empty image uploaded file");
+                return null;
+            }
+
+            $mimeType = $file->getMimeType() ?: 'image/jpeg';
+
+            // Optimize and convert to WebP
+            $optimized = $this->optimizeImage($body, $mimeType);
+            if ($optimized) {
+                $body = $optimized['body'];
+                $mimeType = $optimized['mimeType'];
+                $extension = $optimized['extension'];
+            } else {
+                $extension = $file->getClientOriginalExtension() ?: 'webp';
+            }
+
+            $dateFolder = ($event && $event->start_at) ? $event->start_at->format('Y-m') : now()->format('Y-m');
+            $identifier = $event ? (string) $event->id : Str::random(8);
+            $contentHash = substr(md5($body), 0, 10);
+            $fileName = "{$identifier}_{$contentHash}.{$extension}";
+            $s3Path = "events/{$dateFolder}/{$fileName}";
+
+            $stored = Storage::disk($this->disk)->put($s3Path, $body, [
+                'visibility' => 'public',
+                'ContentType' => $mimeType,
+                'CacheControl' => 'max-age=31536000, public',
+            ]);
+
+            if ($stored) {
+                return Storage::disk($this->disk)->url($s3Path);
+            }
+
+            Log::error("Failed to store image in S3 at path: {$s3Path}");
+        } catch (\Throwable $e) {
+            Log::error("Exception uploading image file to S3: " . $e->getMessage(), [
+                'event_id' => $event?->id,
+                'exception' => $e,
+            ]);
+        }
+
+        // Fallback to local storage if S3 fails
+        $path = $file->store('events', 'public');
+        return '/storage/' . $path;
+    }
+
+    /**
+     * Download an image from an external URL and upload it to S3.
+     */
     public function uploadFromUrl(string $url, ?Event $event = null): ?string
     {
         $url = trim($url);

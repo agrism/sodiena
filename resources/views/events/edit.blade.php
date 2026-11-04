@@ -60,10 +60,29 @@
                     <h2 class="text-lg font-extrabold text-slate-900">{{ __('Basic Information') }}</h2>
                 </div>
 
-                <!-- Pasākuma nosaukums -->
-                <div>
+                <!-- Valodu pārslēdzējs saturam -->
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
+                    <div>
+                        <span class="text-xs font-bold uppercase tracking-wider text-slate-800 block">{{ __('Content Language') }} / {{ __('Saturs pēc valodām') }}</span>
+                        <span class="text-[11px] text-slate-500">{{ __('Latvian is primary. English and Russian are optional.') }}</span>
+                    </div>
+                    <div class="inline-flex p-1 bg-white border border-slate-200 rounded-xl gap-1 shadow-2xs">
+                        <button type="button" onclick="switchContentLang('lv')" id="btn-lang-lv" class="lang-pill px-3 py-1.5 rounded-lg text-xs font-extrabold bg-emerald-600 text-white shadow-xs flex items-center gap-1.5 transition-all">
+                            <span>🇱🇻</span> <span>LV</span> <span class="text-[9px] opacity-80 uppercase tracking-wider">({{ __('Primary') }})</span>
+                        </button>
+                        <button type="button" onclick="switchContentLang('en')" id="btn-lang-en" class="lang-pill px-3 py-1.5 rounded-lg text-xs font-bold text-slate-600 hover:text-slate-900 flex items-center gap-1.5 transition-all">
+                            <span>🇬🇧</span> <span>EN</span>
+                        </button>
+                        <button type="button" onclick="switchContentLang('ru')" id="btn-lang-ru" class="lang-pill px-3 py-1.5 rounded-lg text-xs font-bold text-slate-600 hover:text-slate-900 flex items-center gap-1.5 transition-all">
+                            <span>🇷🇺</span> <span>RU</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Pasākuma nosaukums: LV -->
+                <div id="field-title-lv" class="lang-field-lv">
                     <label for="title" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                        {{ __('Event Title') }} <span class="text-rose-500">*</span>
+                        {{ __('Event Title') }} <span class="text-rose-500">*</span> <span class="text-slate-400 font-normal lowercase tracking-normal">(Latviešu)</span>
                     </label>
                     <input 
                         type="text" 
@@ -78,6 +97,34 @@
                             {{ $message }}
                         </p>
                     @enderror
+                </div>
+
+                <!-- Pasākuma nosaukums: EN -->
+                <div id="field-title-en" class="lang-field-en hidden">
+                    <label for="title_en" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                        {{ __('Event Title') }} <span class="text-slate-400 font-normal lowercase tracking-normal">(English, {{ __('optional') }})</span>
+                    </label>
+                    <input 
+                        type="text" 
+                        name="translations[en][title]" 
+                        id="title_en" 
+                        value="{{ old('translations.en.title', $enTrans?->title) }}" 
+                        placeholder="e.g., Event title in English" 
+                        class="block w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:ring-emerald-500 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:bg-white transition-all font-medium">
+                </div>
+
+                <!-- Pasākuma nosaukums: RU -->
+                <div id="field-title-ru" class="lang-field-ru hidden">
+                    <label for="title_ru" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                        {{ __('Event Title') }} <span class="text-slate-400 font-normal lowercase tracking-normal">(Русский, {{ __('optional') }})</span>
+                    </label>
+                    <input 
+                        type="text" 
+                        name="translations[ru][title]" 
+                        id="title_ru" 
+                        value="{{ old('translations.ru.title', $ruTrans?->title) }}" 
+                        placeholder="например, Название события на русском" 
+                        class="block w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:ring-emerald-500 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:bg-white transition-all font-medium">
                 </div>
 
                 <!-- Kategorijas -->
@@ -393,31 +440,115 @@
                     <h2 class="text-lg font-extrabold text-slate-900">{{ __('Description and Content') }}</h2>
                 </div>
 
-                <div>
-                    <label for="short_description" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                        {{ __('Short Summary') }}
-                    </label>
-                    <textarea 
-                        name="short_description" 
-                        id="short_description" 
-                        rows="2" 
-                        maxlength="500"
-                        class="block w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:ring-emerald-500 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:bg-white transition-all font-medium">{{ old('short_description', $event->short_description) }}</textarea>
+                <!-- Valodu pārslēdzējs aprakstam -->
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
+                    <div>
+                        <span class="text-xs font-bold uppercase tracking-wider text-slate-800 block">{{ __('Description Language') }}</span>
+                        <span class="text-[11px] text-slate-500">{{ __('Switch between languages to provide multilingual descriptions.') }}</span>
+                    </div>
+                    <div class="inline-flex p-1 bg-white border border-slate-200 rounded-xl gap-1 shadow-2xs">
+                        <button type="button" onclick="switchContentLang('lv')" id="btn-lang-desc-lv" class="lang-pill-desc px-3 py-1.5 rounded-lg text-xs font-extrabold bg-emerald-600 text-white shadow-xs flex items-center gap-1.5 transition-all">
+                            <span>🇱🇻</span> <span>LV</span>
+                        </button>
+                        <button type="button" onclick="switchContentLang('en')" id="btn-lang-desc-en" class="lang-pill-desc px-3 py-1.5 rounded-lg text-xs font-bold text-slate-600 hover:text-slate-900 flex items-center gap-1.5 transition-all">
+                            <span>🇬🇧</span> <span>EN</span>
+                        </button>
+                        <button type="button" onclick="switchContentLang('ru')" id="btn-lang-desc-ru" class="lang-pill-desc px-3 py-1.5 rounded-lg text-xs font-bold text-slate-600 hover:text-slate-900 flex items-center gap-1.5 transition-all">
+                            <span>🇷🇺</span> <span>RU</span>
+                        </button>
+                    </div>
                 </div>
 
-                <div>
-                    <label for="description" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                        {{ __('Full Event Description') }} <span class="text-rose-500">*</span>
-                    </label>
-                    <textarea 
-                        name="description" 
-                        id="description" 
-                        rows="6" 
-                        required 
-                        class="block w-full px-4 py-3 bg-slate-50 border @error('description') border-rose-400 @else border-slate-200 @enderror focus:ring-emerald-500 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:bg-white transition-all font-medium leading-relaxed">{{ old('description', $event->description) }}</textarea>
-                    @error('description')
-                        <p class="mt-1.5 text-xs font-bold text-rose-600">{{ $message }}</p>
-                    @enderror
+                <!-- LV Apraksts -->
+                <div class="lang-desc-lv space-y-4">
+                    <div>
+                        <label for="short_description" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                            {{ __('Short Summary') }} <span class="text-slate-400 font-normal lowercase tracking-normal">(Latviešu, {{ __('optional') }})</span>
+                        </label>
+                        <textarea 
+                            name="short_description" 
+                            id="short_description" 
+                            rows="2" 
+                            maxlength="500"
+                            class="block w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:ring-emerald-500 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:bg-white transition-all font-medium">{{ old('short_description', $event->short_description) }}</textarea>
+                    </div>
+
+                    <div>
+                        <label for="description" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                            {{ __('Full Event Description') }} <span class="text-rose-500">*</span> <span class="text-slate-400 font-normal lowercase tracking-normal">(Latviešu)</span>
+                        </label>
+                        <textarea 
+                            name="description" 
+                            id="description" 
+                            rows="6" 
+                            required 
+                            class="block w-full px-4 py-3 bg-slate-50 border @error('description') border-rose-400 @else border-slate-200 @enderror focus:ring-emerald-500 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:bg-white transition-all font-medium leading-relaxed">{{ old('description', $event->description) }}</textarea>
+                        @error('description')
+                            <p class="mt-1.5 text-xs font-bold text-rose-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+                </div>
+
+                <!-- EN Apraksts -->
+                <div class="lang-desc-en hidden space-y-4">
+                    <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600">
+                        🇬🇧 <strong>English translation:</strong> Optional. If left empty, the site will automatically use the Latvian description or machine translation.
+                    </div>
+                    <div>
+                        <label for="short_description_en" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                            {{ __('Short Summary') }} <span class="text-slate-400 font-normal lowercase tracking-normal">(English, {{ __('optional') }})</span>
+                        </label>
+                        <textarea 
+                            name="translations[en][short_description]" 
+                            id="short_description_en" 
+                            rows="2" 
+                            maxlength="500"
+                            placeholder="Short 1-2 sentence description in English..." 
+                            class="block w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:ring-emerald-500 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:bg-white transition-all font-medium">{{ old('translations.en.short_description', $enTrans?->short_description) }}</textarea>
+                    </div>
+
+                    <div>
+                        <label for="description_en" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                            {{ __('Full Event Description') }} <span class="text-slate-400 font-normal lowercase tracking-normal">(English, {{ __('optional') }})</span>
+                        </label>
+                        <textarea 
+                            name="translations[en][description]" 
+                            id="description_en" 
+                            rows="6" 
+                            placeholder="Detailed event description in English..." 
+                            class="block w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:ring-emerald-500 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:bg-white transition-all font-medium leading-relaxed">{{ old('translations.en.description', $enTrans?->description) }}</textarea>
+                    </div>
+                </div>
+
+                <!-- RU Apraksts -->
+                <div class="lang-desc-ru hidden space-y-4">
+                    <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600">
+                        🇷🇺 <strong>Русский перевод:</strong> Необязательно. Если оставить пустым, на сайте будет использоваться текст на латышском языке или машинный перевод.
+                    </div>
+                    <div>
+                        <label for="short_description_ru" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                            {{ __('Short Summary') }} <span class="text-slate-400 font-normal lowercase tracking-normal">(Русский, {{ __('optional') }})</span>
+                        </label>
+                        <textarea 
+                            name="translations[ru][short_description]" 
+                            id="short_description_ru" 
+                            rows="2" 
+                            maxlength="500"
+                            placeholder="Краткое описание события на русском..." 
+                            class="block w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:ring-emerald-500 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:bg-white transition-all font-medium">{{ old('translations.ru.short_description', $ruTrans?->short_description) }}</textarea>
+                    </div>
+
+                    <div>
+                        <label for="description_ru" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                            {{ __('Full Event Description') }} <span class="text-slate-400 font-normal lowercase tracking-normal">(Русский, {{ __('optional') }})</span>
+                        </label>
+                        <textarea 
+                            name="translations[ru][description]" 
+                            id="description_ru" 
+                            rows="6" 
+                            placeholder="Подробное описание программы, участников на русском..." 
+                            class="block w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:ring-emerald-500 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:bg-white transition-all font-medium leading-relaxed">{{ old('translations.ru.description', $ruTrans?->description) }}</textarea>
+                    </div>
                 </div>
             </div>
 
@@ -537,6 +668,29 @@ document.addEventListener('DOMContentLoaded', function () {
         window.addEventListener('flatpickr-ready', setupFormPickers);
     }
 });
+
+function switchContentLang(lang) {
+    const langs = ['lv', 'en', 'ru'];
+    langs.forEach(l => {
+        const titleField = document.getElementById('field-title-' + l);
+        const topBtn = document.getElementById('btn-lang-' + l);
+        const descDiv = document.querySelector('.lang-desc-' + l);
+        const descBtn = document.getElementById('btn-lang-desc-' + l);
+
+        const isActive = (l === lang);
+        if (titleField) titleField.classList.toggle('hidden', !isActive);
+        if (descDiv) descDiv.classList.toggle('hidden', !isActive);
+
+        [topBtn, descBtn].forEach(btn => {
+            if (!btn) return;
+            if (isActive) {
+                btn.className = btn.className.replace(/text-slate-600 hover:text-slate-900 font-bold/g, '') + ' bg-emerald-600 text-white shadow-xs font-extrabold';
+            } else {
+                btn.className = btn.className.replace(/bg-emerald-600 text-white shadow-xs font-extrabold/g, '') + ' text-slate-600 hover:text-slate-900 font-bold';
+            }
+        });
+    });
+}
 
 function togglePriceFields(isFree) {
     const container = document.getElementById('price-fields-container');

@@ -69,6 +69,13 @@ class UserEventController extends Controller
             'address' => ['nullable', 'string', 'max:255'],
             'image' => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp,gif', 'max:5120'],
             'image_url' => ['nullable', 'url', 'max:2000'],
+            'translations' => ['nullable', 'array'],
+            'translations.en.title' => ['nullable', 'string', 'max:255'],
+            'translations.en.short_description' => ['nullable', 'string', 'max:1000'],
+            'translations.en.description' => ['nullable', 'string'],
+            'translations.ru.title' => ['nullable', 'string', 'max:255'],
+            'translations.ru.short_description' => ['nullable', 'string', 'max:1000'],
+            'translations.ru.description' => ['nullable', 'string'],
         ], [
             'title.required' => __('Please enter event title.'),
             'title.min' => __('Event title must be at least 3 characters long.'),
@@ -124,13 +131,15 @@ class UserEventController extends Controller
                 $locationName = $location->name;
             }
 
-            // 2. Resolve Image URL
+            // 2. Resolve Image URL (Direct S3 upload with WebP optimization)
             $imageUrl = null;
+            $s3Service = app(\App\Services\EventImageStorageService::class);
             if ($request->hasFile('image')) {
-                $path = $request->file('image')->store('events', 'public');
-                $imageUrl = '/storage/'.$path;
+                $imageUrl = $s3Service->uploadFile($request->file('image'));
             } elseif (! empty($validated['image_url'])) {
-                $imageUrl = trim($validated['image_url']);
+                $rawUrl = trim($validated['image_url']);
+                $s3Url = $s3Service->uploadFromUrl($rawUrl);
+                $imageUrl = $s3Url ?: $rawUrl;
             }
 
             // 3. Resolve Pricing & Dates
@@ -179,7 +188,7 @@ class UserEventController extends Controller
                 'ticket_url' => $validated['ticket_url'] ?? null,
                 'source_url' => $validated['source_url'] ?? null,
                 'image_url' => $imageUrl,
-                'internal_image_url' => null,
+                'internal_image_url' => $imageUrl,
                 'entertainment_type' => $validated['entertainment_type'] ?? null,
                 'status' => 'published',
                 'published_at' => now(),
@@ -189,8 +198,7 @@ class UserEventController extends Controller
             // Sync categories
             $event->categories()->sync($categoryIds);
 
-            // 6. Create primary LV translation record (and current locale if different)
-            $currentLocale = app()->getLocale();
+            // 6. Save Translations (LV primary, plus optional EN and RU)
             EventTranslation::create([
                 'event_id' => $event->id,
                 'locale' => 'lv',
@@ -200,14 +208,35 @@ class UserEventController extends Controller
                 'short_description' => $event->short_description,
             ]);
 
-            if ($currentLocale !== 'lv') {
+            // EN Translation
+            $enTitle = trim((string) ($validated['translations']['en']['title'] ?? ''));
+            $enDesc = trim((string) ($validated['translations']['en']['description'] ?? ''));
+            $enShort = trim((string) ($validated['translations']['en']['short_description'] ?? ''));
+            if (! empty($enTitle) || ! empty($enDesc)) {
+                $enTitleFinal = $enTitle ?: $event->title;
                 EventTranslation::create([
                     'event_id' => $event->id,
-                    'locale' => $currentLocale,
-                    'title' => $event->title,
-                    'slug' => $event->slug,
-                    'description' => $event->description,
-                    'short_description' => $event->short_description,
+                    'locale' => 'en',
+                    'title' => $enTitleFinal,
+                    'slug' => Str::slug($enTitleFinal) . '-' . Str::random(6),
+                    'description' => $enDesc ?: $event->description,
+                    'short_description' => $enShort ?: ($enDesc ? Str::limit(strip_tags($enDesc), 280) : $event->short_description),
+                ]);
+            }
+
+            // RU Translation
+            $ruTitle = trim((string) ($validated['translations']['ru']['title'] ?? ''));
+            $ruDesc = trim((string) ($validated['translations']['ru']['description'] ?? ''));
+            $ruShort = trim((string) ($validated['translations']['ru']['short_description'] ?? ''));
+            if (! empty($ruTitle) || ! empty($ruDesc)) {
+                $ruTitleFinal = $ruTitle ?: $event->title;
+                EventTranslation::create([
+                    'event_id' => $event->id,
+                    'locale' => 'ru',
+                    'title' => $ruTitleFinal,
+                    'slug' => Str::slug($ruTitleFinal) . '-' . Str::random(6),
+                    'description' => $ruDesc ?: $event->description,
+                    'short_description' => $ruShort ?: ($ruDesc ? Str::limit(strip_tags($ruDesc), 280) : $event->short_description),
                 ]);
             }
 
@@ -260,7 +289,11 @@ class UserEventController extends Controller
             $popularLocations->prepend($event->location);
         }
 
-        return view('events.edit', compact('event', 'categories', 'cities', 'popularLocations'));
+        $event->loadMissing('translations', 'location', 'categories');
+        $enTrans = $event->translations->firstWhere('locale', 'en');
+        $ruTrans = $event->translations->firstWhere('locale', 'ru');
+
+        return view('events.edit', compact('event', 'categories', 'cities', 'popularLocations', 'enTrans', 'ruTrans'));
     }
 
     /**
@@ -291,6 +324,13 @@ class UserEventController extends Controller
             'address' => ['nullable', 'string', 'max:255'],
             'image' => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp,gif', 'max:5120'],
             'image_url' => ['nullable', 'url', 'max:2000'],
+            'translations' => ['nullable', 'array'],
+            'translations.en.title' => ['nullable', 'string', 'max:255'],
+            'translations.en.short_description' => ['nullable', 'string', 'max:1000'],
+            'translations.en.description' => ['nullable', 'string'],
+            'translations.ru.title' => ['nullable', 'string', 'max:255'],
+            'translations.ru.short_description' => ['nullable', 'string', 'max:1000'],
+            'translations.ru.description' => ['nullable', 'string'],
         ], [
             'title.required' => __('Please enter event title.'),
             'categories.required' => __('Please select at least one category.'),
@@ -323,16 +363,22 @@ class UserEventController extends Controller
                 $locationName = $location->name;
             }
 
-            // Image handling
+            // Image handling (Direct S3 upload with WebP optimization)
             $imageUrl = $event->image_url;
             $internalImageUrl = $event->internal_image_url;
+            $s3Service = app(\App\Services\EventImageStorageService::class);
+
             if ($request->hasFile('image')) {
-                $path = $request->file('image')->store('events', 'public');
-                $imageUrl = '/storage/'.$path;
-                $internalImageUrl = null;
-            } elseif (! empty($validated['image_url'])) {
-                $imageUrl = trim($validated['image_url']);
-                $internalImageUrl = null;
+                $uploadedUrl = $s3Service->uploadFile($request->file('image'), $event);
+                if ($uploadedUrl) {
+                    $imageUrl = $uploadedUrl;
+                    $internalImageUrl = $uploadedUrl;
+                }
+            } elseif (! empty($validated['image_url']) && $validated['image_url'] !== $event->image_url) {
+                $rawUrl = trim($validated['image_url']);
+                $s3Url = $s3Service->uploadFromUrl($rawUrl, $event);
+                $imageUrl = $s3Url ?: $rawUrl;
+                $internalImageUrl = $s3Url ?: null;
             }
 
             $isFree = (bool) ($validated['is_free'] ?? false);
@@ -377,8 +423,7 @@ class UserEventController extends Controller
 
             $event->categories()->sync($categoryIds);
 
-            // Update primary LV translation (and current locale if different)
-            $currentLocale = app()->getLocale();
+            // Update primary LV translation
             EventTranslation::updateOrCreate(
                 ['event_id' => $event->id, 'locale' => 'lv'],
                 [
@@ -389,14 +434,40 @@ class UserEventController extends Controller
                 ]
             );
 
-            if ($currentLocale !== 'lv') {
+            // EN Translation
+            $enTitle = trim((string) ($validated['translations']['en']['title'] ?? ''));
+            $enDesc = trim((string) ($validated['translations']['en']['description'] ?? ''));
+            $enShort = trim((string) ($validated['translations']['en']['short_description'] ?? ''));
+            if (! empty($enTitle) || ! empty($enDesc)) {
+                $enTitleFinal = $enTitle ?: $event->title;
+                $existingEn = EventTranslation::where('event_id', $event->id)->where('locale', 'en')->first();
+                $enSlug = $existingEn?->slug ?: (Str::slug($enTitleFinal) . '-' . Str::random(6));
                 EventTranslation::updateOrCreate(
-                    ['event_id' => $event->id, 'locale' => $currentLocale],
+                    ['event_id' => $event->id, 'locale' => 'en'],
                     [
-                        'title' => $event->title,
-                        'slug' => $event->slug,
-                        'description' => $event->description,
-                        'short_description' => $event->short_description,
+                        'title' => $enTitleFinal,
+                        'slug' => $enSlug,
+                        'description' => $enDesc ?: $event->description,
+                        'short_description' => $enShort ?: ($enDesc ? Str::limit(strip_tags($enDesc), 280) : $event->short_description),
+                    ]
+                );
+            }
+
+            // RU Translation
+            $ruTitle = trim((string) ($validated['translations']['ru']['title'] ?? ''));
+            $ruDesc = trim((string) ($validated['translations']['ru']['description'] ?? ''));
+            $ruShort = trim((string) ($validated['translations']['ru']['short_description'] ?? ''));
+            if (! empty($ruTitle) || ! empty($ruDesc)) {
+                $ruTitleFinal = $ruTitle ?: $event->title;
+                $existingRu = EventTranslation::where('event_id', $event->id)->where('locale', 'ru')->first();
+                $ruSlug = $existingRu?->slug ?: (Str::slug($ruTitleFinal) . '-' . Str::random(6));
+                EventTranslation::updateOrCreate(
+                    ['event_id' => $event->id, 'locale' => 'ru'],
+                    [
+                        'title' => $ruTitleFinal,
+                        'slug' => $ruSlug,
+                        'description' => $ruDesc ?: $event->description,
+                        'short_description' => $ruShort ?: ($ruDesc ? Str::limit(strip_tags($ruDesc), 280) : $event->short_description),
                     ]
                 );
             }
