@@ -62,6 +62,28 @@ class UserEventCreationTest extends TestCase
         $response->assertSee('Publicēt pasākumu');
     }
 
+    public function test_event_create_form_renders_in_english_and_russian(): void
+    {
+        $user = User::factory()->create();
+        $user->assignRole(Role::REGULAR);
+
+        // English version
+        $responseEn = $this->actingAs($user)->get('/en/events/create');
+        $responseEn->assertOk();
+        $responseEn->assertSee('Add New Event');
+        $responseEn->assertSee('Event Title');
+        $responseEn->assertSee('Publish Event');
+        $responseEn->assertSee('Basic Information');
+
+        // Russian version
+        $responseRu = $this->actingAs($user)->get('/ru/events/create');
+        $responseRu->assertOk();
+        $responseRu->assertSee('Добавить новое событие');
+        $responseRu->assertSee('Название события');
+        $responseRu->assertSee('Опубликовать событие');
+        $responseRu->assertSee('Основная информация');
+    }
+
     public function test_authenticated_user_can_create_event_with_custom_location(): void
     {
         Storage::fake('public');

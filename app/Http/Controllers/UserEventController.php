@@ -70,18 +70,18 @@ class UserEventController extends Controller
             'image' => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp,gif', 'max:5120'],
             'image_url' => ['nullable', 'url', 'max:2000'],
         ], [
-            'title.required' => 'Lūdzu, ievadiet pasākuma nosaukumu.',
-            'title.min' => 'Pasākuma nosaukumam jābūt vismaz 3 rakstzīmes garam.',
-            'categories.required' => 'Lūdzu, izvēlieties vismaz vienu kategoriju.',
-            'categories.min' => 'Lūdzu, izvēlieties vismaz vienu kategoriju.',
-            'start_at.required' => 'Lūdzu, norādiet pasākuma sākuma datumu un laiku.',
-            'end_at.after_or_equal' => 'Beigu laikam jābūt vēlākam vai vienādam ar sākuma laiku.',
-            'description.required' => 'Lūdzu, ievadiet pasākuma aprakstu.',
-            'description.min' => 'Aprakstam jābūt vismaz 10 rakstzīmes garam.',
-            'city.required_without' => 'Lūdzu, norādiet pilsētu vai izvēlieties vietu no saraksta.',
-            'venue_name.required_without' => 'Lūdzu, norādiet norises vietu vai izvēlieties no saraksta.',
-            'image.image' => 'Pievienotajam failam jābūt attēlam (JPEG, PNG, WEBP, GIF).',
-            'image.max' => 'Attēla izmērs nedrīkst pārsniegt 5MB.',
+            'title.required' => __('Please enter event title.'),
+            'title.min' => __('Event title must be at least 3 characters long.'),
+            'categories.required' => __('Please select at least one category.'),
+            'categories.min' => __('Please select at least one category.'),
+            'start_at.required' => __('Please specify event start date and time.'),
+            'end_at.after_or_equal' => __('End date and time must be after or equal to start date and time.'),
+            'description.required' => __('Please enter event description.'),
+            'description.min' => __('Description must be at least 10 characters long.'),
+            'city.required_without' => __('Please specify a city or choose a venue from the list.'),
+            'venue_name.required_without' => __('Please specify a venue name or choose from the list.'),
+            'image.image' => __('The uploaded file must be an image (JPEG, PNG, WEBP, GIF).'),
+            'image.max' => __('Image size must not exceed 5MB.'),
         ]);
 
         return DB::transaction(function () use ($request, $validated) {
@@ -188,7 +188,8 @@ class UserEventController extends Controller
             // Sync categories
             $event->categories()->sync($categoryIds);
 
-            // 6. Create primary LV translation record
+            // 6. Create primary LV translation record (and current locale if different)
+            $currentLocale = app()->getLocale();
             EventTranslation::create([
                 'event_id' => $event->id,
                 'locale' => 'lv',
@@ -198,13 +199,24 @@ class UserEventController extends Controller
                 'short_description' => $event->short_description,
             ]);
 
+            if ($currentLocale !== 'lv') {
+                EventTranslation::create([
+                    'event_id' => $event->id,
+                    'locale' => $currentLocale,
+                    'title' => $event->title,
+                    'slug' => $event->slug,
+                    'description' => $event->description,
+                    'short_description' => $event->short_description,
+                ]);
+            }
+
             // Clear cache & refresh sitemap
             Cache::forget('cat_counts_lv_all_none');
             Cache::forget('locations_distinct_cities');
             RefreshSitemapJob::dispatch();
 
-            return redirect()->route('events.show', $event->slug)
-                ->with('success', 'Pasākums veiksmīgi pievienots un publicēts!');
+            return redirect()->to($event->localized_url)
+                ->with('success', __('Event successfully added and published!'));
         });
     }
 
@@ -275,11 +287,11 @@ class UserEventController extends Controller
             'image' => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp,gif', 'max:5120'],
             'image_url' => ['nullable', 'url', 'max:2000'],
         ], [
-            'title.required' => 'Lūdzu, ievadiet pasākuma nosaukumu.',
-            'categories.required' => 'Lūdzu, izvēlieties vismaz vienu kategoriju.',
-            'start_at.required' => 'Lūdzu, norādiet pasākuma sākuma datumu un laiku.',
-            'end_at.after_or_equal' => 'Beigu laikam jābūt vēlākam vai vienādam ar sākuma laiku.',
-            'description.required' => 'Lūdzu, ievadiet pasākuma aprakstu.',
+            'title.required' => __('Please enter event title.'),
+            'categories.required' => __('Please select at least one category.'),
+            'start_at.required' => __('Please specify event start date and time.'),
+            'end_at.after_or_equal' => __('End date and time must be after or equal to start date and time.'),
+            'description.required' => __('Please enter event description.'),
         ]);
 
         return DB::transaction(function () use ($request, $validated, $event) {
@@ -356,7 +368,8 @@ class UserEventController extends Controller
 
             $event->categories()->sync($categoryIds);
 
-            // Update primary LV translation
+            // Update primary LV translation (and current locale if different)
+            $currentLocale = app()->getLocale();
             EventTranslation::updateOrCreate(
                 ['event_id' => $event->id, 'locale' => 'lv'],
                 [
@@ -367,10 +380,22 @@ class UserEventController extends Controller
                 ]
             );
 
+            if ($currentLocale !== 'lv') {
+                EventTranslation::updateOrCreate(
+                    ['event_id' => $event->id, 'locale' => $currentLocale],
+                    [
+                        'title' => $event->title,
+                        'slug' => $event->slug,
+                        'description' => $event->description,
+                        'short_description' => $event->short_description,
+                    ]
+                );
+            }
+
             RefreshSitemapJob::dispatch();
 
-            return redirect()->route('events.show', $event->slug)
-                ->with('success', 'Pasākums veiksmīgi atjaunināts!');
+            return redirect()->to($event->localized_url)
+                ->with('success', __('Event successfully updated!'));
         });
     }
 
@@ -385,7 +410,7 @@ class UserEventController extends Controller
         RefreshSitemapJob::dispatch();
 
         return redirect()->route('events.my')
-            ->with('success', 'Pasākums veiksmīgi dzēsts.');
+            ->with('success', __('Event successfully deleted.'));
     }
 
     /**
@@ -394,7 +419,7 @@ class UserEventController extends Controller
     protected function authorizeEventOwner(Event $event): void
     {
         if ($event->user_id !== Auth::id() && ! Auth::user()->isAdmin()) {
-            abort(403, 'Jums nav tiesību veikt šo darbību.');
+            abort(403, __('You do not have permission to perform this action.'));
         }
     }
 
