@@ -16,10 +16,10 @@
     <div class="contents">
         @foreach($events as $event)
             <article class="event-card group relative bg-white rounded-xl border {{ $event->is_promoted ? 'border-amber-300 ring-2 ring-amber-400/50 shadow-md shadow-amber-500/10' : 'border-slate-200/85 hover:border-slate-300 shadow-xs hover:shadow-md' }} overflow-hidden transition-all duration-300 flex flex-col h-fit">
-                <a href="{{ $event->localized_url }}" class="flex flex-col text-slate-900 no-underline focus:outline-none" aria-label="{{ $event->title }}">
-                    
-                    <!-- Image Area: Increased Height (aspect-[1/1] square) filling 100% of container -->
-                    <div class="relative aspect-[1/1] w-full overflow-hidden bg-slate-100">
+                <!-- Image Area: (aspect-[1/1] square) filling 100% of container -->
+                <div class="relative aspect-[1/1] w-full overflow-hidden bg-slate-100">
+                    <!-- Clickable Image Link -->
+                    <a href="{{ $event->localized_url }}" class="relative z-1 block w-full h-full focus:outline-none" aria-label="{{ $event->title }}">
                         <img 
                             src="{{ $event->display_image_url }}" 
                             alt="{{ $event->title }}"
@@ -36,60 +36,62 @@
 
                         <!-- Subtle hover dark gradient overlay -->
                         <div class="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
+                    </a>
 
-                        <!-- Top Badges Row -->
-                        <div class="absolute top-2 left-2 right-2 flex items-center justify-between gap-1.5 pointer-events-none z-10">
-                            <div class="flex items-center gap-1 flex-wrap">
-                                @if($event->is_promoted)
-                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-xs border border-amber-300/40 select-none tracking-wide">
-                                        <i data-lucide="sparkles" class="w-3 h-3 fill-amber-100 text-amber-100"></i>
-                                        <span>{{ __('Izcelts') }}</span>
-                                    </span>
-                                @endif
-                            </div>
-
-                            <div class="flex items-center gap-1 pointer-events-auto">
-                                <!-- Admin Afiro Indicator -->
-                                @if(auth()->check() && auth()->user()->isAdmin())
-                                    @if($event->isAfiro() && $event->afiro_url)
-                                        <a 
-                                            href="{{ $event->afiro_url }}" 
-                                            target="_blank" 
-                                            rel="noopener noreferrer" 
-                                            onclick="event.stopPropagation();"
-                                            title="Atvērt Afiro notikumu: {{ $event->afiro_url }}"
-                                            class="w-6 h-6 rounded-full bg-white text-red-600 border border-red-500 flex items-center justify-center font-black text-[10px] shadow-sm hover:bg-red-600 hover:text-white transition-all transform hover:scale-110 shrink-0 cursor-pointer"
-                                        >
-                                            A
-                                        </a>
-                                    @else
-                                        <span 
-                                            title="Nav Afiro notikums (Avots: {{ $event->source?->name ?: $event->source_slug ?: 'Cits' }})"
-                                            class="w-6 h-6 rounded-full bg-white/90 text-slate-400 border border-slate-300 flex items-center justify-center font-bold text-[10px] shadow-xs shrink-0 cursor-default select-none"
-                                        >
-                                            A
-                                        </span>
-                                    @endif
-                                @endif
-                            </div>
+                    <!-- Top Badges Row -->
+                    <div class="absolute top-2 left-2 right-2 flex items-center justify-between gap-1.5 pointer-events-none z-10">
+                        <div class="flex items-center gap-1 flex-wrap">
+                            @if($event->is_promoted)
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-xs border border-amber-300/40 select-none tracking-wide">
+                                    <i data-lucide="sparkles" class="w-3 h-3 fill-amber-100 text-amber-100"></i>
+                                    <span>{{ __('Izcelts') }}</span>
+                                </span>
+                            @endif
                         </div>
 
-                        <!-- Poster Bottom Pills (Free badge) -->
-                        @if($event->is_free)
-                            <div class="absolute bottom-2 left-2 z-10 pointer-events-none">
-                                <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-emerald-600 text-white shadow-xs select-none uppercase tracking-wider">
-                                    {{ __('Free') }}
-                                </span>
-                            </div>
-                        @endif
+                        <div class="flex items-center gap-1 pointer-events-auto">
+                            <!-- Admin Afiro Indicator -->
+                            @if(auth()->check() && auth()->user()->isAdmin())
+                                @if($event->isAfiro() && $event->afiro_url)
+                                    <a 
+                                        href="{{ $event->afiro_url }}" 
+                                        target="_blank" 
+                                        rel="noopener noreferrer" 
+                                        title="Atvērt Afiro notikumu: {{ $event->afiro_url }}"
+                                        class="w-6 h-6 rounded-full bg-white text-red-600 border border-red-500 flex items-center justify-center font-black text-[10px] shadow-sm hover:bg-red-600 hover:text-white transition-all transform hover:scale-110 shrink-0 cursor-pointer"
+                                    >
+                                        A
+                                    </a>
+                                @else
+                                    <span 
+                                        title="Nav Afiro notikums (Avots: {{ $event->source?->name ?: $event->source_slug ?: 'Cits' }})"
+                                        class="w-6 h-6 rounded-full bg-white/90 text-slate-400 border border-slate-300 flex items-center justify-center font-bold text-[10px] shadow-xs shrink-0 cursor-default select-none"
+                                    >
+                                        A
+                                    </span>
+                                @endif
+                            @endif
+                        </div>
                     </div>
 
-                    <!-- Compact Details Area (Significantly reduced total tile height) -->
-                    <div class="p-2.5 flex flex-col gap-1.5">
-                        <!-- Title: 2 lines max, tight leading -->
-                        <h3 class="line-clamp-2 text-sm sm:text-[14px] font-bold leading-snug text-slate-900 group-hover:text-emerald-700 transition-colors" title="{{ $event->title }}">
+                    <!-- Poster Bottom Pills (Free badge) -->
+                    @if($event->is_free)
+                        <div class="absolute bottom-2 left-2 z-10 pointer-events-none">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-emerald-600 text-white shadow-xs select-none uppercase tracking-wider">
+                                {{ __('Free') }}
+                            </span>
+                        </div>
+                    @endif
+                </div>
+
+                <!-- Compact Details Area (Significantly reduced total tile height) -->
+                <div class="p-2.5 flex flex-col gap-1.5">
+                    <!-- Title: 2 lines max, tight leading -->
+                    <h3 class="line-clamp-2 text-sm sm:text-[14px] font-bold leading-snug text-slate-900 group-hover:text-emerald-700 transition-colors" title="{{ $event->title }}">
+                        <a href="{{ $event->localized_url }}" class="focus:outline-none hover:text-emerald-700 after:absolute after:inset-0 after:z-0">
                             {{ $event->title }}
-                        </h3>
+                        </a>
+                    </h3>
 
                         <div class="flex flex-col gap-0.5">
                             <!-- Date & Time (Left) + Price (Right) in single compact row -->
@@ -134,7 +136,6 @@
                             </div>
                         </div>
                     </div>
-                </a>
             </article>
         @endforeach
     </div>

@@ -509,8 +509,8 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3.5 sm:gap-4 items-start">
                 @foreach($relatedEvents as $rel)
                     <article class="event-card group relative bg-white rounded-xl border border-slate-200/85 hover:border-slate-300 shadow-xs hover:shadow-md overflow-hidden transition-all duration-300 flex flex-col h-fit">
-                        <a href="{{ $rel->localized_url }}" class="flex flex-col text-slate-900 no-underline focus:outline-none" aria-label="{{ $rel->title }}">
-                            <div class="relative aspect-[1/1] w-full overflow-hidden bg-slate-100">
+                        <div class="relative aspect-[1/1] w-full overflow-hidden bg-slate-100">
+                            <a href="{{ $rel->localized_url }}" class="relative z-1 block w-full h-full focus:outline-none" aria-label="{{ $rel->title }}">
                                 <img 
                                     src="{{ $rel->display_image_url }}" 
                                     alt="{{ $rel->title }}" 
@@ -520,18 +520,21 @@
                                     decoding="async"
                                     class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ease-out">
                                 <div class="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
-                                @if($rel->is_free)
-                                    <div class="absolute bottom-2 left-2 z-10 pointer-events-none">
-                                        <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-emerald-600 text-white shadow-xs select-none uppercase tracking-wider">
-                                            {{ __('Free') }}
-                                        </span>
-                                    </div>
-                                @endif
-                            </div>
-                            <div class="p-2.5 flex flex-col gap-1.5">
-                                <h3 class="line-clamp-2 text-sm font-bold leading-snug text-slate-900 group-hover:text-emerald-700 transition-colors" title="{{ $rel->title }}">
+                            </a>
+                            @if($rel->is_free)
+                                <div class="absolute bottom-2 left-2 z-10 pointer-events-none">
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-emerald-600 text-white shadow-xs select-none uppercase tracking-wider">
+                                        {{ __('Free') }}
+                                    </span>
+                                </div>
+                            @endif
+                        </div>
+                        <div class="p-2.5 flex flex-col gap-1.5">
+                            <h3 class="line-clamp-2 text-sm font-bold leading-snug text-slate-900 group-hover:text-emerald-700 transition-colors" title="{{ $rel->title }}">
+                                <a href="{{ $rel->localized_url }}" class="focus:outline-none hover:text-emerald-700 after:absolute after:inset-0 after:z-0">
                                     {{ $rel->title }}
-                                </h3>
+                                </a>
+                            </h3>
                                 <div class="flex flex-col gap-0.5">
                                     <div class="flex items-center justify-between text-xs gap-1">
                                         <span class="font-semibold text-emerald-700 truncate">
@@ -555,7 +558,6 @@
                                     </div>
                                 </div>
                             </div>
-                        </a>
                     </article>
                 @endforeach
             </div>
