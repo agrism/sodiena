@@ -510,18 +510,26 @@
                 @foreach($relatedEvents as $rel)
                     <article class="event-card group relative bg-white rounded-xl border border-slate-200/85 hover:border-slate-300 shadow-xs hover:shadow-md overflow-hidden transition-all duration-300 flex flex-col justify-between">
                         <a href="{{ $rel->localized_url }}" class="flex flex-col h-full text-slate-900 no-underline focus:outline-none" aria-label="{{ $rel->title }}">
-                            <div class="relative aspect-[16/10] w-full overflow-hidden bg-slate-100">
+                            <div class="relative aspect-[4/3] w-full overflow-hidden bg-slate-950 flex items-center justify-center">
+                                <img 
+                                    src="{{ $rel->display_image_url }}" 
+                                    alt="" 
+                                    aria-hidden="true"
+                                    tabindex="-1"
+                                    loading="lazy"
+                                    decoding="async"
+                                    class="absolute inset-0 w-full h-full object-cover blur-xl scale-125 opacity-50 brightness-75 pointer-events-none select-none">
                                 <img 
                                     src="{{ $rel->display_image_url }}" 
                                     alt="{{ $rel->title }}" 
                                     width="480"
-                                    height="300"
+                                    height="360"
                                     loading="lazy"
                                     decoding="async"
-                                    class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ease-out">
-                                <div class="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
+                                    class="relative z-10 w-full h-full object-contain group-hover:scale-105 transition-transform duration-300 ease-out">
+                                <div class="absolute inset-0 bg-gradient-to-t from-slate-950/40 via-transparent to-slate-950/20 pointer-events-none z-10"></div>
                                 @if($rel->is_free)
-                                    <div class="absolute bottom-2 left-2 z-10 pointer-events-none">
+                                    <div class="absolute bottom-2 left-2 z-20 pointer-events-none">
                                         <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-emerald-600 text-white shadow-xs select-none uppercase tracking-wider">
                                             {{ __('Free') }}
                                         </span>

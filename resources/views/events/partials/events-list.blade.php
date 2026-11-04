@@ -18,27 +18,38 @@
             <article class="event-card group relative bg-white rounded-xl border {{ $event->is_promoted ? 'border-amber-300 ring-2 ring-amber-400/50 shadow-md shadow-amber-500/10' : 'border-slate-200/85 hover:border-slate-300 shadow-xs hover:shadow-md' }} overflow-hidden transition-all duration-300 flex flex-col justify-between">
                 <a href="{{ $event->localized_url }}" class="flex flex-col h-full text-slate-900 no-underline focus:outline-none" aria-label="{{ $event->title }}">
                     
-                    <!-- Image Area (Reduced height aspect-[16/10], uses 100% of image area without empty fields) -->
-                    <div class="relative aspect-[16/10] w-full overflow-hidden bg-slate-100">
+                    <!-- Smart Adaptive Image Area (Dual-layer ambient canvas: preserves 100% of both horizontal banners and vertical posters without cropping heads or empty gaps) -->
+                    <div class="relative aspect-[4/3] w-full overflow-hidden bg-slate-950 flex items-center justify-center">
+                        <!-- Layer 1: Ambient Blurred Backdrop -->
+                        <img 
+                            src="{{ $event->display_image_url }}" 
+                            alt="" 
+                            aria-hidden="true"
+                            tabindex="-1"
+                            loading="lazy"
+                            decoding="async"
+                            class="absolute inset-0 w-full h-full object-cover blur-xl scale-125 opacity-50 brightness-75 pointer-events-none select-none">
+
+                        <!-- Layer 2: Main Event Image (Preserves natural artwork, no cut-off faces or banners) -->
                         <img 
                             src="{{ $event->display_image_url }}" 
                             alt="{{ $event->title }}"
                             width="480"
-                            height="300"
+                            height="360"
                             @if($loop->iteration <= 4)
                                 loading="eager"
                                 fetchpriority="high"
                             @else
                                 loading="lazy"
-                                decoding="async"
                             @endif
-                            class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ease-out">
+                            decoding="async"
+                            class="relative z-10 w-full h-full object-contain group-hover:scale-105 transition-transform duration-300 ease-out">
 
-                        <!-- Subtle hover dark gradient overlay -->
-                        <div class="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
+                        <!-- Subtle gradient overlay for contrast and badge legibility -->
+                        <div class="absolute inset-0 bg-gradient-to-t from-slate-950/40 via-transparent to-slate-950/20 pointer-events-none z-10"></div>
 
                         <!-- Top Badges Row -->
-                        <div class="absolute top-2 left-2 right-2 flex items-center justify-between gap-1.5 pointer-events-none z-10">
+                        <div class="absolute top-2 left-2 right-2 flex items-center justify-between gap-1.5 pointer-events-none z-20">
                             <div class="flex items-center gap-1 flex-wrap">
                                 @if($event->is_promoted)
                                     <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-xs border border-amber-300/40 select-none tracking-wide">
@@ -76,8 +87,8 @@
 
                         <!-- Poster Bottom Pills (Free badge) -->
                         @if($event->is_free)
-                            <div class="absolute bottom-2 left-2 z-10 pointer-events-none">
-                                <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-emerald-600 text-white shadow-xs select-none">
+                            <div class="absolute bottom-2 left-2 z-20 pointer-events-none">
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-emerald-600 text-white shadow-xs select-none uppercase tracking-wider">
                                     {{ __('Free') }}
                                 </span>
                             </div>
