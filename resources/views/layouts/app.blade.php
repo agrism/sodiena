@@ -42,22 +42,17 @@
 </head>
 <body class="min-h-full flex flex-col bg-slate-50 text-slate-900 antialiased selection:bg-emerald-500 selection:text-white overflow-x-hidden w-full max-w-full relative">
     <!-- Header -->
-    <header class="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-slate-200/80 shadow-xs w-full">
+    <header class="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200/80 w-full">
         <div class="{{ (request()->routeIs('events.index') || request()->routeIs('localized.events.index')) ? 'w-full px-3.5 sm:px-6 lg:px-8 xl:px-10 2xl:px-12' : 'max-w-6xl xl:max-w-7xl px-4 sm:px-6 lg:px-8' }} mx-auto">
-            <div class="flex items-center justify-between h-14 sm:h-16 gap-2 sm:gap-4">
+            <div class="flex items-center justify-between h-14 sm:h-16 gap-3 sm:gap-6">
                 <!-- Logo -->
-                <a href="{{ \App\Services\LocaleService::url(app()->getLocale(), route('events.index')) }}" aria-label="Šodiena.lv — {{ __('Find Events') }}" class="flex items-center gap-2 group shrink-0">
-                    <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-md shadow-emerald-600/20 group-hover:scale-105 transition-transform duration-200 shrink-0">
-                        <i data-lucide="compass" class="w-4 h-4 stroke-[2.5]" aria-hidden="true"></i>
-                    </div>
-                    <div class="flex items-center gap-1.5">
-                        <span class="text-base sm:text-xl font-extrabold tracking-tight text-slate-900">Šodiena</span>
-                        <span class="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200">LV</span>
-                    </div>
+                <a href="{{ \App\Services\LocaleService::url(app()->getLocale(), route('events.index')) }}" aria-label="Šodiena.lv" class="flex items-center gap-2 group shrink-0">
+                    <i data-lucide="compass" class="w-5 h-5 text-slate-800 stroke-[2.2] group-hover:text-emerald-700 transition-colors"></i>
+                    <span class="text-lg sm:text-xl font-black tracking-tight text-slate-900">šodiena</span>
                 </a>
 
                 <!-- Header Search Form (like pasakumiii.lv) -->
-                <div class="flex-1 max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg min-w-0 mx-1 sm:mx-3">
+                <div class="flex-1 max-w-xs sm:max-w-sm md:max-w-md min-w-0">
                     <form 
                         id="filter-form"
                         action="{{ \App\Services\LocaleService::url(app()->getLocale(), route('events.index')) }}"
@@ -71,8 +66,8 @@
                         @endif
                         class="relative flex items-center w-full">
                         
-                        <div class="absolute left-2.5 sm:left-3 text-slate-400 pointer-events-none flex items-center">
-                            <i data-lucide="search" class="w-3.5 h-3.5 sm:w-4 sm:h-4"></i>
+                        <div class="absolute left-2.5 text-slate-400 pointer-events-none flex items-center">
+                            <i data-lucide="search" class="w-3.5 h-3.5"></i>
                         </div>
 
                         <input 
@@ -82,12 +77,12 @@
                             aria-label="{{ __('Search placeholder') }}"
                             value="{{ request('search') }}"
                             placeholder="{{ __('Search events...') }}"
-                            class="w-full bg-slate-100/90 hover:bg-slate-100 focus:bg-white border border-slate-200/90 focus:border-slate-400 focus:ring-2 focus:ring-slate-900/10 rounded-lg py-1.5 sm:py-2 pl-8 sm:pl-9 pr-8 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none font-medium transition-all"
+                            class="w-full bg-slate-50 hover:bg-slate-100/70 focus:bg-white border border-slate-200/90 focus:border-slate-400 focus:ring-1 focus:ring-slate-400 rounded-md py-1.5 pl-8 pr-7 text-xs sm:text-[13px] text-slate-900 placeholder:text-slate-400 focus:outline-none font-medium transition-all"
                             autocomplete="off">
 
                         <!-- HTMX Loading Indicator -->
-                        <div id="header-loading-spinner" class="htmx-indicator absolute right-7 sm:right-8 text-slate-400" aria-hidden="true">
-                            <i data-lucide="loader-2" class="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin text-emerald-600"></i>
+                        <div id="header-loading-spinner" class="htmx-indicator absolute right-6 text-slate-400" aria-hidden="true">
+                            <i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin text-slate-600"></i>
                         </div>
 
                         <!-- Clear button -->
@@ -109,65 +104,51 @@
                     </form>
                 </div>
 
-                <!-- Navigation & User Menu -->
-                <div class="flex items-center gap-1 sm:gap-2.5 shrink-0">
-                    <nav class="flex items-center gap-1 sm:gap-1.5" aria-label="Galvenā navigācija">
-                        <a href="{{ \App\Services\LocaleService::url(app()->getLocale(), route('events.index')) }}" aria-label="{{ __('Events') }}" class="hidden lg:inline-flex px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all {{ request()->routeIs('events.index') || request()->routeIs('localized.events.index') ? 'text-slate-900 bg-slate-100 font-extrabold' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50' }}">
+                <!-- Navigation & User Menu (Same taste and style as Categories) -->
+                <div class="flex items-center gap-3.5 sm:gap-6 shrink-0">
+                    <nav class="flex items-center gap-3.5 sm:gap-5" aria-label="Galvenā navigācija">
+                        <a href="{{ \App\Services\LocaleService::url(app()->getLocale(), route('events.index')) }}" aria-label="{{ __('Events') }}" class="text-xs sm:text-[13px] font-medium transition-colors {{ request()->routeIs('events.index') || request()->routeIs('localized.events.index') ? 'text-slate-900 font-bold' : 'text-slate-600 hover:text-slate-900' }}">
                             <span>{{ __('Events') }}</span>
                         </a>
 
-                        <!-- Add Event Button -->
-                        <a href="{{ route('events.create') }}" aria-label="{{ __('Add Event') }}" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg text-xs sm:text-sm font-bold transition-all bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs hover:shadow-md hover:scale-[1.02] active:scale-[0.98]">
-                            <i data-lucide="plus" class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" aria-hidden="true"></i>
-                            <span class="hidden sm:inline">{{ __('Add Event') }}</span>
+                        <a href="{{ route('events.create') }}" aria-label="{{ __('Add Event') }}" class="text-xs sm:text-[13px] font-medium text-slate-600 hover:text-slate-900 transition-colors">
+                            <span>{{ __('Add Event') }}</span>
                         </a>
 
                         @auth
                             <!-- My Events Link -->
-                            <a href="{{ route('events.my') }}" aria-label="{{ __('My Events') }}" class="hidden xl:inline-flex px-2.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all {{ request()->routeIs('events.my') ? 'text-emerald-700 bg-emerald-50 border border-emerald-200' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100' }}" title="{{ __('My Events') }}">
-                                <span class="flex items-center gap-1">
-                                    <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-500" aria-hidden="true"></i>
-                                    <span>{{ __('My Events') }}</span>
-                                </span>
+                            <a href="{{ route('events.my') }}" aria-label="{{ __('My Events') }}" class="hidden sm:inline-flex text-xs sm:text-[13px] font-medium transition-colors {{ request()->routeIs('events.my') ? 'text-slate-900 font-bold' : 'text-slate-600 hover:text-slate-900' }}" title="{{ __('My Events') }}">
+                                <span>{{ __('My Events') }}</span>
                             </a>
 
                             @if(auth()->user()->isAdmin())
-                                <!-- Admin: Events Table -->
-                                <a href="{{ route('admin.events.index') }}" aria-label="Admin panelis" class="px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all text-purple-700 bg-purple-50 border border-purple-200 hover:bg-purple-100" title="Admin Panelis">
-                                    <span class="flex items-center gap-1">
-                                        <i data-lucide="shield-check" class="w-3.5 h-3.5 text-purple-600" aria-hidden="true"></i>
-                                        <span class="hidden sm:inline">Admin</span>
-                                    </span>
+                                <!-- Admin Link -->
+                                <a href="{{ route('admin.events.index') }}" aria-label="Admin panelis" class="text-xs sm:text-[13px] font-medium text-slate-500 hover:text-slate-900 transition-colors" title="Admin Panelis">
+                                    <span>Admin</span>
                                 </a>
                             @endif
                         @endauth
                     </nav>
 
-                    <!-- Language Switcher Dropdown (Globe + Flag + Code + Chevron) -->
+                    <!-- Language Switcher -->
                     <x-language-switcher />
 
                     <!-- Auth Section -->
-                    <div class="flex items-center gap-1 sm:gap-2 border-l border-slate-200 pl-1.5 sm:pl-2.5 shrink-0">
+                    <div class="flex items-center gap-2.5 sm:gap-3 border-l border-slate-200 pl-2.5 sm:pl-3 shrink-0">
                         @guest
-                            <a href="{{ route('login') }}" aria-label="{{ __('Sign In') }}" class="px-2 py-1.5 rounded-lg text-xs sm:text-sm font-bold text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-all whitespace-nowrap">
+                            <a href="{{ route('login') }}" aria-label="{{ __('Sign In') }}" class="text-xs sm:text-[13px] font-medium text-slate-600 hover:text-slate-900 transition-colors whitespace-nowrap">
                                 {{ __('Sign In') }}
                             </a>
-                            <a href="{{ route('register') }}" aria-label="{{ __('Register') }}" class="hidden sm:inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-bold transition-all shadow-xs whitespace-nowrap shrink-0" title="{{ __('Register') }}">
-                                <i data-lucide="user-plus" class="w-3.5 h-3.5" aria-hidden="true"></i>
+                            <a href="{{ route('register') }}" aria-label="{{ __('Register') }}" class="hidden sm:inline-flex text-xs sm:text-[13px] font-medium text-slate-600 hover:text-slate-900 transition-colors whitespace-nowrap" title="{{ __('Register') }}">
                                 <span>{{ __('Register') }}</span>
                             </a>
                         @else
-                            <div class="flex items-center gap-1 sm:gap-2.5 shrink-0">
-                                <a href="{{ route('events.my') }}" class="flex items-center gap-1 sm:gap-2 group cursor-pointer" title="{{ __('My Events') }}">
-                                    <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-lg {{ auth()->user()->isAdmin() ? 'bg-purple-100 text-purple-700 border-purple-200' : 'bg-emerald-100 text-emerald-700 border-emerald-200' }} border font-black text-xs flex items-center justify-center shrink-0 shadow-xs group-hover:scale-105 transition-transform">
+                            <div class="flex items-center gap-2 shrink-0">
+                                <a href="{{ route('events.my') }}" class="flex items-center gap-1.5 text-xs sm:text-[13px] font-medium text-slate-700 hover:text-slate-900 transition-colors" title="{{ __('My Events') }}">
+                                    <span class="w-6 h-6 rounded-full bg-slate-100 text-slate-700 text-[11px] font-bold border border-slate-200 flex items-center justify-center">
                                         {{ mb_strtoupper(mb_substr(auth()->user()->name, 0, 1)) }}
-                                    </div>
-                                    <div class="hidden md:block text-left leading-tight">
-                                        <p class="text-xs font-bold text-slate-900 group-hover:text-emerald-700 truncate max-w-[100px] transition-colors">{{ auth()->user()->name }}</p>
-                                        <span class="text-[10px] font-extrabold {{ auth()->user()->isAdmin() ? 'text-purple-700' : 'text-emerald-700' }} uppercase tracking-wider">
-                                            {{ auth()->user()->localized_role_name }}
-                                        </span>
-                                    </div>
+                                    </span>
+                                    <span class="hidden md:inline">{{ auth()->user()->name }}</span>
                                 </a>
 
                                 <form action="{{ route('logout') }}" method="POST" class="inline">
@@ -176,8 +157,8 @@
                                         type="submit" 
                                         aria-label="{{ __('Sign Out') }}"
                                         title="{{ __('Sign Out') }}"
-                                        class="p-1.5 sm:p-2 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-all cursor-pointer">
-                                        <i data-lucide="log-out" class="w-4 h-4" aria-hidden="true"></i>
+                                        class="p-1 rounded text-slate-400 hover:text-slate-700 transition-colors cursor-pointer">
+                                        <i data-lucide="log-out" class="w-3.5 h-3.5" aria-hidden="true"></i>
                                     </button>
                                 </form>
                             </div>

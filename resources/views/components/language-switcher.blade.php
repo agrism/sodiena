@@ -29,14 +29,11 @@
         aria-haspopup="true"
         aria-expanded="false"
         aria-label="{{ __('Language') }}: {{ $active['name'] }}"
-        class="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-xl bg-white border border-slate-200/90 hover:border-slate-300 text-slate-800 font-bold text-xs sm:text-sm shadow-xs transition-all hover:bg-slate-50/80 cursor-pointer select-none focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500">
+        class="inline-flex items-center gap-1.5 text-xs sm:text-[13px] font-medium text-slate-600 hover:text-slate-900 transition-colors cursor-pointer select-none py-1">
         
-        <!-- Globe Icon -->
-        <i data-lucide="globe" class="w-4 h-4 text-slate-500 stroke-[1.8] shrink-0" aria-hidden="true"></i>
-
         <!-- Active Flag -->
         @if($currentLocale === 'en')
-            <svg class="w-[19px] h-[13px] rounded-[2px] shadow-xs border border-slate-200/80 shrink-0 inline-block overflow-hidden" viewBox="0 0 60 30" aria-hidden="true">
+            <svg class="w-3.5 h-2.5 rounded-[1px] border border-slate-200/80 shrink-0 inline-block overflow-hidden" viewBox="0 0 60 30" aria-hidden="true">
                 <clipPath id="uk_clip_btn_{{ $switcherId }}">
                     <path d="M0 0v30h60V0z"/>
                 </clipPath>
@@ -49,23 +46,23 @@
                 </g>
             </svg>
         @elseif($currentLocale === 'ru')
-            <svg class="w-[19px] h-[13px] rounded-[2px] shadow-xs border border-slate-200/80 shrink-0 inline-block overflow-hidden" viewBox="0 0 20 14" fill="none" aria-hidden="true">
+            <svg class="w-3.5 h-2.5 rounded-[1px] border border-slate-200/80 shrink-0 inline-block overflow-hidden" viewBox="0 0 20 14" fill="none" aria-hidden="true">
                 <rect width="20" height="14" fill="#FFFFFF"/>
                 <rect y="4.66" width="20" height="4.66" fill="#0052B4"/>
                 <rect y="9.33" width="20" height="4.67" fill="#D52B1E"/>
             </svg>
         @else
-            <svg class="w-[19px] h-[13px] rounded-[2px] shadow-xs border border-slate-200/80 shrink-0 inline-block overflow-hidden" viewBox="0 0 20 14" fill="none" aria-hidden="true">
+            <svg class="w-3.5 h-2.5 rounded-[1px] border border-slate-200/80 shrink-0 inline-block overflow-hidden" viewBox="0 0 20 14" fill="none" aria-hidden="true">
                 <rect width="20" height="14" fill="#9E1B32"/>
                 <rect y="5.6" width="20" height="2.8" fill="#FFFFFF"/>
             </svg>
         @endif
 
         <!-- Locale Code -->
-        <span class="tracking-wide text-xs sm:text-sm font-bold text-slate-800">{{ $active['code'] }}</span>
+        <span class="tracking-wide uppercase font-semibold text-slate-700">{{ $active['code'] }}</span>
 
         <!-- Chevron Down Icon -->
-        <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400 stroke-[2.2] shrink-0 transition-transform duration-200" id="{{ $switcherId }}_arrow" aria-hidden="true"></i>
+        <i data-lucide="chevron-down" class="w-3 h-3 text-slate-400 stroke-[2] shrink-0 transition-transform duration-200" id="{{ $switcherId }}_arrow" aria-hidden="true"></i>
     </button>
 
     <!-- Dropdown Menu -->
