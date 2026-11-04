@@ -52,7 +52,7 @@
                 </a>
 
                 <!-- Header Search Form (like pasakumiii.lv) -->
-                <div class="flex-1 max-w-xs sm:max-w-sm md:max-w-md min-w-0">
+                <div class="flex-1 min-w-0 max-w-none lg:max-w-md">
                     <form 
                         id="filter-form"
                         action="{{ \App\Services\LocaleService::url(app()->getLocale(), route('events.index')) }}"
@@ -104,8 +104,8 @@
                     </form>
                 </div>
 
-                <!-- Navigation & User Menu (Same taste and style as Categories) -->
-                <div class="flex items-center gap-3.5 sm:gap-6 shrink-0">
+                <!-- Desktop Navigation & User Menu (Visible on lg screens and up) -->
+                <div class="hidden lg:flex items-center gap-3.5 xl:gap-6 shrink-0">
                     <nav class="flex items-center gap-3.5 sm:gap-5" aria-label="Galvenā navigācija">
                         <a href="{{ \App\Services\LocaleService::url(app()->getLocale(), route('events.index')) }}" aria-label="{{ __('Events') }}" class="text-xs sm:text-[13px] font-medium transition-colors {{ request()->routeIs('events.index') || request()->routeIs('localized.events.index') ? 'text-slate-900 font-bold' : 'text-slate-600 hover:text-slate-900' }}">
                             <span>{{ __('Events') }}</span>
@@ -165,9 +165,152 @@
                         @endguest
                     </div>
                 </div>
+
+                <!-- Mobile Hamburger Button (Visible on screens < lg) -->
+                <button 
+                    type="button" 
+                    id="mobile-menu-btn" 
+                    aria-label="{{ __('Menu') }}"
+                    aria-expanded="false"
+                    aria-controls="mobile-menu-drawer"
+                    class="lg:hidden p-2 -mr-1.5 text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer shrink-0">
+                    <i data-lucide="menu" class="w-5 h-5"></i>
+                </button>
             </div>
         </div>
     </header>
+
+    <!-- Mobile Slide-over Drawer Backdrop -->
+    <div 
+        id="mobile-drawer-backdrop" 
+        class="fixed inset-0 bg-slate-950/40 backdrop-blur-xs z-[100] transition-opacity duration-300 ease-in-out opacity-0 pointer-events-none" 
+        aria-hidden="true">
+    </div>
+
+    <!-- Mobile Slide-over Drawer (From Left) -->
+    <aside 
+        id="mobile-menu-drawer" 
+        role="dialog" 
+        aria-modal="true" 
+        aria-label="Navigācijas izvēlne"
+        class="fixed inset-y-0 left-0 w-72 sm:w-80 max-w-[85vw] bg-white z-[101] shadow-2xl flex flex-col justify-between p-5 transition-transform duration-300 ease-in-out -translate-x-full border-r border-slate-200 overflow-y-auto">
+        
+        <div>
+            <!-- Drawer Header -->
+            <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+                <a href="{{ \App\Services\LocaleService::url(app()->getLocale(), route('events.index')) }}" class="flex items-center gap-2 group">
+                    <i data-lucide="compass" class="w-5 h-5 text-slate-800 stroke-[2.2] group-hover:text-emerald-700 transition-colors"></i>
+                    <span class="text-lg font-black tracking-tight text-slate-900">šodiena</span>
+                </a>
+                <button 
+                    type="button" 
+                    id="mobile-menu-close-btn" 
+                    aria-label="Aizvērt izvēlni"
+                    class="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- Drawer Navigation Links -->
+            <nav class="flex flex-col gap-1 py-4" aria-label="Mobilā navigācija">
+                <a 
+                    href="{{ \App\Services\LocaleService::url(app()->getLocale(), route('events.index')) }}" 
+                    class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors {{ request()->routeIs('events.index') || request()->routeIs('localized.events.index') ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900' }}">
+                    <i data-lucide="calendar" class="w-4 h-4 text-slate-400"></i>
+                    <span>{{ __('Events') }}</span>
+                </a>
+
+                <a 
+                    href="{{ route('events.create') }}" 
+                    class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors {{ request()->routeIs('events.create') ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900' }}">
+                    <i data-lucide="plus-circle" class="w-4 h-4 text-slate-400"></i>
+                    <span>{{ __('Add Event') }}</span>
+                </a>
+
+                @auth
+                    <a 
+                        href="{{ route('events.my') }}" 
+                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors {{ request()->routeIs('events.my') ? 'bg-slate-100 text-slate-900' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900' }}">
+                        <i data-lucide="ticket" class="w-4 h-4 text-slate-400"></i>
+                        <span>{{ __('My Events') }}</span>
+                    </a>
+
+                    @if(auth()->user()->isAdmin())
+                        <a 
+                            href="{{ route('admin.events.index') }}" 
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors">
+                            <i data-lucide="shield" class="w-4 h-4 text-slate-400"></i>
+                            <span>Admin panelis</span>
+                        </a>
+                    @endif
+                @endauth
+            </nav>
+
+            <!-- Language Section -->
+            <div class="py-4 border-t border-slate-100">
+                <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2.5 px-3">{{ __('Language') }}</p>
+                <div class="grid grid-cols-3 gap-2 px-1">
+                    @php
+                        $localesList = [
+                            'lv' => ['name' => 'LV', 'flag' => '🇱🇻'],
+                            'en' => ['name' => 'EN', 'flag' => '🇬🇧'],
+                            'ru' => ['name' => 'RU', 'flag' => '🇷🇺']
+                        ];
+                    @endphp
+                    @foreach($localesList as $langCode => $langData)
+                        <a 
+                            href="{{ \App\Services\LocaleService::url($langCode) }}" 
+                            class="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs font-semibold border transition-all {{ app()->getLocale() === $langCode ? 'bg-slate-900 text-white border-slate-900 shadow-xs' : 'bg-slate-50 text-slate-700 border-slate-200/80 hover:bg-slate-100' }}">
+                            <span>{{ $langData['flag'] }}</span>
+                            <span>{{ $langData['name'] }}</span>
+                        </a>
+                    @endforeach
+                </div>
+            </div>
+        </div>
+
+        <!-- Auth Section at Bottom -->
+        <div class="pt-4 border-t border-slate-100">
+            @guest
+                <div class="flex flex-col gap-2">
+                    <a 
+                        href="{{ route('login') }}" 
+                        class="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl text-xs sm:text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors">
+                        <i data-lucide="log-in" class="w-4 h-4"></i>
+                        <span>{{ __('Sign In') }}</span>
+                    </a>
+                    <a 
+                        href="{{ route('register') }}" 
+                        class="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl text-xs sm:text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 transition-colors">
+                        <i data-lucide="user-plus" class="w-4 h-4"></i>
+                        <span>{{ __('Register') }}</span>
+                    </a>
+                </div>
+            @else
+                <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200/80">
+                    <div class="flex items-center gap-2.5 min-w-0">
+                        <span class="w-8 h-8 rounded-full bg-slate-200 text-slate-800 text-xs font-bold flex items-center justify-center shrink-0">
+                            {{ mb_strtoupper(mb_substr(auth()->user()->name, 0, 1)) }}
+                        </span>
+                        <div class="min-w-0">
+                            <p class="text-xs font-bold text-slate-900 truncate">{{ auth()->user()->name }}</p>
+                            <p class="text-[11px] text-slate-500 truncate">{{ auth()->user()->email }}</p>
+                        </div>
+                    </div>
+                    <form action="{{ route('logout') }}" method="POST" class="shrink-0">
+                        @csrf
+                        <button 
+                            type="submit" 
+                            aria-label="{{ __('Sign Out') }}" 
+                            title="{{ __('Sign Out') }}" 
+                            class="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer">
+                            <i data-lucide="log-out" class="w-4 h-4"></i>
+                        </button>
+                    </form>
+                </div>
+            @endguest
+        </div>
+    </aside>
 
 <!-- Flash Messages -->
 @if(session('success'))
@@ -296,6 +439,58 @@
                     } else {
                         clearBtn.classList.add('hidden');
                     }
+                });
+            }
+
+            // Mobile menu drawer controller
+            const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+            const mobileMenuCloseBtn = document.getElementById('mobile-menu-close-btn');
+            const drawer = document.getElementById('mobile-menu-drawer');
+            const backdrop = document.getElementById('mobile-drawer-backdrop');
+
+            if (mobileMenuBtn && drawer && backdrop) {
+                function openMobileDrawer() {
+                    drawer.classList.remove('-translate-x-full');
+                    drawer.classList.add('translate-x-0');
+                    backdrop.classList.remove('opacity-0', 'pointer-events-none');
+                    backdrop.classList.add('opacity-100', 'pointer-events-auto');
+                    document.body.classList.add('overflow-hidden');
+                    mobileMenuBtn.setAttribute('aria-expanded', 'true');
+                }
+
+                function closeMobileDrawer() {
+                    drawer.classList.remove('translate-x-0');
+                    drawer.classList.add('-translate-x-full');
+                    backdrop.classList.remove('opacity-100', 'pointer-events-auto');
+                    backdrop.classList.add('opacity-0', 'pointer-events-none');
+                    document.body.classList.remove('overflow-hidden');
+                    mobileMenuBtn.setAttribute('aria-expanded', 'false');
+                }
+
+                mobileMenuBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    openMobileDrawer();
+                });
+
+                if (mobileMenuCloseBtn) {
+                    mobileMenuCloseBtn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        closeMobileDrawer();
+                    });
+                }
+
+                backdrop.addEventListener('click', closeMobileDrawer);
+
+                document.addEventListener('keydown', function(e) {
+                    if (e.key === 'Escape' && !drawer.classList.contains('-translate-x-full')) {
+                        closeMobileDrawer();
+                    }
+                });
+
+                drawer.querySelectorAll('a').forEach(function(link) {
+                    link.addEventListener('click', function() {
+                        closeMobileDrawer();
+                    });
                 });
             }
         });
