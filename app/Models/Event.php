@@ -1016,6 +1016,107 @@ class Event extends Model
         return $dateFormatted . $timePrefix . $start->format('H:i');
     }
 
+    public function getCardFormattedDateAttribute(): string
+    {
+        if (!$this->start_at) {
+            return '';
+        }
+
+        $start = $this->start_at;
+        $end = $this->end_at;
+        $locale = app()->getLocale();
+        $now = now();
+
+        $monthsLv = [
+            1 => 'janv.', 2 => 'febr.', 3 => 'marts', 4 => 'apr.',
+            5 => 'maijs', 6 => 'jūn.', 7 => 'jūl.', 8 => 'aug.',
+            9 => 'sept.', 10 => 'okt.', 11 => 'nov.', 12 => 'dec.'
+        ];
+
+        $monthsEn = [
+            1 => 'Jan', 2 => 'Feb', 3 => 'Mar', 4 => 'Apr',
+            5 => 'May', 6 => 'Jun', 7 => 'Jul', 8 => 'Aug',
+            9 => 'Sep', 10 => 'Oct', 11 => 'Nov', 12 => 'Dec'
+        ];
+
+        $monthsRu = [
+            1 => 'янв.', 2 => 'февр.', 3 => 'март', 4 => 'апр.',
+            5 => 'май', 6 => 'июн.', 7 => 'июл.', 8 => 'авг.',
+            9 => 'сент.', 10 => 'окт.', 11 => 'нояб.', 12 => 'дек.'
+        ];
+
+        $daysLv = [
+            1 => 'Pirmd.', 2 => 'Otrd.', 3 => 'Trešd.', 4 => 'Ceturtd.', 5 => 'Piektd.', 6 => 'Sestd.', 7 => 'Svētd.'
+        ];
+        $daysEn = [
+            1 => 'Mon', 2 => 'Tue', 3 => 'Wed', 4 => 'Thu', 5 => 'Fri', 6 => 'Sat', 7 => 'Sun'
+        ];
+        $daysRu = [
+            1 => 'Пн', 2 => 'Вт', 3 => 'Ср', 4 => 'Чт', 5 => 'Пт', 6 => 'Сб', 7 => 'Вс'
+        ];
+
+        $monthMap = match($locale) {
+            'en' => $monthsEn,
+            'ru' => $monthsRu,
+            default => $monthsLv,
+        };
+
+        $dayMap = match($locale) {
+            'en' => $daysEn,
+            'ru' => $daysRu,
+            default => $daysLv,
+        };
+
+        // Multi-day ongoing event (started before today and still ongoing)
+        if ($start->lt($now->copy()->startOfDay()) && $end && $end->gte($now)) {
+            $endMonth = $monthMap[(int)$end->format('n')] ?? $end->format('M');
+            $untilPrefix = match($locale) {
+                'en' => 'Until ',
+                'ru' => 'До ',
+                default => 'Līdz ',
+            };
+            $yearStr = ($end->format('Y') !== $now->format('Y')) ? ' ' . $end->format('Y') : '';
+            return $untilPrefix . $end->format('j. ') . $endMonth . $yearStr;
+        }
+
+        // Multi-day future event
+        if ($end && !$start->isSameDay($end)) {
+            $startMonth = $monthMap[(int)$start->format('n')] ?? $start->format('M');
+            $endMonth = $monthMap[(int)$end->format('n')] ?? $end->format('M');
+            $yearStr = ($start->format('Y') > $now->format('Y')) ? ' ' . $start->format('Y') : '';
+
+            if ($start->format('n') === $end->format('n')) {
+                return $start->format('j.') . ' – ' . $end->format('j. ') . $startMonth . $yearStr;
+            }
+            return $start->format('j. ') . $startMonth . ' – ' . $end->format('j. ') . $endMonth . $yearStr;
+        }
+
+        // Single day event
+        $month = $monthMap[(int)$start->format('n')] ?? $start->format('M');
+        $yearStr = ($start->format('Y') > $now->format('Y')) ? ' ' . $start->format('Y') : '';
+
+        if ($start->isToday()) {
+            $prefix = match($locale) {
+                'en' => 'Today',
+                'ru' => 'Сегодня',
+                default => 'Šodien',
+            };
+            return $prefix . ' · ' . $start->format('j. ') . $month . $yearStr;
+        }
+
+        if ($start->isTomorrow()) {
+            $prefix = match($locale) {
+                'en' => 'Tomorrow',
+                'ru' => 'Завтра',
+                default => 'Rīt',
+            };
+            return $prefix . ' · ' . $start->format('j. ') . $month . $yearStr;
+        }
+
+        $dayName = $dayMap[(int)$start->format('N')] ?? '';
+        return $dayName . ' · ' . $start->format('j. ') . $month . $yearStr;
+    }
+
     public function getOriginUrlAttribute(): ?string
     {
         return $this->source_url ?: $this->ticket_url;

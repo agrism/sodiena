@@ -15,156 +15,138 @@
 @else
     <div class="contents">
         @foreach($events as $event)
-            <article class="group bg-white rounded-3xl border {{ $event->is_promoted ? 'border-amber-300 ring-2 ring-amber-400/50 shadow-md shadow-amber-500/10' : 'border-slate-200/90 hover:border-slate-300 shadow-xs' }} overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between">
-                
-                <!-- Event Image & Badges -->
-                <div class="relative aspect-[16/10] bg-slate-100 overflow-hidden group/img">
-                    <!-- Clickable Link to Event Details -->
-                    <a href="{{ $event->localized_url }}" class="block w-full h-full focus:outline-none" aria-label="{{ $event->title }}">
+            <article class="event-card group relative flex flex-col rounded-2xl transition-all duration-300">
+                <a href="{{ $event->localized_url }}" class="flex flex-col gap-2 text-slate-900 no-underline focus:outline-none" aria-label="{{ $event->title }}">
+                    
+                    <!-- Poster (Vertical 3:4 aspect ratio matching pasakumiii.lv) -->
+                    <div class="poster relative aspect-[3/4] overflow-hidden rounded-xl border {{ $event->is_promoted ? 'border-amber-300 ring-2 ring-amber-400/50 shadow-md shadow-amber-500/10' : 'border-slate-200/90 group-hover:border-slate-300 shadow-xs' }} bg-slate-100">
                         <img 
                             src="{{ $event->display_image_url }}" 
                             alt="{{ $event->title }}"
-                            width="640"
-                            height="400"
-                            @if($loop->iteration === 1)
+                            width="400"
+                            height="533"
+                            @if($loop->iteration <= 4)
                                 loading="eager"
                                 fetchpriority="high"
                             @else
                                 loading="lazy"
                                 decoding="async"
                             @endif
-                            class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out">
+                            class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ease-out">
 
-                        <!-- Subtle overlay gradient -->
-                        <div class="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent pointer-events-none"></div>
-                    </a>
+                        <!-- Subtle hover dark gradient overlay -->
+                        <div class="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
 
-                    <!-- Top Badges Row (Solid Z-Index, Direct Interaction) -->
-                    <div class="absolute top-3 left-3 right-3 flex items-center justify-between gap-2 z-30">
-                        <div class="flex items-center gap-1.5 flex-wrap">
-                            <!-- Promoted Badge -->
-                            @if($event->is_promoted)
-                                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-black bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md shadow-amber-500/25 border border-amber-300/40 select-none tracking-wide">
-                                    <i data-lucide="sparkles" class="w-3.5 h-3.5 fill-amber-100 text-amber-100"></i>
-                                    <span>{{ __('Izcelts') }}</span>
-                                </span>
-                            @endif
-
-                            <!-- Date Badge -->
-                            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-white/95 text-slate-900 backdrop-blur-md border border-slate-200/80 shadow-md select-none">
-                                <i data-lucide="calendar" class="w-3.5 h-3.5 text-emerald-600"></i>
-                                {{ $event->formatted_date }}
-                            </span>
-                        </div>
-
-                        <div class="flex items-center gap-2">
-                            <!-- Admin Afiro Indicator -->
-                            @if(auth()->check() && auth()->user()->isAdmin())
-                                @if($event->isAfiro() && $event->afiro_url)
-                                    <a 
-                                        href="{{ $event->afiro_url }}" 
-                                        target="_blank" 
-                                        rel="noopener noreferrer" 
-                                        onclick="event.stopPropagation(); event.stopImmediatePropagation();"
-                                        title="Atvērt Afiro notikumu: {{ $event->afiro_url }}"
-                                        class="w-7 h-7 rounded-full bg-white text-red-600 border-2 border-red-500 flex items-center justify-center font-black text-xs shadow-md hover:bg-red-600 hover:text-white hover:border-red-600 transition-all transform hover:scale-110 shrink-0 cursor-pointer"
-                                    >
-                                        A
-                                    </a>
-                                @else
-                                    <span 
-                                        title="Nav Afiro notikums (Avots: {{ $event->source?->name ?: $event->source_slug ?: 'Cits' }})"
-                                        class="w-7 h-7 rounded-full bg-white/85 text-slate-400 border border-slate-300 flex items-center justify-center font-bold text-xs shadow-xs shrink-0 cursor-default select-none"
-                                    >
-                                        A
+                        <!-- Top Badges Row -->
+                        <div class="absolute top-2 left-2 right-2 flex items-center justify-between gap-1.5 pointer-events-none z-10">
+                            <div class="flex items-center gap-1 flex-wrap">
+                                @if($event->is_promoted)
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-xs border border-amber-300/40 select-none tracking-wide">
+                                        <i data-lucide="sparkles" class="w-3 h-3 fill-amber-100 text-amber-100"></i>
+                                        <span>{{ __('Izcelts') }}</span>
                                     </span>
                                 @endif
-                            @endif
+                            </div>
 
-                            <!-- Price Badge -->
-                            @if($event->is_free)
-                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-extrabold bg-emerald-600 text-white shadow-md select-none">
+                            <div class="flex items-center gap-1 pointer-events-auto">
+                                <!-- Admin Afiro Indicator -->
+                                @if(auth()->check() && auth()->user()->isAdmin())
+                                    @if($event->isAfiro() && $event->afiro_url)
+                                        <a 
+                                            href="{{ $event->afiro_url }}" 
+                                            target="_blank" 
+                                            rel="noopener noreferrer" 
+                                            onclick="event.stopPropagation();"
+                                            title="Atvērt Afiro notikumu: {{ $event->afiro_url }}"
+                                            class="w-6 h-6 rounded-full bg-white text-red-600 border border-red-500 flex items-center justify-center font-black text-[10px] shadow-sm hover:bg-red-600 hover:text-white transition-all transform hover:scale-110 shrink-0 cursor-pointer"
+                                        >
+                                            A
+                                        </a>
+                                    @else
+                                        <span 
+                                            title="Nav Afiro notikums (Avots: {{ $event->source?->name ?: $event->source_slug ?: 'Cits' }})"
+                                            class="w-6 h-6 rounded-full bg-white/90 text-slate-400 border border-slate-300 flex items-center justify-center font-bold text-[10px] shadow-xs shrink-0 cursor-default select-none"
+                                        >
+                                            A
+                                        </span>
+                                    @endif
+                                @endif
+                            </div>
+                        </div>
+
+                        <!-- Poster Bottom Pills (Free badge) -->
+                        @if($event->is_free)
+                            <div class="absolute bottom-2 left-2 z-10 pointer-events-none">
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-emerald-600 text-white shadow-xs select-none">
                                     {{ __('Free') }}
                                 </span>
-                            @else
-                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-white/95 text-emerald-700 backdrop-blur-md border border-emerald-200 shadow-md select-none">
-                                    {{ $event->formatted_price }}
+                            </div>
+                        @endif
+                    </div>
+
+                    <!-- Details below Poster -->
+                    <div class="flex flex-col gap-1 px-0.5 pt-0.5">
+                        <!-- Title -->
+                        <h3 class="line-clamp-2 text-sm sm:text-base font-semibold leading-snug text-slate-900 group-hover:text-emerald-700 transition-colors" title="{{ $event->title }}">
+                            {{ $event->title }}
+                        </h3>
+
+                        <!-- Date & Time Row -->
+                        <div class="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-xs">
+                            <span class="font-semibold text-emerald-700">
+                                {{ $event->card_formatted_date }}
+                            </span>
+                            @if(!$event->all_day && $event->start_at)
+                                <span class="text-slate-400 font-normal">·</span>
+                                <span class="text-slate-500 font-medium">
+                                    {{ $event->start_at->format('H:i') }}
                                 </span>
                             @endif
                         </div>
-                    </div>
 
-                    <!-- City & Venue pill bottom left of image -->
-                    <div class="absolute bottom-3 left-3 right-3 flex items-center gap-2 z-20 pointer-events-none">
-                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-900/85 text-white backdrop-blur-md border border-white/10 truncate max-w-full">
-                            <i data-lucide="map-pin" class="w-3 h-3 text-emerald-400 shrink-0"></i>
-                            <span class="truncate">{{ $event->location?->name ?: $event->location?->city ?: 'Latvija' }}</span>
-                        </span>
-                    </div>
-                </div>
+                        <!-- Price Row (when paid) -->
+                        @if(!$event->is_free && $event->formatted_price)
+                            <div class="text-xs font-semibold tracking-wide tabular-nums text-slate-700">
+                                {{ $event->formatted_price }}
+                            </div>
+                        @endif
 
-                <!-- Content Area -->
-                <div class="p-5 flex flex-col flex-grow justify-between gap-4">
-                    <div>
-                        <!-- Category Tags -->
-                        <div class="flex flex-wrap items-center gap-1.5 mb-2.5">
+                        <!-- Location: City · Venue -->
+                        @php
+                            $city = $event->location?->city;
+                            $venue = $event->location?->name;
+                        @endphp
+                        @if($city || $venue)
+                            <div class="line-clamp-1 text-xs leading-snug text-slate-500" title="{{ $city ? ($venue && $venue !== $city ? $city . ' · ' . $venue : $city) : $venue }}">
+                                <span class="inline-flex items-center gap-1 truncate">
+                                    <i data-lucide="map-pin" class="w-3 h-3 text-slate-400 shrink-0 -mt-0.5"></i>
+                                    <span class="truncate">
+                                        @if($city && $venue && $venue !== $city)
+                                            {{ $city }} <span class="opacity-60">·</span> {{ $venue }}
+                                        @else
+                                            {{ $city ?: $venue }}
+                                        @endif
+                                    </span>
+                                </span>
+                            </div>
+                        @endif
+
+                        <!-- Category Badges / Chips Row -->
+                        <div class="mt-1 flex flex-wrap content-start gap-1 overflow-hidden">
                             @foreach($event->categories->take(2) as $category)
-                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
-                                    <i data-lucide="{{ $category->icon ?: 'tag' }}" class="w-3 h-3 text-emerald-600"></i>
-                                    {{ $category->name }}
+                                <span class="h-5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-slate-100 text-slate-700 border border-slate-200/70 truncate max-w-full">
+                                    <i data-lucide="{{ $category->icon ?: 'tag' }}" class="w-2.5 h-2.5 text-emerald-600 shrink-0"></i>
+                                    <span class="truncate">{{ $category->name }}</span>
                                 </span>
                             @endforeach
                             @if($event->localized_entertainment_type)
-                                <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                <span class="h-5 inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200/70 shrink-0">
                                     {{ $event->localized_entertainment_type }}
                                 </span>
                             @endif
                         </div>
-
-                        <!-- Title -->
-                        <h2 class="text-base font-bold text-slate-900 group-hover:text-emerald-700 transition-colors line-clamp-2 leading-snug">
-                            <a href="{{ $event->localized_url }}" class="focus:outline-none">
-                                {{ $event->title }}
-                            </a>
-                        </h2>
-
-                        <!-- Short Description -->
-                        @if($event->short_description)
-                            <p class="text-xs text-slate-500 mt-2 line-clamp-2 leading-relaxed font-normal">
-                                {{ $event->short_description }}
-                            </p>
-                        @endif
                     </div>
-
-                    <!-- Card Footer: Time & Action CTAs -->
-                    <div class="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-                        <span class="flex items-center gap-1 text-[11px] text-slate-400">
-                            <i data-lucide="clock" class="w-3 h-3 text-emerald-600 shrink-0"></i>
-                            <span>{{ $event->start_at ? $event->start_at->format('H:i') : '' }}</span>
-                        </span>
-
-                        <div class="flex items-center gap-2 shrink-0">
-                            @if($event->ticket_url)
-                                <a 
-                                    href="{{ $event->ticket_url }}" 
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    title="Doties uz biļešu iegādi pie organizatora"
-                                    class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white font-bold text-[11px] border border-emerald-200 transition-colors">
-                                    <span>{{ __('Tickets') }}</span>
-                                    <i data-lucide="external-link" class="w-3 h-3"></i>
-                                </a>
-                            @endif
-
-                            <a 
-                                href="{{ $event->localized_url }}" 
-                                class="inline-flex items-center gap-1 text-slate-600 hover:text-emerald-700 font-bold transition-colors">
-                                <span>{{ __('Details') }}</span>
-                                <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
-                            </a>
-                        </div>
-                    </div>
-                </div>
+                </a>
             </article>
         @endforeach
     </div>
