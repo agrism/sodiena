@@ -18,6 +18,7 @@ class Event extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
+        'user_id',
         'source_id',
         'source_slug',
         'location_id',
@@ -87,6 +88,11 @@ class Event extends Model
                 }
             }
         });
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 
     public function source(): BelongsTo

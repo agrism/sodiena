@@ -85,7 +85,7 @@ class AuthController extends Controller
         Auth::login($user);
         $request->session()->regenerate();
 
-        return redirect()->route('events.index')
+        return redirect()->intended(route('events.index'))
             ->with('success', __('Welcome to Šodiena! Registration successful.'));
     }
 

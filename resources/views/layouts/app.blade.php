@@ -66,7 +66,22 @@
                     </span>
                 </a>
 
+                <!-- Add Event Button -->
+                <a href="{{ route('events.create') }}" aria-label="{{ __('Add Event') }}" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs hover:shadow-md hover:scale-[1.02] active:scale-[0.98]">
+                    <i data-lucide="plus-circle" class="w-4 h-4 text-white" aria-hidden="true"></i>
+                    <span class="hidden sm:inline">{{ __('Add Event') }}</span>
+                    <span class="sm:hidden">{{ __('Add') }}</span>
+                </a>
+
                 @auth
+                    <!-- My Events Link -->
+                    <a href="{{ route('events.my') }}" aria-label="{{ __('My Events') }}" class="hidden lg:inline-flex px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl text-xs sm:text-sm font-bold transition-all {{ request()->routeIs('events.my') ? 'text-emerald-700 bg-emerald-50 border border-emerald-200' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100' }}" title="{{ __('My Events') }}">
+                        <span class="flex items-center gap-1.5">
+                            <i data-lucide="sparkles" class="w-4 h-4 text-amber-500" aria-hidden="true"></i>
+                            <span>{{ __('My Events') }}</span>
+                        </span>
+                    </a>
+
                     @if(auth()->user()->isAdmin())
                         <!-- Admin: Events Table -->
                         <a href="{{ route('admin.events.index') }}" aria-label="Admin panelis" class="px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl text-xs sm:text-sm font-bold transition-all text-purple-700 bg-purple-50 border border-purple-200 hover:bg-purple-100" title="Admin Panelis">
@@ -94,17 +109,17 @@
                     </a>
                 @else
                     <div class="flex items-center gap-1 sm:gap-3 shrink-0">
-                        <div class="flex items-center gap-1 sm:gap-2">
-                            <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-xl {{ auth()->user()->isAdmin() ? 'bg-purple-100 text-purple-700 border-purple-200' : 'bg-emerald-100 text-emerald-700 border-emerald-200' }} border font-extrabold text-xs flex items-center justify-center shrink-0 shadow-xs">
+                        <a href="{{ route('events.my') }}" class="flex items-center gap-1 sm:gap-2 group cursor-pointer" title="{{ __('My Events') }}">
+                            <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-xl {{ auth()->user()->isAdmin() ? 'bg-purple-100 text-purple-700 border-purple-200' : 'bg-emerald-100 text-emerald-700 border-emerald-200' }} border font-extrabold text-xs flex items-center justify-center shrink-0 shadow-xs group-hover:scale-105 transition-transform">
                                 {{ mb_strtoupper(mb_substr(auth()->user()->name, 0, 1)) }}
                             </div>
                             <div class="hidden sm:block text-left leading-tight">
-                                <p class="text-xs font-bold text-slate-900 truncate max-w-[100px] sm:max-w-[120px]">{{ auth()->user()->name }}</p>
+                                <p class="text-xs font-bold text-slate-900 group-hover:text-emerald-700 truncate max-w-[100px] sm:max-w-[120px] transition-colors">{{ auth()->user()->name }}</p>
                                 <span class="text-[10px] font-extrabold {{ auth()->user()->isAdmin() ? 'text-purple-700' : 'text-emerald-700' }} uppercase tracking-wider">
                                     {{ auth()->user()->localized_role_name }}
                                 </span>
                             </div>
-                        </div>
+                        </a>
 
                         <form action="{{ route('logout') }}" method="POST" class="inline">
                             @csrf

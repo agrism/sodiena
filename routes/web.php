@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\SitemapController;
+use App\Http\Controllers\UserEventController;
 use App\Services\LocaleService;
 use Illuminate\Support\Facades\Route;
 
@@ -15,6 +16,7 @@ Route::prefix('{locale}')
     ->whereIn('locale', ['en', 'ru'])
     ->group(function () {
         Route::get('/', [EventController::class, 'index'])->name('localized.events.index');
+        Route::middleware('auth')->get('/events/create', [UserEventController::class, 'create'])->name('localized.events.create');
         Route::get('/events/{slug}', [EventController::class, 'show'])->name('localized.events.show');
     });
 
@@ -25,6 +27,16 @@ Route::get('/lv', function () {
 Route::get('/lv/{any}', function ($any) {
     return redirect('/' . $any . (request()->getQueryString() ? '?' . request()->getQueryString() : ''), 301);
 })->where('any', '.*');
+
+// User Event Creation & Management (Protected by auth)
+Route::middleware('auth')->group(function () {
+    Route::get('/events/create', [UserEventController::class, 'create'])->name('events.create');
+    Route::post('/events', [UserEventController::class, 'store'])->name('events.store');
+    Route::get('/my-events', [UserEventController::class, 'myEvents'])->name('events.my');
+    Route::get('/events/{event}/edit', [UserEventController::class, 'edit'])->name('events.edit');
+    Route::put('/events/{event}', [UserEventController::class, 'update'])->name('events.update');
+    Route::delete('/events/{event}', [UserEventController::class, 'destroy'])->name('events.destroy');
+});
 
 // Default Latvian Public Routes (/, /events/{slug})
 Route::get('/', [EventController::class, 'index'])->name('events.index');
