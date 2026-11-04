@@ -15,11 +15,11 @@
 @else
     <div class="contents">
         @foreach($events as $event)
-            <article class="event-card group relative flex flex-col rounded-2xl transition-all duration-300">
-                <a href="{{ $event->localized_url }}" class="flex flex-col gap-2 text-slate-900 no-underline focus:outline-none" aria-label="{{ $event->title }}">
+            <article class="event-card group relative flex flex-col rounded-lg transition-all duration-300">
+                <a href="{{ $event->localized_url }}" class="flex flex-col gap-1.5 text-slate-900 no-underline focus:outline-none" aria-label="{{ $event->title }}">
                     
-                    <!-- Poster (Vertical 3:4 aspect ratio matching pasakumiii.lv) -->
-                    <div class="poster relative aspect-[3/4] overflow-hidden rounded-xl border {{ $event->is_promoted ? 'border-amber-300 ring-2 ring-amber-400/50 shadow-md shadow-amber-500/10' : 'border-slate-200/90 group-hover:border-slate-300 shadow-xs' }} bg-slate-100">
+                    <!-- Poster (Vertical 4:5 poster ratio matching pasakumiii.lv with balanced height) -->
+                    <div class="poster relative aspect-[4/5] overflow-hidden rounded-lg border {{ $event->is_promoted ? 'border-amber-300 ring-2 ring-amber-400/50 shadow-md shadow-amber-500/10' : 'border-slate-200/90 group-hover:border-slate-300 shadow-xs' }} bg-slate-100">
                         <img 
                             src="{{ $event->display_image_url }}" 
                             alt="{{ $event->title }}"

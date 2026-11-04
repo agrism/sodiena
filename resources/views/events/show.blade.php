@@ -506,11 +506,11 @@
                 </a>
             </div>
 
-            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5 sm:gap-4.5">
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2.5 sm:gap-3 lg:gap-3.5">
                 @foreach($relatedEvents as $rel)
-                    <article class="event-card group relative flex flex-col rounded-2xl transition-all duration-300">
-                        <a href="{{ $rel->localized_url }}" class="flex flex-col gap-2 text-slate-900 no-underline focus:outline-none" aria-label="{{ $rel->title }}">
-                            <div class="poster relative aspect-[3/4] overflow-hidden rounded-xl border border-slate-200/90 group-hover:border-slate-300 shadow-xs bg-slate-100">
+                    <article class="event-card group relative flex flex-col rounded-lg transition-all duration-300">
+                        <a href="{{ $rel->localized_url }}" class="flex flex-col gap-1.5 text-slate-900 no-underline focus:outline-none" aria-label="{{ $rel->title }}">
+                            <div class="poster relative aspect-[4/5] overflow-hidden rounded-lg border border-slate-200/90 group-hover:border-slate-300 shadow-xs bg-slate-100">
                                 <img 
                                     src="{{ $rel->display_image_url }}" 
                                     alt="{{ $rel->title }}" 
