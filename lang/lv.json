@@ -204,5 +204,8 @@
     "Event successfully added and published!": "Pasākums veiksmīgi pievienots un publicēts!",
     "Event successfully updated!": "Pasākums veiksmīgi atjaunināts!",
     "Event successfully deleted.": "Pasākums veiksmīgi dzēsts.",
-    "You do not have permission to perform this action.": "Jums nav tiesību veikt šo darbību."
+    "You do not have permission to perform this action.": "Jums nav tiesību veikt šo darbību.",
+    "Search results": "Meklēšana",
+    "results": "rezultāti",
+    "Search events...": "Meklēt pasākumu..."
 }

@@ -204,5 +204,8 @@
     "Event successfully added and published!": "Событие успешно добавлено и опубликовано!",
     "Event successfully updated!": "Событие успешно обновлено!",
     "Event successfully deleted.": "Событие успешно удалено.",
-    "You do not have permission to perform this action.": "У вас нет прав для выполнения этого действия."
+    "You do not have permission to perform this action.": "У вас нет прав для выполнения этого действия.",
+    "Search results": "Поиск",
+    "results": "результатов",
+    "Search events...": "Поиск мероприятий..."
 }

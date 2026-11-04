@@ -204,5 +204,8 @@
     "Event successfully added and published!": "Event successfully added and published!",
     "Event successfully updated!": "Event successfully updated!",
     "Event successfully deleted.": "Event successfully deleted.",
-    "You do not have permission to perform this action.": "You do not have permission to perform this action."
+    "You do not have permission to perform this action.": "You do not have permission to perform this action.",
+    "Search results": "Search",
+    "results": "results",
+    "Search events...": "Search events..."
 }

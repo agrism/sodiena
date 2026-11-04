@@ -163,12 +163,15 @@
 @endif
 
 @if(isset($categories) && isset($totalUpcoming) && $events->currentPage() === 1)
-    <div id="category-carousel-wrapper" hx-swap-oob="true" class="mb-8 w-full max-w-full overflow-hidden">
-        @include('events.partials.category-pills', [
-            'categories' => $categories,
-            'totalUpcoming' => $totalUpcoming,
-            'categorySlug' => $categorySlug ?? request('category', 'all')
-        ])
+    <div id="category-carousel-wrapper" hx-swap-oob="true" class="w-full bg-white border-b border-slate-200/80">
+        <div class="w-full px-3.5 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 mx-auto">
+            @include('events.partials.category-pills', [
+                'categories' => $categories,
+                'totalUpcoming' => $totalUpcoming,
+                'categorySlug' => $categorySlug ?? request('category', 'all')
+            ])
+        </div>
     </div>
+    <span id="events-total-count" hx-swap-oob="true">{{ $totalUpcoming }}</span>
 @endif
 
