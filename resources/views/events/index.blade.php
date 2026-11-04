@@ -181,7 +181,7 @@
         </div>
 
         <!-- Dynamic Events Container (Target of HTMX Requests) -->
-        <div id="events-container" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 min-[1800px]:grid-cols-8 gap-2.5 sm:gap-3 items-start">
+        <div id="events-container" class="events-grid-auto">
             @include('events.partials.events-list', ['events' => $events])
         </div>
 

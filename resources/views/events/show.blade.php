@@ -506,7 +506,7 @@
                 </a>
             </div>
 
-            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5 sm:gap-3 items-start">
+            <div class="events-grid-auto">
                 @foreach($relatedEvents as $rel)
                     <article class="event-card group relative bg-white rounded-lg border border-slate-200/85 hover:border-slate-300 shadow-xs hover:shadow-md overflow-hidden transition-all duration-300 flex flex-col h-fit">
                         <div class="relative aspect-[1/1] w-full overflow-hidden bg-slate-100">

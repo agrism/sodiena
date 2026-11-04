@@ -261,3 +261,19 @@ span.flatpickr-weekday {
     background-color: #fecaca !important;
 }
 
+/* Auto-filling responsive events grid: tile size remains compact, scales horizontally with more columns on wider displays */
+.events-grid-auto {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 0.625rem;
+    align-items: start;
+}
+
+@media (min-width: 640px) {
+    .events-grid-auto {
+        grid-template-columns: repeat(auto-fill, minmax(185px, 1fr));
+        gap: 0.75rem;
+    }
+}
+
+
