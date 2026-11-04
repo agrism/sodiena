@@ -362,6 +362,33 @@ class UserEventCreationTest extends TestCase
         $this->assertEquals('Atjaunotais nosaukums', $event->fresh()->title);
     }
 
+    public function test_user_can_access_edit_and_my_events_in_english_and_russian(): void
+    {
+        $user = User::factory()->create();
+        $event = Event::create([
+            'user_id' => $user->id,
+            'title' => 'Festivāla notikums',
+            'description' => 'Festivāla apraksts ar daudzām rindkopām.',
+            'start_at' => now()->addDays(5),
+            'status' => 'published',
+            'published_at' => now(),
+        ]);
+
+        // Access edit form in English: /en/events/{id}/edit
+        $responseEn = $this->actingAs($user)->get("/en/events/{$event->id}/edit");
+        $responseEn->assertOk();
+        $responseEn->assertSee('Festivāla notikums');
+
+        // Access edit form in Russian: /ru/events/{id}/edit
+        $responseRu = $this->actingAs($user)->get("/ru/events/{$event->id}/edit");
+        $responseRu->assertOk();
+        $responseRu->assertSee('Festivāla notikums');
+
+        // Access my-events in English and Russian
+        $this->actingAs($user)->get('/en/my-events')->assertOk();
+        $this->actingAs($user)->get('/ru/my-events')->assertOk();
+    }
+
     public function test_user_cannot_edit_or_delete_another_users_event(): void
     {
         $owner = User::factory()->create();

@@ -16,7 +16,17 @@ Route::prefix('{locale}')
     ->whereIn('locale', ['en', 'ru'])
     ->group(function () {
         Route::get('/', [EventController::class, 'index'])->name('localized.events.index');
-        Route::middleware('auth')->get('/events/create', [UserEventController::class, 'create'])->name('localized.events.create');
+
+        // Localized User Event Creation & Management
+        Route::middleware('auth')->group(function () {
+            Route::get('/events/create', [UserEventController::class, 'create'])->name('localized.events.create');
+            Route::post('/events', [UserEventController::class, 'store'])->name('localized.events.store');
+            Route::get('/my-events', [UserEventController::class, 'myEvents'])->name('localized.events.my');
+            Route::get('/events/{event}/edit', [UserEventController::class, 'edit'])->name('localized.events.edit');
+            Route::put('/events/{event}', [UserEventController::class, 'update'])->name('localized.events.update');
+            Route::delete('/events/{event}', [UserEventController::class, 'destroy'])->name('localized.events.destroy');
+        });
+
         Route::get('/events/{slug}', [EventController::class, 'show'])->name('localized.events.show');
     });
 

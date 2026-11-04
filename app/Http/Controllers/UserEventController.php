@@ -23,7 +23,7 @@ class UserEventController extends Controller
     /**
      * Show the form for creating a new event.
      */
-    public function create(): View
+    public function create(?string $locale = null): View
     {
         $categories = Category::with('translations')->orderBy('order')->get();
 
@@ -46,7 +46,7 @@ class UserEventController extends Controller
     /**
      * Store a newly created event in storage.
      */
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, ?string $locale = null): RedirectResponse
     {
         $validated = $request->validate([
             'title' => ['required', 'string', 'min:3', 'max:255'],
@@ -253,7 +253,7 @@ class UserEventController extends Controller
     /**
      * Display a listing of events added by the authenticated user.
      */
-    public function myEvents(): View
+    public function myEvents(?string $locale = null): View
     {
         $events = Auth::user()->events()
             ->with(['location', 'categories'])
@@ -266,8 +266,9 @@ class UserEventController extends Controller
     /**
      * Show the form for editing an existing event owned by user.
      */
-    public function edit(Event $event): View
+    public function edit(mixed $param1, mixed $param2 = null): View
     {
+        $event = $this->resolveEventFromParams($param1, $param2);
         $this->authorizeEventOwner($event);
 
         $categories = Category::with('translations')->orderBy('order')->get();
@@ -299,8 +300,9 @@ class UserEventController extends Controller
     /**
      * Update the specified event.
      */
-    public function update(Request $request, Event $event): RedirectResponse
+    public function update(Request $request, mixed $param1, mixed $param2 = null): RedirectResponse
     {
+        $event = $this->resolveEventFromParams($param1, $param2);
         $this->authorizeEventOwner($event);
 
         $validated = $request->validate([
@@ -482,8 +484,9 @@ class UserEventController extends Controller
     /**
      * Delete the specified event.
      */
-    public function destroy(Event $event): RedirectResponse
+    public function destroy(mixed $param1, mixed $param2 = null): RedirectResponse
     {
+        $event = $this->resolveEventFromParams($param1, $param2);
         $this->authorizeEventOwner($event);
 
         $event->delete();
@@ -491,6 +494,24 @@ class UserEventController extends Controller
 
         return redirect()->route('events.my')
             ->with('success', __('Event successfully deleted.'));
+    }
+
+    /**
+     * Resolve the Event model from route arguments (whether prefixed with {locale} or not).
+     */
+    protected function resolveEventFromParams(mixed $param1, mixed $param2 = null): Event
+    {
+        if ($param1 instanceof Event) {
+            return $param1;
+        }
+
+        if ($param2 instanceof Event) {
+            return $param2;
+        }
+
+        $id = $param2 ?: $param1;
+
+        return Event::findOrFail($id);
     }
 
     /**
