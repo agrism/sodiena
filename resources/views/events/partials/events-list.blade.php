@@ -84,10 +84,10 @@
                     @endif
                 </div>
 
-                <!-- Details Area: Increased height & larger font -->
-                <div class="p-3.5 flex flex-col gap-2">
-                    <!-- Title: Larger font, prominent presence -->
-                    <h3 class="line-clamp-2 text-[15px] sm:text-base font-bold leading-snug min-h-[2.5rem] sm:min-h-[2.75rem] text-slate-900 group-hover:text-emerald-700 transition-colors" title="{{ $event->title }}">
+                <!-- Details Area: Proportional compact typography -->
+                <div class="p-3 flex flex-col gap-1.5">
+                    <!-- Title: Proportional font, consistent 2-line height -->
+                    <h3 class="line-clamp-2 text-sm sm:text-[15px] font-bold leading-snug min-h-[2.4rem] sm:min-h-[2.6rem] text-slate-900 group-hover:text-emerald-700 transition-colors" title="{{ $event->title }}">
                         <a href="{{ $event->localized_url }}" class="focus:outline-none hover:text-emerald-700 after:absolute after:inset-0 after:z-0">
                             {{ $event->title }}
                         </a>
@@ -95,7 +95,7 @@
 
                     <div class="flex flex-col gap-1">
                         <!-- Date & Time (Left) + Price (Right) in single readable row -->
-                        <div class="flex items-center justify-between text-xs sm:text-[13px] gap-1.5">
+                        <div class="flex items-center justify-between text-xs gap-1">
                             <span class="font-semibold text-emerald-700 truncate">
                                 {{ $event->card_formatted_date }}
                                 @if(!$event->all_day && $event->start_at)
@@ -116,9 +116,9 @@
                             $venue = $event->location?->name;
                             $category = $event->categories->first();
                         @endphp
-                        <div class="flex items-center justify-between text-xs sm:text-[13px] text-slate-500 gap-1.5 mt-0.5">
+                        <div class="flex items-center justify-between text-xs text-slate-500 gap-1 mt-0.5">
                             <span class="truncate flex items-center gap-1" title="{{ $city ? ($venue && $venue !== $city ? $city . ' · ' . $venue : $city) : $venue }}">
-                                <i data-lucide="map-pin" class="w-3.5 h-3.5 text-slate-400 shrink-0"></i>
+                                <i data-lucide="map-pin" class="w-3 h-3 text-slate-400 shrink-0"></i>
                                 <span class="truncate">
                                     @if($city && $venue && $venue !== $city)
                                         {{ $city }} <span class="opacity-60">·</span> {{ $venue }}
@@ -129,7 +129,7 @@
                             </span>
 
                             @if($category)
-                                <span class="h-5 inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 text-slate-600 border border-slate-200/70 shrink-0 truncate max-w-[110px]" title="{{ $category->name }}">
+                                <span class="h-4.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200/60 shrink-0 truncate max-w-[85px] sm:max-w-[95px]" title="{{ $category->name }}">
                                     {{ $category->name }}
                                 </span>
                             @endif

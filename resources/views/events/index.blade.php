@@ -12,7 +12,7 @@
 
 @section('content')
 <div class="relative overflow-hidden bg-gradient-to-b from-emerald-50/60 via-slate-50 to-slate-50 pb-12 pt-6 sm:pt-10">
-    <div class="max-w-7xl xl:max-w-[1400px] 2xl:max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="w-full px-3.5 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 mx-auto">
         
         <!-- Hero Header -->
         <div class="text-center max-w-4xl mx-auto mb-6">
@@ -181,7 +181,7 @@
         </div>
 
         <!-- Dynamic Events Container (Target of HTMX Requests) -->
-        <div id="events-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-5 gap-2.5 sm:gap-3 items-start">
+        <div id="events-container" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 min-[1800px]:grid-cols-8 gap-2.5 sm:gap-3 items-start">
             @include('events.partials.events-list', ['events' => $events])
         </div>
 
