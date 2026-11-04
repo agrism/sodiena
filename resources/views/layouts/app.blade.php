@@ -43,7 +43,7 @@
 <body class="min-h-full flex flex-col bg-slate-50 text-slate-900 antialiased selection:bg-emerald-500 selection:text-white overflow-x-hidden w-full max-w-full relative">
     <!-- Header -->
     <header class="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-slate-200/80 shadow-xs w-full">
-        <div class="w-full px-3.5 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 mx-auto">
+        <div class="{{ (request()->routeIs('events.index') || request()->routeIs('localized.events.index')) ? 'w-full px-3.5 sm:px-6 lg:px-8 xl:px-10 2xl:px-12' : 'max-w-6xl xl:max-w-7xl px-4 sm:px-6 lg:px-8' }} mx-auto">
             <div class="flex items-center justify-between h-14 sm:h-16 gap-2 sm:gap-4">
                 <!-- Logo -->
                 <a href="{{ \App\Services\LocaleService::url(app()->getLocale(), route('events.index')) }}" aria-label="Šodiena.lv — {{ __('Find Events') }}" class="flex items-center gap-2 group shrink-0">
@@ -190,7 +190,7 @@
 
 <!-- Flash Messages -->
 @if(session('success'))
-<div class="w-full px-3.5 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 mx-auto pt-4">
+<div class="{{ (request()->routeIs('events.index') || request()->routeIs('localized.events.index')) ? 'w-full px-3.5 sm:px-6 lg:px-8 xl:px-10 2xl:px-12' : 'max-w-6xl xl:max-w-7xl px-4 sm:px-6 lg:px-8' }} mx-auto pt-4">
     <div class="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs sm:text-sm font-semibold flex items-center justify-between shadow-xs animate-in fade-in slide-in-from-top-2 duration-300" role="alert">
         <div class="flex items-center gap-2.5">
             <i data-lucide="check-circle-2" class="w-5 h-5 text-emerald-600 shrink-0" aria-hidden="true"></i>
@@ -204,7 +204,7 @@
 @endif
 
 @if(session('error'))
-<div class="w-full px-3.5 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 mx-auto pt-4">
+<div class="{{ (request()->routeIs('events.index') || request()->routeIs('localized.events.index')) ? 'w-full px-3.5 sm:px-6 lg:px-8 xl:px-10 2xl:px-12' : 'max-w-6xl xl:max-w-7xl px-4 sm:px-6 lg:px-8' }} mx-auto pt-4">
     <div class="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-900 text-xs sm:text-sm font-semibold flex items-center justify-between shadow-xs animate-in fade-in slide-in-from-top-2 duration-300" role="alert">
         <div class="flex items-center gap-2.5">
             <i data-lucide="alert-triangle" class="w-5 h-5 text-rose-600 shrink-0" aria-hidden="true"></i>
@@ -225,7 +225,7 @@
 
     <!-- Footer -->
     <footer class="bg-white border-t border-slate-200 mt-20">
-        <div class="w-full px-3.5 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 mx-auto py-10">
+        <div class="{{ (request()->routeIs('events.index') || request()->routeIs('localized.events.index')) ? 'w-full px-3.5 sm:px-6 lg:px-8 xl:px-10 2xl:px-12' : 'max-w-6xl xl:max-w-7xl px-4 sm:px-6 lg:px-8' }} mx-auto py-10">
             <div class="flex flex-col md:flex-row items-center justify-between gap-6">
                 <div class="flex items-center gap-3">
                     <div class="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200">
