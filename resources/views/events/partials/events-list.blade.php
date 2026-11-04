@@ -15,27 +15,16 @@
 @else
     <div class="contents">
         @foreach($events as $event)
-            <article class="event-card group relative bg-white rounded-xl border {{ $event->is_promoted ? 'border-amber-300 ring-2 ring-amber-400/50 shadow-md shadow-amber-500/10' : 'border-slate-200/85 hover:border-slate-300 shadow-xs hover:shadow-md' }} overflow-hidden transition-all duration-300 flex flex-col justify-between">
-                <a href="{{ $event->localized_url }}" class="flex flex-col h-full text-slate-900 no-underline focus:outline-none" aria-label="{{ $event->title }}">
+            <article class="event-card group relative bg-white rounded-xl border {{ $event->is_promoted ? 'border-amber-300 ring-2 ring-amber-400/50 shadow-md shadow-amber-500/10' : 'border-slate-200/85 hover:border-slate-300 shadow-xs hover:shadow-md' }} overflow-hidden transition-all duration-300 flex flex-col h-fit">
+                <a href="{{ $event->localized_url }}" class="flex flex-col text-slate-900 no-underline focus:outline-none" aria-label="{{ $event->title }}">
                     
-                    <!-- Smart Adaptive Image Area (Dual-layer ambient canvas: preserves 100% of both horizontal banners and vertical posters without cropping heads or empty gaps) -->
-                    <div class="relative aspect-[4/3] w-full overflow-hidden bg-slate-950 flex items-center justify-center">
-                        <!-- Layer 1: Ambient Blurred Backdrop -->
-                        <img 
-                            src="{{ $event->display_image_url }}" 
-                            alt="" 
-                            aria-hidden="true"
-                            tabindex="-1"
-                            loading="lazy"
-                            decoding="async"
-                            class="absolute inset-0 w-full h-full object-cover blur-xl scale-125 opacity-50 brightness-75 pointer-events-none select-none">
-
-                        <!-- Layer 2: Main Event Image (Preserves natural artwork, no cut-off faces or banners) -->
+                    <!-- Image Area: Increased Height (aspect-[1/1] square) filling 100% of container -->
+                    <div class="relative aspect-[1/1] w-full overflow-hidden bg-slate-100">
                         <img 
                             src="{{ $event->display_image_url }}" 
                             alt="{{ $event->title }}"
                             width="480"
-                            height="360"
+                            height="480"
                             @if($loop->iteration <= 4)
                                 loading="eager"
                                 fetchpriority="high"
@@ -43,13 +32,13 @@
                                 loading="lazy"
                             @endif
                             decoding="async"
-                            class="relative z-10 w-full h-full object-contain group-hover:scale-105 transition-transform duration-300 ease-out">
+                            class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ease-out">
 
-                        <!-- Subtle gradient overlay for contrast and badge legibility -->
-                        <div class="absolute inset-0 bg-gradient-to-t from-slate-950/40 via-transparent to-slate-950/20 pointer-events-none z-10"></div>
+                        <!-- Subtle hover dark gradient overlay -->
+                        <div class="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
 
                         <!-- Top Badges Row -->
-                        <div class="absolute top-2 left-2 right-2 flex items-center justify-between gap-1.5 pointer-events-none z-20">
+                        <div class="absolute top-2 left-2 right-2 flex items-center justify-between gap-1.5 pointer-events-none z-10">
                             <div class="flex items-center gap-1 flex-wrap">
                                 @if($event->is_promoted)
                                     <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-xs border border-amber-300/40 select-none tracking-wide">
@@ -87,7 +76,7 @@
 
                         <!-- Poster Bottom Pills (Free badge) -->
                         @if($event->is_free)
-                            <div class="absolute bottom-2 left-2 z-20 pointer-events-none">
+                            <div class="absolute bottom-2 left-2 z-10 pointer-events-none">
                                 <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-emerald-600 text-white shadow-xs select-none uppercase tracking-wider">
                                     {{ __('Free') }}
                                 </span>
@@ -95,68 +84,54 @@
                         @endif
                     </div>
 
-                    <!-- Details Area -->
-                    <div class="p-3 flex flex-col flex-grow justify-between gap-2.5">
-                        <div class="flex flex-col gap-1">
-                            <!-- Title -->
-                            <h3 class="line-clamp-2 text-sm sm:text-[15px] font-bold leading-snug text-slate-900 group-hover:text-emerald-700 transition-colors" title="{{ $event->title }}">
-                                {{ $event->title }}
-                            </h3>
+                    <!-- Compact Details Area (Significantly reduced total tile height) -->
+                    <div class="p-2.5 flex flex-col gap-1.5">
+                        <!-- Title: 2 lines max, tight leading -->
+                        <h3 class="line-clamp-2 text-sm sm:text-[14px] font-bold leading-snug text-slate-900 group-hover:text-emerald-700 transition-colors" title="{{ $event->title }}">
+                            {{ $event->title }}
+                        </h3>
 
-                            <!-- Date & Time Row -->
-                            <div class="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-xs">
-                                <span class="font-semibold text-emerald-700">
+                        <div class="flex flex-col gap-0.5">
+                            <!-- Date & Time (Left) + Price (Right) in single compact row -->
+                            <div class="flex items-center justify-between text-xs gap-1">
+                                <span class="font-semibold text-emerald-700 truncate">
                                     {{ $event->card_formatted_date }}
+                                    @if(!$event->all_day && $event->start_at)
+                                        <span class="text-slate-400 font-normal">·</span>
+                                        <span class="text-slate-600 font-medium">{{ $event->start_at->format('H:i') }}</span>
+                                    @endif
                                 </span>
-                                @if(!$event->all_day && $event->start_at)
-                                    <span class="text-slate-400 font-normal">·</span>
-                                    <span class="text-slate-500 font-medium">
-                                        {{ $event->start_at->format('H:i') }}
+                                @if(!$event->is_free && $event->formatted_price)
+                                    <span class="font-bold text-slate-700 tabular-nums shrink-0">
+                                        {{ $event->formatted_price }}
                                     </span>
                                 @endif
                             </div>
 
-                            <!-- Price Row (when paid) -->
-                            @if(!$event->is_free && $event->formatted_price)
-                                <div class="text-xs font-semibold tracking-wide tabular-nums text-slate-700">
-                                    {{ $event->formatted_price }}
-                                </div>
-                            @endif
-
-                            <!-- Location: City · Venue -->
+                            <!-- Location (Left) + Category Badge (Right) in single compact row -->
                             @php
                                 $city = $event->location?->city;
                                 $venue = $event->location?->name;
+                                $category = $event->categories->first();
                             @endphp
-                            @if($city || $venue)
-                                <div class="line-clamp-1 text-xs leading-snug text-slate-500" title="{{ $city ? ($venue && $venue !== $city ? $city . ' · ' . $venue : $city) : $venue }}">
-                                    <span class="inline-flex items-center gap-1 truncate">
-                                        <i data-lucide="map-pin" class="w-3 h-3 text-slate-400 shrink-0 -mt-0.5"></i>
-                                        <span class="truncate">
-                                            @if($city && $venue && $venue !== $city)
-                                                {{ $city }} <span class="opacity-60">·</span> {{ $venue }}
-                                            @else
-                                                {{ $city ?: $venue }}
-                                            @endif
-                                        </span>
+                            <div class="flex items-center justify-between text-xs text-slate-500 gap-1.5 mt-0.5">
+                                <span class="truncate flex items-center gap-1" title="{{ $city ? ($venue && $venue !== $city ? $city . ' · ' . $venue : $city) : $venue }}">
+                                    <i data-lucide="map-pin" class="w-3 h-3 text-slate-400 shrink-0"></i>
+                                    <span class="truncate">
+                                        @if($city && $venue && $venue !== $city)
+                                            {{ $city }} <span class="opacity-60">·</span> {{ $venue }}
+                                        @else
+                                            {{ $city ?: $venue ?: 'Latvija' }}
+                                        @endif
                                     </span>
-                                </div>
-                            @endif
-                        </div>
+                                </span>
 
-                        <!-- Category Badges / Chips Row -->
-                        <div class="flex flex-wrap items-center gap-1 overflow-hidden pt-1.5 border-t border-slate-100">
-                            @foreach($event->categories->take(2) as $category)
-                                <span class="h-5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-slate-100 text-slate-700 border border-slate-200/70 truncate max-w-full">
-                                    <i data-lucide="{{ $category->icon ?: 'tag' }}" class="w-2.5 h-2.5 text-emerald-600 shrink-0"></i>
-                                    <span class="truncate">{{ $category->name }}</span>
-                                </span>
-                            @endforeach
-                            @if($event->localized_entertainment_type)
-                                <span class="h-5 inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200/70 shrink-0">
-                                    {{ $event->localized_entertainment_type }}
-                                </span>
-                            @endif
+                                @if($category)
+                                    <span class="h-4.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200/60 shrink-0 truncate max-w-[100px]" title="{{ $category->name }}">
+                                        {{ $category->name }}
+                                    </span>
+                                @endif
+                            </div>
                         </div>
                     </div>
                 </a>

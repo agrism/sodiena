@@ -506,59 +506,52 @@
                 </a>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3.5 sm:gap-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3.5 sm:gap-4 items-start">
                 @foreach($relatedEvents as $rel)
-                    <article class="event-card group relative bg-white rounded-xl border border-slate-200/85 hover:border-slate-300 shadow-xs hover:shadow-md overflow-hidden transition-all duration-300 flex flex-col justify-between">
-                        <a href="{{ $rel->localized_url }}" class="flex flex-col h-full text-slate-900 no-underline focus:outline-none" aria-label="{{ $rel->title }}">
-                            <div class="relative aspect-[4/3] w-full overflow-hidden bg-slate-950 flex items-center justify-center">
-                                <img 
-                                    src="{{ $rel->display_image_url }}" 
-                                    alt="" 
-                                    aria-hidden="true"
-                                    tabindex="-1"
-                                    loading="lazy"
-                                    decoding="async"
-                                    class="absolute inset-0 w-full h-full object-cover blur-xl scale-125 opacity-50 brightness-75 pointer-events-none select-none">
+                    <article class="event-card group relative bg-white rounded-xl border border-slate-200/85 hover:border-slate-300 shadow-xs hover:shadow-md overflow-hidden transition-all duration-300 flex flex-col h-fit">
+                        <a href="{{ $rel->localized_url }}" class="flex flex-col text-slate-900 no-underline focus:outline-none" aria-label="{{ $rel->title }}">
+                            <div class="relative aspect-[1/1] w-full overflow-hidden bg-slate-100">
                                 <img 
                                     src="{{ $rel->display_image_url }}" 
                                     alt="{{ $rel->title }}" 
                                     width="480"
-                                    height="360"
+                                    height="480"
                                     loading="lazy"
                                     decoding="async"
-                                    class="relative z-10 w-full h-full object-contain group-hover:scale-105 transition-transform duration-300 ease-out">
-                                <div class="absolute inset-0 bg-gradient-to-t from-slate-950/40 via-transparent to-slate-950/20 pointer-events-none z-10"></div>
+                                    class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ease-out">
+                                <div class="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
                                 @if($rel->is_free)
-                                    <div class="absolute bottom-2 left-2 z-20 pointer-events-none">
+                                    <div class="absolute bottom-2 left-2 z-10 pointer-events-none">
                                         <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-emerald-600 text-white shadow-xs select-none uppercase tracking-wider">
                                             {{ __('Free') }}
                                         </span>
                                     </div>
                                 @endif
                             </div>
-                            <div class="p-3 flex flex-col flex-grow justify-between gap-2">
-                                <div class="flex flex-col gap-1">
-                                    <h3 class="line-clamp-2 text-sm sm:text-[15px] font-bold leading-snug text-slate-900 group-hover:text-emerald-700 transition-colors" title="{{ $rel->title }}">
-                                        {{ $rel->title }}
-                                    </h3>
-                                    <div class="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-xs">
-                                        <span class="font-semibold text-emerald-700">
+                            <div class="p-2.5 flex flex-col gap-1.5">
+                                <h3 class="line-clamp-2 text-sm font-bold leading-snug text-slate-900 group-hover:text-emerald-700 transition-colors" title="{{ $rel->title }}">
+                                    {{ $rel->title }}
+                                </h3>
+                                <div class="flex flex-col gap-0.5">
+                                    <div class="flex items-center justify-between text-xs gap-1">
+                                        <span class="font-semibold text-emerald-700 truncate">
                                             {{ $rel->card_formatted_date }}
+                                            @if(!$rel->all_day && $rel->start_at)
+                                                <span class="text-slate-400 font-normal">·</span>
+                                                <span class="text-slate-600 font-medium">{{ $rel->start_at->format('H:i') }}</span>
+                                            @endif
                                         </span>
-                                        @if(!$rel->all_day && $rel->start_at)
-                                            <span class="text-slate-400 font-normal">·</span>
-                                            <span class="text-slate-500 font-medium">
-                                                {{ $rel->start_at->format('H:i') }}
+                                        @if(!$rel->is_free && $rel->formatted_price)
+                                            <span class="font-bold text-slate-700 tabular-nums shrink-0">
+                                                {{ $rel->formatted_price }}
                                             </span>
                                         @endif
                                     </div>
-                                    @if(!$rel->is_free && $rel->formatted_price)
-                                        <div class="text-xs font-semibold tracking-wide tabular-nums text-slate-700">
-                                            {{ $rel->formatted_price }}
-                                        </div>
-                                    @endif
-                                    <div class="line-clamp-1 text-xs leading-snug text-slate-500">
-                                        {{ $rel->location?->city ?: 'Latvija' }}
+                                    <div class="flex items-center justify-between text-xs text-slate-500 gap-1.5 mt-0.5">
+                                        <span class="truncate flex items-center gap-1">
+                                            <i data-lucide="map-pin" class="w-3 h-3 text-slate-400 shrink-0"></i>
+                                            <span class="truncate">{{ $rel->location?->city ?: 'Latvija' }}</span>
+                                        </span>
                                     </div>
                                 </div>
                             </div>
