@@ -31,6 +31,20 @@
         <form action="{{ route('events.store') }}" method="POST" enctype="multipart/form-data" class="space-y-8" id="create-event-form">
             @csrf
 
+            @if ($errors->any())
+                <div class="p-4 sm:p-5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 animate-pulse-once">
+                    <div class="flex items-center gap-2 font-bold mb-2 text-rose-900">
+                        <i data-lucide="alert-octagon" class="w-5 h-5 text-rose-600 shrink-0"></i>
+                        <span>{{ __('Please correct the following errors to publish:') }}</span>
+                    </div>
+                    <ul class="list-disc list-inside text-xs sm:text-sm space-y-1 text-rose-700">
+                        @foreach ($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
+
             <!-- 1. PAMATINFORMĀCIJA -->
             <div class="space-y-5">
                 <div class="flex items-center gap-2.5 pb-2 border-b border-slate-100">
@@ -202,33 +216,37 @@
                     <h2 class="text-lg font-extrabold text-slate-900">{{ __('Venue') }}</h2>
                 </div>
 
+                @php
+                    $isCustomLoc = old('city') || old('venue_name') || $errors->has('city') || $errors->has('venue_name');
+                @endphp
+
                 <!-- Vieta Type Selector (Existing vs Custom) -->
                 <div class="flex items-center p-1 bg-slate-100 rounded-2xl w-fit max-w-full">
                     <button 
                         type="button" 
                         id="loc-type-existing-btn" 
                         onclick="switchLocationMode('existing')" 
-                        class="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all shadow-xs bg-white text-slate-900">
+                        class="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all {{ !$isCustomLoc ? 'shadow-xs bg-white text-slate-900' : 'text-slate-600 hover:text-slate-900' }}">
                         {{ __('Choose from list') }}
                     </button>
                     <button 
                         type="button" 
                         id="loc-type-custom-btn" 
                         onclick="switchLocationMode('custom')" 
-                        class="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all text-slate-600 hover:text-slate-900">
+                        class="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all {{ $isCustomLoc ? 'shadow-xs bg-white text-slate-900' : 'text-slate-600 hover:text-slate-900' }}">
                         {{ __('Enter new venue') }}
                     </button>
                 </div>
 
                 <!-- Saraksta izvēle -->
-                <div id="loc-existing-container" class="space-y-3">
+                <div id="loc-existing-container" class="{{ $isCustomLoc ? 'hidden' : '' }} space-y-3">
                     <label for="location_id" class="block text-xs font-bold uppercase tracking-wider text-slate-700">
                         {{ __('Select venue') }} <span class="text-rose-500">*</span>
                     </label>
                     <select 
                         name="location_id" 
                         id="location_id" 
-                        class="block w-full px-4 py-3 bg-slate-50 border @error('location_id') border-rose-400 @else border-slate-200 @enderror focus:ring-emerald-500 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:bg-white transition-all font-medium">
+                        class="block w-full px-4 py-3 bg-slate-50 border @if($errors->has('location_id') || (!$isCustomLoc && ($errors->has('city') || $errors->has('venue_name')))) border-rose-400 @else border-slate-200 @endif focus:ring-emerald-500 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:bg-white transition-all font-medium">
                         <option value="">{{ __('-- Choose a popular venue --') }}</option>
                         @foreach($popularLocations as $loc)
                             <option value="{{ $loc->id }}" {{ old('location_id') == $loc->id ? 'selected' : '' }}>
@@ -236,16 +254,16 @@
                             </option>
                         @endforeach
                     </select>
-                    @error('location_id')
+                    @if($errors->has('location_id') || (!$isCustomLoc && ($errors->has('city') || $errors->has('venue_name'))))
                         <p class="mt-1.5 text-xs font-bold text-rose-600 flex items-center gap-1">
                             <i data-lucide="alert-circle" class="w-3.5 h-3.5"></i>
-                            {{ $message }}
+                            {{ __('Please select a venue from the list or switch to "Enter new venue".') }}
                         </p>
-                    @enderror
+                    @endif
                 </div>
 
                 <!-- Jaunas vietas ievade -->
-                <div id="loc-custom-container" class="hidden space-y-4">
+                <div id="loc-custom-container" class="{{ !$isCustomLoc ? 'hidden' : '' }} space-y-4">
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <!-- Pilsēta -->
                         <div>
@@ -495,6 +513,13 @@
                                     class="hidden">
                             </label>
                         </div>
+                        <div id="image-live-preview-container" class="hidden mt-3 flex items-center gap-3 p-3 rounded-2xl bg-emerald-50/80 border border-emerald-200">
+                            <img id="image-live-preview" src="#" alt="Preview" class="w-16 h-16 object-cover rounded-xl shadow-2xs">
+                            <div class="text-xs">
+                                <span class="font-bold text-emerald-900 block">{{ __('Selected image preview') }}</span>
+                                <span class="text-emerald-700 font-medium" id="image-live-preview-size"></span>
+                            </div>
+                        </div>
                         @error('image')
                             <p class="mt-1.5 text-xs font-bold text-rose-600 flex items-center gap-1">
                                 <i data-lucide="alert-circle" class="w-3.5 h-3.5"></i>
@@ -664,11 +689,29 @@ function togglePriceFields(isFree) {
 
 function handleImageFileSelected(input) {
     const previewText = document.getElementById('file-name-preview');
+    const previewContainer = document.getElementById('image-live-preview-container');
+    const previewImg = document.getElementById('image-live-preview');
+    const previewSize = document.getElementById('image-live-preview-size');
+
     if (input.files && input.files[0]) {
         const file = input.files[0];
-        previewText.textContent = file.name + ' (' + (file.size / 1024 / 1024).toFixed(2) + ' MB)';
-        previewText.classList.add('text-emerald-700', 'font-bold');
-        previewText.classList.remove('text-slate-400');
+        const sizeMb = (file.size / 1024 / 1024).toFixed(2);
+        if (previewText) {
+            previewText.textContent = file.name + ' (' + sizeMb + ' MB)';
+            previewText.classList.add('text-emerald-700', 'font-bold');
+            previewText.classList.remove('text-slate-400');
+        }
+        if (previewSize) {
+            previewSize.textContent = file.name + ' (' + sizeMb + ' MB)';
+        }
+        if (previewContainer && previewImg) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                previewImg.src = e.target.result;
+                previewContainer.classList.remove('hidden');
+            };
+            reader.readAsDataURL(file);
+        }
     }
 }
 </script>

@@ -179,6 +179,7 @@ class UserEventController extends Controller
                 'ticket_url' => $validated['ticket_url'] ?? null,
                 'source_url' => $validated['source_url'] ?? null,
                 'image_url' => $imageUrl,
+                'internal_image_url' => null,
                 'entertainment_type' => $validated['entertainment_type'] ?? null,
                 'status' => 'published',
                 'published_at' => now(),
@@ -255,6 +256,10 @@ class UserEventController extends Controller
             ->take(200)
             ->get();
 
+        if ($event->location && ! $popularLocations->contains('id', $event->location_id)) {
+            $popularLocations->prepend($event->location);
+        }
+
         return view('events.edit', compact('event', 'categories', 'cities', 'popularLocations'));
     }
 
@@ -320,11 +325,14 @@ class UserEventController extends Controller
 
             // Image handling
             $imageUrl = $event->image_url;
+            $internalImageUrl = $event->internal_image_url;
             if ($request->hasFile('image')) {
                 $path = $request->file('image')->store('events', 'public');
                 $imageUrl = '/storage/'.$path;
+                $internalImageUrl = null;
             } elseif (! empty($validated['image_url'])) {
                 $imageUrl = trim($validated['image_url']);
+                $internalImageUrl = null;
             }
 
             $isFree = (bool) ($validated['is_free'] ?? false);
@@ -363,6 +371,7 @@ class UserEventController extends Controller
                 'ticket_url' => $validated['ticket_url'] ?? null,
                 'source_url' => $validated['source_url'] ?? null,
                 'image_url' => $imageUrl,
+                'internal_image_url' => $internalImageUrl,
                 'entertainment_type' => $validated['entertainment_type'] ?? null,
             ]);
 

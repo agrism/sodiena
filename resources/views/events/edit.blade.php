@@ -39,6 +39,20 @@
             @csrf
             @method('PUT')
 
+            @if ($errors->any())
+                <div class="p-4 sm:p-5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800">
+                    <div class="flex items-center gap-2 font-bold mb-2 text-rose-900">
+                        <i data-lucide="alert-octagon" class="w-5 h-5 text-rose-600 shrink-0"></i>
+                        <span>{{ __('Please correct the following errors to save:') }}</span>
+                    </div>
+                    <ul class="list-disc list-inside text-xs sm:text-sm space-y-1 text-rose-700">
+                        @foreach ($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
+
             <!-- 1. PAMATINFORMĀCIJA -->
             <div class="space-y-5">
                 <div class="flex items-center gap-2.5 pb-2 border-b border-slate-100">
@@ -202,7 +216,30 @@
                     <h2 class="text-lg font-extrabold text-slate-900">{{ __('Venue') }}</h2>
                 </div>
 
-                <div class="space-y-3">
+                @php
+                    $isCustomLoc = old('city') || old('venue_name') || $errors->has('city') || $errors->has('venue_name');
+                @endphp
+
+                <!-- Vieta Type Selector (Existing vs Custom) -->
+                <div class="flex items-center p-1 bg-slate-100 rounded-2xl w-fit max-w-full">
+                    <button 
+                        type="button" 
+                        id="loc-type-existing-btn" 
+                        onclick="switchLocationMode('existing')" 
+                        class="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all {{ !$isCustomLoc ? 'shadow-xs bg-white text-slate-900' : 'text-slate-600 hover:text-slate-900' }}">
+                        {{ __('Choose from list') }}
+                    </button>
+                    <button 
+                        type="button" 
+                        id="loc-type-custom-btn" 
+                        onclick="switchLocationMode('custom')" 
+                        class="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all {{ $isCustomLoc ? 'shadow-xs bg-white text-slate-900' : 'text-slate-600 hover:text-slate-900' }}">
+                        {{ __('Enter new venue') }}
+                    </button>
+                </div>
+
+                <!-- Saraksta izvēle -->
+                <div id="loc-existing-container" class="{{ $isCustomLoc ? 'hidden' : '' }} space-y-3">
                     <label for="location_id" class="block text-xs font-bold uppercase tracking-wider text-slate-700">
                         {{ __('Select venue') }}
                     </label>
@@ -210,13 +247,63 @@
                         name="location_id" 
                         id="location_id" 
                         class="block w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:ring-emerald-500 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:bg-white transition-all font-medium">
-                        <option value="">{{ __('-- Choose a popular venue --') }}</option>
+                        <option value="">{{ __('-- Choose a venue --') }}</option>
                         @foreach($popularLocations as $loc)
                             <option value="{{ $loc->id }}" {{ old('location_id', $event->location_id) == $loc->id ? 'selected' : '' }}>
                                 {{ $loc->name }} ({{ $loc->city }}{{ $loc->address ? ' — ' . $loc->address : '' }})
                             </option>
                         @endforeach
                     </select>
+                </div>
+
+                <!-- Jaunas vietas ievade -->
+                <div id="loc-custom-container" class="{{ !$isCustomLoc ? 'hidden' : '' }} space-y-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label for="city" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                                {{ __('City / Municipality') }}
+                            </label>
+                            <input 
+                                type="text" 
+                                name="city" 
+                                id="city" 
+                                list="cities-datalist"
+                                value="{{ old('city', $event->location?->city) }}" 
+                                placeholder="{{ __('e.g., Riga, Liepaja, Valmiera...') }}" 
+                                class="block w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:ring-emerald-500 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:bg-white transition-all font-medium">
+                            <datalist id="cities-datalist">
+                                @foreach($cities as $c)
+                                    <option value="{{ $c }}">
+                                @endforeach
+                            </datalist>
+                        </div>
+
+                        <div>
+                            <label for="venue_name" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                                {{ __('Venue Name') }}
+                            </label>
+                            <input 
+                                type="text" 
+                                name="venue_name" 
+                                id="venue_name" 
+                                value="{{ old('venue_name', $event->location?->name) }}" 
+                                placeholder="{{ __('e.g., Great Amber Concert Hall') }}" 
+                                class="block w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:ring-emerald-500 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:bg-white transition-all font-medium">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="address" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                            {{ __('Address') }} <span class="text-slate-400 font-normal lowercase tracking-normal">{{ __('(optional)') }}</span>
+                        </label>
+                        <input 
+                            type="text" 
+                            name="address" 
+                            id="address" 
+                            value="{{ old('address', $event->location?->address) }}" 
+                            placeholder="{{ __('e.g., Radio street 8') }}" 
+                            class="block w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:ring-emerald-500 rounded-xl text-sm text-slate-900 focus:outline-none focus:ring-2 focus:bg-white transition-all font-medium">
+                    </div>
                 </div>
             </div>
 
@@ -354,9 +441,16 @@
                 <div class="space-y-4">
                     <div>
                         <label for="image" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                            {{ __('New image file') }}
+                            {{ __('New image file') }} <span class="text-slate-400 font-normal lowercase tracking-normal">{{ __('(JPG, PNG, WEBP up to 5MB)') }}</span>
                         </label>
-                        <input id="image" name="image" type="file" accept="image/*" class="block w-full text-xs text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer">
+                        <input id="image" name="image" type="file" accept="image/*" onchange="handleEditImagePreview(this)" class="block w-full text-xs text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer">
+                        <div id="image-edit-preview-container" class="hidden mt-3 flex items-center gap-3 p-3 rounded-2xl bg-emerald-50/80 border border-emerald-200">
+                            <img id="image-edit-preview" src="#" alt="Preview" class="w-16 h-16 object-cover rounded-xl shadow-2xs">
+                            <div class="text-xs">
+                                <span class="font-bold text-emerald-900 block">{{ __('New image selected') }}</span>
+                                <span class="text-emerald-700 font-medium" id="image-edit-preview-size"></span>
+                            </div>
+                        </div>
                     </div>
 
                     <div>
@@ -450,6 +544,51 @@ function togglePriceFields(isFree) {
         container.classList.add('hidden');
     } else {
         container.classList.remove('hidden');
+    }
+}
+
+function switchLocationMode(mode) {
+    const existingContainer = document.getElementById('loc-existing-container');
+    const customContainer = document.getElementById('loc-custom-container');
+    const existingBtn = document.getElementById('loc-type-existing-btn');
+    const customBtn = document.getElementById('loc-type-custom-btn');
+    const locIdSelect = document.getElementById('location_id');
+
+    if (mode === 'custom') {
+        if (existingContainer) existingContainer.classList.add('hidden');
+        if (customContainer) customContainer.classList.remove('hidden');
+        if (customBtn) customBtn.classList.add('bg-white', 'text-slate-900', 'shadow-xs');
+        if (customBtn) customBtn.classList.remove('text-slate-600');
+        if (existingBtn) existingBtn.classList.remove('bg-white', 'text-slate-900', 'shadow-xs');
+        if (existingBtn) existingBtn.classList.add('text-slate-600');
+        if (locIdSelect) locIdSelect.value = '';
+    } else {
+        if (existingContainer) existingContainer.classList.remove('hidden');
+        if (customContainer) customContainer.classList.add('hidden');
+        if (existingBtn) existingBtn.classList.add('bg-white', 'text-slate-900', 'shadow-xs');
+        if (existingBtn) existingBtn.classList.remove('text-slate-600');
+        if (customBtn) customBtn.classList.remove('bg-white', 'text-slate-900', 'shadow-xs');
+        if (customBtn) customBtn.classList.add('text-slate-600');
+    }
+}
+
+function handleEditImagePreview(input) {
+    const container = document.getElementById('image-edit-preview-container');
+    const img = document.getElementById('image-edit-preview');
+    const sizeSpan = document.getElementById('image-edit-preview-size');
+
+    if (input.files && input.files[0]) {
+        const file = input.files[0];
+        const sizeMb = (file.size / 1024 / 1024).toFixed(2);
+        if (sizeSpan) sizeSpan.textContent = file.name + ' (' + sizeMb + ' MB)';
+        if (container && img) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                img.src = e.target.result;
+                container.classList.remove('hidden');
+            };
+            reader.readAsDataURL(file);
+        }
     }
 }
 </script>
