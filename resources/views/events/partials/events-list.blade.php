@@ -15,7 +15,7 @@
 @else
     <div class="contents">
         @foreach($events as $event)
-            <article class="event-card group relative bg-white rounded-xl border {{ $event->is_promoted ? 'border-amber-300 ring-2 ring-amber-400/50 shadow-md shadow-amber-500/10' : 'border-slate-200/85 hover:border-slate-300 shadow-xs hover:shadow-md' }} overflow-hidden transition-all duration-300 flex flex-col h-fit">
+            <article class="event-card group relative bg-white rounded-lg border {{ $event->is_promoted ? 'border-amber-300 ring-2 ring-amber-400/50 shadow-md shadow-amber-500/10' : 'border-slate-200/85 hover:border-slate-300 shadow-xs hover:shadow-md' }} overflow-hidden transition-all duration-300 flex flex-col h-fit">
                 <!-- Image Area: (aspect-[1/1] square) filling 100% of container -->
                 <div class="relative aspect-[1/1] w-full overflow-hidden bg-slate-100">
                     <!-- Clickable Image Link -->
@@ -84,58 +84,58 @@
                     @endif
                 </div>
 
-                <!-- Compact Details Area (Significantly reduced total tile height) -->
-                <div class="p-2.5 flex flex-col gap-1.5">
-                    <!-- Title: 2 lines max, tight leading -->
-                    <h3 class="line-clamp-2 text-sm sm:text-[14px] font-bold leading-snug text-slate-900 group-hover:text-emerald-700 transition-colors" title="{{ $event->title }}">
+                <!-- Details Area: Increased height & larger font -->
+                <div class="p-3.5 flex flex-col gap-2">
+                    <!-- Title: Larger font, prominent presence -->
+                    <h3 class="line-clamp-2 text-[15px] sm:text-base font-bold leading-snug min-h-[2.5rem] sm:min-h-[2.75rem] text-slate-900 group-hover:text-emerald-700 transition-colors" title="{{ $event->title }}">
                         <a href="{{ $event->localized_url }}" class="focus:outline-none hover:text-emerald-700 after:absolute after:inset-0 after:z-0">
                             {{ $event->title }}
                         </a>
                     </h3>
 
-                        <div class="flex flex-col gap-0.5">
-                            <!-- Date & Time (Left) + Price (Right) in single compact row -->
-                            <div class="flex items-center justify-between text-xs gap-1">
-                                <span class="font-semibold text-emerald-700 truncate">
-                                    {{ $event->card_formatted_date }}
-                                    @if(!$event->all_day && $event->start_at)
-                                        <span class="text-slate-400 font-normal">·</span>
-                                        <span class="text-slate-600 font-medium">{{ $event->start_at->format('H:i') }}</span>
+                    <div class="flex flex-col gap-1">
+                        <!-- Date & Time (Left) + Price (Right) in single readable row -->
+                        <div class="flex items-center justify-between text-xs sm:text-[13px] gap-1.5">
+                            <span class="font-semibold text-emerald-700 truncate">
+                                {{ $event->card_formatted_date }}
+                                @if(!$event->all_day && $event->start_at)
+                                    <span class="text-slate-400 font-normal">·</span>
+                                    <span class="text-slate-600 font-medium">{{ $event->start_at->format('H:i') }}</span>
+                                @endif
+                            </span>
+                            @if(!$event->is_free && $event->formatted_price)
+                                <span class="font-bold text-slate-800 tabular-nums shrink-0">
+                                    {{ $event->formatted_price }}
+                                </span>
+                            @endif
+                        </div>
+
+                        <!-- Location (Left) + Category Badge (Right) in single readable row -->
+                        @php
+                            $city = $event->location?->city;
+                            $venue = $event->location?->name;
+                            $category = $event->categories->first();
+                        @endphp
+                        <div class="flex items-center justify-between text-xs sm:text-[13px] text-slate-500 gap-1.5 mt-0.5">
+                            <span class="truncate flex items-center gap-1" title="{{ $city ? ($venue && $venue !== $city ? $city . ' · ' . $venue : $city) : $venue }}">
+                                <i data-lucide="map-pin" class="w-3.5 h-3.5 text-slate-400 shrink-0"></i>
+                                <span class="truncate">
+                                    @if($city && $venue && $venue !== $city)
+                                        {{ $city }} <span class="opacity-60">·</span> {{ $venue }}
+                                    @else
+                                        {{ $city ?: $venue ?: 'Latvija' }}
                                     @endif
                                 </span>
-                                @if(!$event->is_free && $event->formatted_price)
-                                    <span class="font-bold text-slate-700 tabular-nums shrink-0">
-                                        {{ $event->formatted_price }}
-                                    </span>
-                                @endif
-                            </div>
+                            </span>
 
-                            <!-- Location (Left) + Category Badge (Right) in single compact row -->
-                            @php
-                                $city = $event->location?->city;
-                                $venue = $event->location?->name;
-                                $category = $event->categories->first();
-                            @endphp
-                            <div class="flex items-center justify-between text-xs text-slate-500 gap-1.5 mt-0.5">
-                                <span class="truncate flex items-center gap-1" title="{{ $city ? ($venue && $venue !== $city ? $city . ' · ' . $venue : $city) : $venue }}">
-                                    <i data-lucide="map-pin" class="w-3 h-3 text-slate-400 shrink-0"></i>
-                                    <span class="truncate">
-                                        @if($city && $venue && $venue !== $city)
-                                            {{ $city }} <span class="opacity-60">·</span> {{ $venue }}
-                                        @else
-                                            {{ $city ?: $venue ?: 'Latvija' }}
-                                        @endif
-                                    </span>
+                            @if($category)
+                                <span class="h-5 inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 text-slate-600 border border-slate-200/70 shrink-0 truncate max-w-[110px]" title="{{ $category->name }}">
+                                    {{ $category->name }}
                                 </span>
-
-                                @if($category)
-                                    <span class="h-4.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200/60 shrink-0 truncate max-w-[100px]" title="{{ $category->name }}">
-                                        {{ $category->name }}
-                                    </span>
-                                @endif
-                            </div>
+                            @endif
                         </div>
                     </div>
+                </div>
             </article>
         @endforeach
     </div>

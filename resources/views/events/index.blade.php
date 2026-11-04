@@ -15,21 +15,21 @@
     <div class="max-w-7xl xl:max-w-[1400px] 2xl:max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8">
         
         <!-- Hero Header -->
-        <div class="text-center max-w-4xl mx-auto mb-10">
-            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-100/80 text-emerald-800 text-xs font-extrabold tracking-wide mb-4 border border-emerald-200">
+        <div class="text-center max-w-4xl mx-auto mb-6">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-100/80 text-emerald-800 text-xs font-extrabold tracking-wide mb-3 border border-emerald-200">
                 <span class="w-2 h-2 rounded-full bg-emerald-600 animate-pulse"></span>
                 <span>{{ $totalUpcoming }} {{ __('Events') }}</span>
             </div>
             <h1 class="text-3xl sm:text-5xl font-extrabold tracking-tight text-slate-900 leading-tight">
                 {{ __('Find Events') }}
             </h1>
-            <p class="mt-3 text-sm sm:text-base text-slate-600 font-medium">
+            <p class="mt-2.5 text-sm sm:text-base text-slate-600 font-medium">
                 {{ __('Discover future events') }}
             </p>
         </div>
 
         <!-- Search Bar -->
-        <div class="max-w-4xl xl:max-w-5xl mx-auto mb-8">
+        <div class="max-w-4xl xl:max-w-5xl mx-auto mb-4 sm:mb-5">
             <form 
                 id="filter-form"
                 hx-get="{{ route('events.index') }}" 
@@ -75,7 +75,7 @@
         </div>
 
         <!-- Category Carousel / Pills -->
-        <div id="category-carousel-wrapper" class="mb-8 w-full max-w-full overflow-hidden">
+        <div id="category-carousel-wrapper" class="mb-3 sm:mb-4 w-full max-w-full overflow-hidden">
             @include('events.partials.category-pills', [
                 'categories' => $categories,
                 'totalUpcoming' => $totalUpcoming,
@@ -84,7 +84,7 @@
         </div>
 
         <!-- Filter Control Bar -->
-        <div class="bg-white border border-slate-200/80 rounded-2xl p-3 sm:p-4 mb-8 shadow-xs w-full max-w-full overflow-hidden">
+        <div class="bg-white border border-slate-200/80 rounded-xl p-2.5 sm:p-3 mb-4 sm:mb-5 shadow-xs w-full max-w-full overflow-hidden">
             <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 w-full">
                 
                 <!-- Quick Date Filters & Exact Date Picker -->
@@ -181,7 +181,7 @@
         </div>
 
         <!-- Dynamic Events Container (Target of HTMX Requests) -->
-        <div id="events-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-5 gap-3.5 sm:gap-4 items-start">
+        <div id="events-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-5 gap-2.5 sm:gap-3 items-start">
             @include('events.partials.events-list', ['events' => $events])
         </div>
 
