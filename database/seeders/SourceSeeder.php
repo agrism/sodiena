@@ -138,6 +138,13 @@ class SourceSeeder extends Seeder
                 'scraper_class' => \App\Services\Scrapers\Sources\LffVirsligaScraper::class,
                 'is_active' => true,
             ],
+            [
+                'name' => 'Latvijas Handbola Federācija (handball.lv)',
+                'slug' => 'handball-lv',
+                'url' => 'https://handball.lv/league/1278/calendar',
+                'scraper_class' => \App\Services\Scrapers\Sources\HandballLvScraper::class,
+                'is_active' => true,
+            ],
         ];
 
         foreach ($sources as $s) {
