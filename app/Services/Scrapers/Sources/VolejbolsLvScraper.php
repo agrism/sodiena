@@ -196,6 +196,62 @@ class VolejbolsLvScraper extends BaseScraper
             'lat' => 55.87523,
             'lon' => 26.51746,
         ],
+        'Balvu sākumskola' => [
+            'venue' => 'Balvu sākumskolas sporta zāle',
+            'city' => 'Balvi',
+            'region' => 'Latgale',
+            'address' => 'Partizānu iela 16, Balvi',
+            'lat' => 57.12994,
+            'lon' => 27.26220,
+        ],
+        'Sējas Sporta centrs' => [
+            'venue' => 'Sējas Sporta centrs',
+            'city' => 'Sēja',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Loja, Sējas pagasts, Saulkrastu novads',
+            'lat' => 57.17057,
+            'lon' => 24.63266,
+        ],
+        'Sporta nams Taurenītis' => [
+            'venue' => 'Sporta nams "Taurenītis"',
+            'city' => 'Jūrmala',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Kļavu iela 29/31, Dubulti, Jūrmala',
+            'lat' => 56.96573,
+            'lon' => 23.76742,
+        ],
+        'Rīgas Volejbola centrs' => [
+            'venue' => 'Rīgas Volejbola centrs',
+            'city' => 'Rīga',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Ganību dambis 20A, Rīga',
+            'lat' => 56.97522,
+            'lon' => 24.11597,
+        ],
+        'Rīgas Volejbola skola' => [
+            'venue' => 'Rīgas Volejbola skola',
+            'city' => 'Rīga',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Cieceres iela 9, Rīga',
+            'lat' => 56.93220,
+            'lon' => 24.07505,
+        ],
+        'Tīraines Sporta komplekss' => [
+            'venue' => 'Tīraines Sporta komplekss',
+            'city' => 'Tīraine',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Tīraine, Mārupes novads',
+            'lat' => 56.88541,
+            'lon' => 24.06578,
+        ],
+        'Daugavpils Sporta skola' => [
+            'venue' => 'Daugavpils Sporta skolas halle',
+            'city' => 'Daugavpils',
+            'region' => 'Latgale',
+            'address' => 'Kandavas iela 17A, Daugavpils',
+            'lat' => 55.87523,
+            'lon' => 26.51746,
+        ],
     ];
 
     /**
@@ -206,15 +262,22 @@ class VolejbolsLvScraper extends BaseScraper
         'Jelgavas novads / Evopipes' => ['city' => 'Jelgava', 'region' => 'Zemgale'],
         'VK Ventspils' => ['city' => 'Ventspils', 'region' => 'Kurzeme'],
         'RSU' => ['city' => 'Rīga', 'region' => 'Rīga un Pierīga'],
+        'RSU 2' => ['city' => 'Rīga', 'region' => 'Rīga un Pierīga'],
         'Robežsardze / RSU' => ['city' => 'Rīga', 'region' => 'Rīga un Pierīga'],
         'Jēkabpils Lūši' => ['city' => 'Jēkabpils', 'region' => 'Latgale'],
         'Jēkabpils juniori / JSS' => ['city' => 'Jēkabpils', 'region' => 'Latgale'],
         'Ezerzeme / DU / Homelike' => ['city' => 'Daugavpils', 'region' => 'Latgale'],
         'Augšdaugava / Ezerzeme' => ['city' => 'Daugavpils', 'region' => 'Latgale'],
+        'Daugavpils Sporta skola' => ['city' => 'Daugavpils', 'region' => 'Latgale'],
         'Vecumnieki' => ['city' => 'Vecumnieki', 'region' => 'Zemgale'],
         'Liepājas sporta spēļu skola' => ['city' => 'Liepāja', 'region' => 'Kurzeme'],
         'Liepāja/LSSS' => ['city' => 'Liepāja', 'region' => 'Kurzeme'],
         'RVS/LU' => ['city' => 'Rīga', 'region' => 'Rīga un Pierīga'],
+        'Rīgas volejbola skola' => ['city' => 'Rīga', 'region' => 'Rīga un Pierīga'],
+        'Mārupe' => ['city' => 'Mārupe', 'region' => 'Rīga un Pierīga'],
+        'VK Lazdukalns / Balvu novads' => ['city' => 'Balvi', 'region' => 'Latgale'],
+        'Murjāņu Sporta ģimnāzija' => ['city' => 'Murjāņi', 'region' => 'Rīga un Pierīga'],
+        'Jūrmalas volejbola klubs / Jūrmalas sporta skola' => ['city' => 'Jūrmala', 'region' => 'Rīga un Pierīga'],
         'Cēsu pilsētas Sporta skola' => ['city' => 'Cēsis', 'region' => 'Vidzeme'],
         'Valmieras sporta skola' => ['city' => 'Valmiera', 'region' => 'Vidzeme'],
         'VK Gulbene' => ['city' => 'Gulbene', 'region' => 'Vidzeme'],
@@ -313,8 +376,8 @@ class VolejbolsLvScraper extends BaseScraper
         $title = trim($a->filter('.year-cal-item__title')->text());
         $cleanTitle = trim(preg_replace('/\s+/', ' ', $title));
 
-        // Rule: Only process matches starting with "Elme Messer" or "Latvijas čempionāts"
-        if (!preg_match('/^(?:Elme Messer|Latvijas čempionāts)/iu', $cleanTitle)) {
+        // Rule: Only process matches starting with "Elme Messer", "Latvijas čempionāts", or "LČ Nacionālā līga"
+        if (!preg_match('/^(?:Elme Messer|Latvijas čempionāts|LČ Nacionālā līga)/iu', $cleanTitle)) {
             return null;
         }
 
@@ -530,3 +593,4 @@ class VolejbolsLvScraper extends BaseScraper
         ];
     }
 }
+

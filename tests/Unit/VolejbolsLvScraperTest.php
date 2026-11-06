@@ -119,6 +119,50 @@ HTML;
         $this->assertEquals('lvf_5531', $dto->sourceExternalId);
     }
 
+    public function test_parse_match_lc_nacionala_liga(): void
+    {
+        $futureDate = now()->addDays(10);
+        $dateStr = $futureDate->format('Y-m-d');
+
+        $html = <<<HTML
+<ul>
+<li data-date="{$dateStr}">
+    <a href="https://volejbols.lv/spele/5561/" class="year-cal-item">
+        <div class="year-cal-item__body">
+            <span class="year-cal-item__title">LČ Nacionālā līga sievietēm 2026/2027</span>
+            <span class="year-cal-item__teams">VK Lazdukalns / Balvu novads – Mārupe</span>
+            <span class="year-cal-item__time">14:00</span>
+        </div>
+    </a>
+</li>
+</ul>
+HTML;
+
+        $subpageCache = [
+            'https://volejbols.lv/spele/5561/' => [
+                'venue' => 'Balvu sākumskola',
+                'home' => 'VK Lazdukalns / Balvu novads',
+                'away' => 'Mārupe',
+                'league' => 'LČ Nacionālā līga sievietēm 2026/2027',
+                'is_played' => false,
+            ]
+        ];
+
+        $crawler = new Crawler($html);
+        $scraper = new VolejbolsLvScraper();
+        $dto = $scraper->parseMatch($crawler->filter('li')->first(), now()->format('Y-m-d'), $subpageCache);
+
+        $this->assertNotNull($dto);
+        $this->assertEquals('VK Lazdukalns / Balvu novads vs Mārupe', $dto->title);
+        $this->assertEquals('Balvu sākumskolas sporta zāle', $dto->venueName);
+        $this->assertEquals('Balvi', $dto->city);
+        $this->assertEquals('Latgale', $dto->region);
+        $this->assertEquals('Partizānu iela 16, Balvi', $dto->address);
+        $this->assertEqualsWithDelta(57.12994, $dto->latitude, 0.0001);
+        $this->assertEqualsWithDelta(27.26220, $dto->longitude, 0.0001);
+        $this->assertEquals('lvf_5561', $dto->sourceExternalId);
+    }
+
     public function test_parse_match_skips_unwanted_leagues(): void
     {
         $futureDate = now()->addDays(2);
@@ -298,3 +342,4 @@ HTML;
         $this->assertEquals('http://localhost:8000/images/volejbols.webp', $saved->display_image_url);
     }
 }
+
