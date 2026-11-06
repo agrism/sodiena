@@ -235,3 +235,4 @@ HTML;
         $this->assertEquals('http://localhost:8000/images/handball.webp', $saved->display_image_url);
     }
 }
+

@@ -389,3 +389,4 @@ class HandballLvScraper extends BaseScraper
         ];
     }
 }
+

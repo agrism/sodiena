@@ -145,6 +145,13 @@ class SourceSeeder extends Seeder
                 'scraper_class' => \App\Services\Scrapers\Sources\HandballLvScraper::class,
                 'is_active' => true,
             ],
+            [
+                'name' => 'Latvijas Florbola Savienība (floorball.lv)',
+                'slug' => 'floorball-lv',
+                'url' => 'https://www.floorball.lv/lv/2026/chempionats/vv/kalendars',
+                'scraper_class' => \App\Services\Scrapers\Sources\FloorballLvScraper::class,
+                'is_active' => true,
+            ],
         ];
 
         foreach ($sources as $s) {
