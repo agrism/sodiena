@@ -166,6 +166,13 @@ class SourceSeeder extends Seeder
                 'scraper_class' => \App\Services\Scrapers\Sources\VolejbolsLvScraper::class,
                 'is_active' => true,
             ],
+            [
+                'name' => 'Latvijas Basketbola Savienība (basket.lv)',
+                'slug' => 'basket-lv',
+                'url' => 'https://nbl.basket.lv/kalendars/',
+                'scraper_class' => \App\Services\Scrapers\Sources\BasketLvScraper::class,
+                'is_active' => true,
+            ],
         ];
 
         foreach ($sources as $s) {
