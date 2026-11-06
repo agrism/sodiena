@@ -124,6 +124,13 @@ class SourceSeeder extends Seeder
                 'scraper_class' => \App\Services\Scrapers\Sources\AluksneTourismScraper::class,
                 'is_active' => true,
             ],
+            [
+                'name' => 'Optibet Latvijas - Igaunijas Basketbola Līga',
+                'slug' => 'estlatbl',
+                'url' => 'https://www.estlatbl.com/lv/game-center',
+                'scraper_class' => \App\Services\Scrapers\Sources\EstLatblScraper::class,
+                'is_active' => true,
+            ],
         ];
 
         foreach ($sources as $s) {
