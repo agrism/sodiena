@@ -11,6 +11,8 @@ use Symfony\Component\DomCrawler\Crawler;
 
 class EstLatblScraper extends BaseScraper
 {
+    public const DEFAULT_IMAGE = '/images/estlatbl.webp';
+
     public function getSlug(): string
     {
         return 'estlatbl';
@@ -273,7 +275,7 @@ class EstLatblScraper extends BaseScraper
 
         $homeLogo = $row->filter('.homeTeam .logo img')->count() ? $row->filter('.homeTeam .logo img')->attr('src') : null;
         $awayLogo = $row->filter('.awayTeam .logo img')->count() ? $row->filter('.awayTeam .logo img')->attr('src') : null;
-        $imageUrl = $homeLogo ?: $awayLogo;
+        $imageUrl = self::DEFAULT_IMAGE;
 
         $broadcasts = [];
         $row->filter('.broadcast img')->each(function (Crawler $img) use (&$broadcasts) {

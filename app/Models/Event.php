@@ -193,11 +193,11 @@ class Event extends Model
     public function getDisplayImageUrlAttribute(): string
     {
         if (!empty($this->internal_image_url)) {
-            return $this->internal_image_url;
+            return str_starts_with($this->internal_image_url, 'http') ? $this->internal_image_url : url($this->internal_image_url);
         }
 
         if (!empty($this->image_url) && !str_contains($this->image_url, 'aplis-default-og-img.jpg')) {
-            return $this->image_url;
+            return str_starts_with($this->image_url, 'http') ? $this->image_url : url($this->image_url);
         }
 
         return asset('images/default-event.jpg');

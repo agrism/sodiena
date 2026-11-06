@@ -76,7 +76,7 @@ HTML;
         $this->assertContains('Sports', $dto->categoryNames);
         $this->assertEquals('2027212089', $dto->sourceExternalId);
         $this->assertEquals('https://www.estlatbl.com/lv/game-center?gid=2027212089', $dto->sourceUrl);
-        $this->assertEquals('https://www.estlatbl.com/logo-ogre.png', $dto->imageUrl);
+        $this->assertEquals(EstLatblScraper::DEFAULT_IMAGE, $dto->imageUrl);
         $this->assertStringContainsString('Delfi TV, TV4', $dto->description);
     }
 
