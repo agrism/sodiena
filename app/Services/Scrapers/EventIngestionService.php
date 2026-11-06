@@ -654,7 +654,7 @@ class EventIngestionService
                 $candStems = $this->getLatvianWordStems($cleanCandName);
                 if (count($queryStems) >= 2 && count($candStems) >= 2) {
                     $common = array_intersect($queryStems, $candStems);
-                    $overlap = (count($common) / min(count($queryStems), count($candStems))) * 100;
+                    $overlap = (count($common) / max(count($queryStems), count($candStems))) * 100;
                     if ($overlap >= 75) {
                         $location = $candidate;
                         break;

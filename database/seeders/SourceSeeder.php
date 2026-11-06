@@ -152,6 +152,13 @@ class SourceSeeder extends Seeder
                 'scraper_class' => \App\Services\Scrapers\Sources\FloorballLvScraper::class,
                 'is_active' => true,
             ],
+            [
+                'name' => 'Latvijas Hokeja Federācija (LHF)',
+                'slug' => 'lhf-hokejs',
+                'url' => 'https://www.lhf.lv/lv/turniri/optibet-hokeja-liga/speles',
+                'scraper_class' => \App\Services\Scrapers\Sources\LhfHokejsScraper::class,
+                'is_active' => true,
+            ],
         ];
 
         foreach ($sources as $s) {
