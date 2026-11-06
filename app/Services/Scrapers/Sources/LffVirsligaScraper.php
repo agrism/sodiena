@@ -558,3 +558,4 @@ class LffVirsligaScraper extends BaseScraper
         ];
     }
 }
+
