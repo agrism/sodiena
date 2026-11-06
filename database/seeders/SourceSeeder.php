@@ -131,6 +131,13 @@ class SourceSeeder extends Seeder
                 'scraper_class' => \App\Services\Scrapers\Sources\EstLatblScraper::class,
                 'is_active' => true,
             ],
+            [
+                'name' => 'Tonybet Virslīga (LFF)',
+                'slug' => 'lff-virsliga',
+                'url' => 'https://lff.lv/sacensibas/viriesi/virsliga/?tab=content_1_1',
+                'scraper_class' => \App\Services\Scrapers\Sources\LffVirsligaScraper::class,
+                'is_active' => true,
+            ],
         ];
 
         foreach ($sources as $s) {
