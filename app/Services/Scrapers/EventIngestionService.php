@@ -168,6 +168,55 @@ class EventIngestionService
                 }
             }
 
+            $sportsCat = $this->resolveCanonicalCategory('sports');
+            $teatrisCat = $this->resolveCanonicalCategory('teatris');
+            $muzikaCat = $this->resolveCanonicalCategory('muzika');
+            $izstadesCat = $this->resolveCanonicalCategory('izstades');
+            $seminariCat = $this->resolveCanonicalCategory('seminari');
+
+            // Guard: Real Theatre plays are never sports
+            $isRealTheatre = (
+                $smartSlug === 'teatris' ||
+                str_contains($titleLower, 'izrāde') || str_contains($titleLower, 'luga') ||
+                str_contains($titleLower, 'iestudējum') || str_contains($titleLower, 'komēdij') ||
+                str_contains($titleLower, 'stand-up') || str_contains($titleLower, 'standup') ||
+                (str_contains($venueLower, 'teātr') && !str_contains($venueLower, 'kino'))
+            );
+            if ($isRealTheatre && $sportsCat) {
+                $categoryIds = array_diff($categoryIds, [$sportsCat->id]);
+                if ($teatrisCat && !in_array($teatrisCat->id, $categoryIds, true)) {
+                    $categoryIds[] = $teatrisCat->id;
+                }
+            }
+
+            // Guard: Music concerts, bands, orchestras, choirs are never sports
+            $isRealMusic = (
+                $smartSlug === 'muzika' ||
+                str_contains($titleLower, 'koncerts') || str_contains($titleLower, 'grupa ') ||
+                str_contains($titleLower, 'grupas ') || str_contains($titleLower, 'grupu ') ||
+                str_contains($titleLower, 'orķestr') || str_contains($titleLower, 'koris')
+            ) && !preg_match('/\b(?:vs|pret|čempionāts|kauss|virslīga|fiba|turnīrs)\b/ui', $titleLower);
+            if ($isRealMusic && $sportsCat) {
+                $categoryIds = array_diff($categoryIds, [$sportsCat->id]);
+                if ($muzikaCat && !in_array($muzikaCat->id, $categoryIds, true)) {
+                    $categoryIds[] = $muzikaCat->id;
+                }
+            }
+
+            // Guard: Excursions, guided tours, park walks are Izstādes, never sports
+            $isExcursion = (
+                str_contains($titleLower, 'ekskursij') ||
+                str_contains($titleLower, 'gida pavadīb') ||
+                str_contains($titleLower, 'kūrorta parks') ||
+                str_contains($venueLower, 'kūrorta parks')
+            );
+            if ($isExcursion && $sportsCat) {
+                $categoryIds = array_diff($categoryIds, [$sportsCat->id]);
+                if ($izstadesCat && !in_array($izstadesCat->id, $categoryIds, true)) {
+                    $categoryIds[] = $izstadesCat->id;
+                }
+            }
+
             // Guard: Randiņš tumsā / Piedzīvojums tumsā and Tumsas muzejs / Sensorium are not Sports (user: lai ir izrāde, semināri)
             if (
                 str_contains($titleLower, 'randiņ') ||
@@ -178,12 +227,9 @@ class EventIngestionService
                 str_contains($venueLower, 'tumsas muzejs') ||
                 str_contains($venueLower, 'sensorium')
             ) {
-                $sportsCat = $this->resolveCanonicalCategory('sports');
                 if ($sportsCat) {
                     $categoryIds = array_diff($categoryIds, [$sportsCat->id]);
                 }
-                $teatrisCat = $this->resolveCanonicalCategory('teatris');
-                $seminariCat = $this->resolveCanonicalCategory('seminari');
                 if ($teatrisCat && !in_array($teatrisCat->id, $categoryIds, true)) {
                     $categoryIds[] = $teatrisCat->id;
                 }
@@ -201,11 +247,9 @@ class EventIngestionService
                 str_contains($titleLower, 'kulinārijas skola') ||
                 (str_contains($titleLower, 'studij') && !str_contains($titleLower, 'deju studij') && !str_contains($titleLower, 'fitnesa studij'))
             ) {
-                $sportsCat = $this->resolveCanonicalCategory('sports');
                 if ($sportsCat) {
                     $categoryIds = array_diff($categoryIds, [$sportsCat->id]);
                 }
-                $seminariCat = $this->resolveCanonicalCategory('seminari');
                 if ($seminariCat && !in_array($seminariCat->id, $categoryIds, true)) {
                     $categoryIds[] = $seminariCat->id;
                 }

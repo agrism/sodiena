@@ -103,7 +103,7 @@ class AfiroApiScraper extends BaseScraper
         $lng = isset($locationData['lng']) ? (float)$locationData['lng'] : null;
         $city = $this->resolveCity($locationData['citySlug'] ?? null, $address, $venueName);
 
-        $categories = $this->resolveCategories($item['categories'] ?? []);
+        $categories = $this->resolveCategories($item['categories'] ?? [], $title);
         $isFree = (bool)($item['isFree'] ?? false);
         $priceMin = isset($item['priceFrom']) && is_numeric($item['priceFrom']) ? (float)$item['priceFrom'] : null;
         $priceMax = isset($item['priceTo']) && is_numeric($item['priceTo']) ? (float)$item['priceTo'] : null;
@@ -257,9 +257,11 @@ class AfiroApiScraper extends BaseScraper
         return $map[$city] ?? 'Latvija';
     }
 
-    private function resolveCategories(array $categories): array
+    private function resolveCategories(array $categories, string $title = ''): array
     {
         $result = [];
+        $titleLower = mb_strtolower($title, 'UTF-8');
+        $isExcursionOrCulture = str_contains($titleLower, 'ekskursij') || str_contains($titleLower, 'gida pavadīb') || str_contains($titleLower, 'kūrorta parks') || str_contains($titleLower, 'parks');
         $map = [
             'art' => 'Kultūra & Māksla',
             'exhibitions' => 'Kultūra & Māksla',
@@ -287,6 +289,10 @@ class AfiroApiScraper extends BaseScraper
 
         foreach ($categories as $cat) {
             $lower = strtolower(trim($cat));
+            if (($lower === 'nature' || $lower === 'outdoors') && $isExcursionOrCulture) {
+                $result[] = 'Kultūra & Māksla';
+                continue;
+            }
             if (isset($map[$lower])) {
                 $result[] = $map[$lower];
             }

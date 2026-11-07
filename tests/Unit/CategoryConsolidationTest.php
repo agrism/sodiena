@@ -236,6 +236,129 @@ class CategoryConsolidationTest extends TestCase
         $this->assertNotContains('sports', $categorySlugs);
     }
 
+    public function test_park_excursion_categorized_as_izstades_not_sports(): void
+    {
+        $source = Source::create([
+            'name' => 'Afiro API',
+            'slug' => 'afiro-test-exc',
+            'url' => 'https://example.com',
+            'scraper_class' => \App\Services\Scrapers\Sources\AfiroApiScraper::class,
+            'is_active' => true,
+        ]);
+
+        $service = app(EventIngestionService::class);
+
+        $dto = new ScrapedEventDTO(
+            title: 'Ekskursija pa Ķemeru kūrorta parku (angļu valodā)',
+            description: 'Pastaigas laikā būs iespēja uzzināt par Ķemeru vēsturi un izstaigāt kūrorta parku.',
+            startAt: now()->addDays(4),
+            endAt: null,
+            isFree: false,
+            priceMin: 5,
+            priceMax: 5,
+            currency: 'EUR',
+            categoryNames: ['Daba & Pārgājieni'],
+            venueName: 'Ķemeru kūrorta parks',
+            address: 'Tūristu iela 1',
+            city: 'Jūrmala',
+            imageUrl: null,
+            ticketUrl: null,
+            sourceUrl: 'https://example.com/kemeri',
+            sourceExternalId: 'kemeri-exc-1'
+        );
+
+        $service->ingestDTO($dto, $source);
+
+        $event = Event::where('source_external_id', 'kemeri-exc-1')->first();
+        $this->assertNotNull($event);
+        $categorySlugs = $event->categories->pluck('slug')->toArray();
+
+        $this->assertContains('izstades', $categorySlugs);
+        $this->assertNotContains('sports', $categorySlugs);
+    }
+
+    public function test_concert_with_sports_reference_in_bio_categorized_as_muzika_not_sports(): void
+    {
+        $source = Source::create([
+            'name' => 'Biļešu Paradīze',
+            'slug' => 'bp-test-concert',
+            'url' => 'https://example.com',
+            'scraper_class' => \App\Services\Scrapers\Sources\BilesuParadizeScraper::class,
+            'is_active' => true,
+        ]);
+
+        $service = app(EventIngestionService::class);
+
+        $dto = new ScrapedEventDTO(
+            title: 'Rudenīga tikšanās ar Grupu BIG AL & THE JOKERS',
+            description: 'Grupas un tās muzikālā stila cienītāji pievienojas rokenrola virpulī. 2025. gadā grupa uzstājās Eiropas basketbola čempionāta izklaides programmā.',
+            startAt: now()->addDays(5),
+            endAt: null,
+            isFree: false,
+            priceMin: 15,
+            priceMax: 30,
+            currency: 'EUR',
+            categoryNames: [],
+            venueName: 'Madonas novada kultūras centrs',
+            address: 'Raiņa iela 12',
+            city: 'Madona',
+            imageUrl: null,
+            ticketUrl: null,
+            sourceUrl: 'https://example.com/big-al',
+            sourceExternalId: 'big-al-1'
+        );
+
+        $service->ingestDTO($dto, $source);
+
+        $event = Event::where('source_external_id', 'big-al-1')->first();
+        $this->assertNotNull($event);
+        $categorySlugs = $event->categories->pluck('slug')->toArray();
+
+        $this->assertContains('muzika', $categorySlugs);
+        $this->assertNotContains('sports', $categorySlugs);
+    }
+
+    public function test_theatre_play_with_actress_named_liga_categorized_as_teatris_not_sports(): void
+    {
+        $source = Source::create([
+            'name' => 'Biļešu Paradīze',
+            'slug' => 'bp-test-play',
+            'url' => 'https://example.com',
+            'scraper_class' => \App\Services\Scrapers\Sources\BilesuParadizeScraper::class,
+            'is_active' => true,
+        ]);
+
+        $service = app(EventIngestionService::class);
+
+        $dto = new ScrapedEventDTO(
+            title: 'Intīmās dzīves',
+            description: 'Viena no izsmalcinātākajām komēdijām. Lomās: Evija Krūze, Līga Zeļģe, Ainārs Ančevskis.',
+            startAt: now()->addDays(6),
+            endAt: null,
+            isFree: false,
+            priceMin: 20,
+            priceMax: 40,
+            currency: 'EUR',
+            categoryNames: [],
+            venueName: 'Latvijas Nacionālais teātris, Lielā zāle',
+            address: 'Kronvalda bulvāris 2',
+            city: 'Rīga',
+            imageUrl: null,
+            ticketUrl: null,
+            sourceUrl: 'https://example.com/intimas',
+            sourceExternalId: 'intimas-play-1'
+        );
+
+        $service->ingestDTO($dto, $source);
+
+        $event = Event::where('source_external_id', 'intimas-play-1')->first();
+        $this->assertNotNull($event);
+        $categorySlugs = $event->categories->pluck('slug')->toArray();
+
+        $this->assertContains('teatris', $categorySlugs);
+        $this->assertNotContains('sports', $categorySlugs);
+    }
+
     public function test_open_day_transporta_instituts_categorized_as_seminari_not_sports(): void
     {
         $source = Source::create([
