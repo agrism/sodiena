@@ -675,12 +675,27 @@ class BezRindasScraper extends BaseScraper
             return [['Filmas & Kino'], 'chill'];
         }
 
-        // 2. Sports & Active (basketbols, futbols, hokejs, florbols, turnīri, čempionāti, sacensības, spēles)
-        if (preg_match('/(sports|sporta|sacensīb|maratons|skrējiens|turnīrs|čempionāts|futbols|futbolā|basketbols|basketbolā|hokejs|hokejā|florbols|florbolā|volejbols|teniss|bokss|fiba|eurobasket|kvalifikācij|\blīga\b|\blīgas\b|\blīgu\b|\blīgā\b|joga|pārgājiens|velobrauciens|orientēšan|mačs|\bspēle\b|\bspēles\b)/u', $text)) {
-            return [['Sports & Aktīvā atpūta'], 'active'];
+        // 2. Theatre, Stage Plays & Stand-up Comedy
+        if (preg_match('/(teātr|izrāde|komēdij|stand up|stand-up|humor|aktier|drāma|pirmizrād|luga|iestudējum|balets|opera)/u', $text) && !preg_match('/\b(?:pret|vs|virslīga|fiba|čempionāts)\b/ui', $title)) {
+            return [['Teātris & Kino'], 'chill'];
         }
 
-        // 3. Kids & Family (explicit family productions, kids events, fairy tales, puppet theatre)
+        // 3. Music & Concerts
+        if (preg_match('/(koncert|mūzik|muzika|jazz|džezs|orķestr|koris|dziesm|dzied|grupa|solist|vokāl|ģitār|klavier|simfonij|filharmon|operet|roks|pops|dziesmu|jam session|soundtrack)/u', $text) && !preg_match('/\b(?:pret|vs|virslīga|fiba|čempionāts|kauss)\b/ui', $title)) {
+            return [['Mūzika & Koncerti'], 'concert'];
+        }
+
+        // 4. Exhibitions, Art & Museums
+        if (preg_match('/(izstāde|muzej|māksl|ekspozīcij|glezn|tūre|tour|guided|vēstur|ekskursij|galerij|glezniecīb|keramik|tēlniecīb)/u', $text)) {
+            return [['Kultūra & Māksla'], 'exhibition'];
+        }
+
+        // 5. Education, Workshops, Masterclasses
+        if (preg_match('/(meistarklas|seminār|lekcij|darbnīc|kursi|apmācīb|diskusij|konferenc)/u', $text)) {
+            return [['Izglītība & Semināri'], 'workshop'];
+        }
+
+        // 6. Kids & Family (explicit family productions, kids events, fairy tales, puppet theatre)
         if (preg_match('/(ģimenēm|ģimenes\s+(?:filma|pasākum|kino|dien|svētk)|bērniem|bērnu\s+(?:izrāde|pasākum|koncert|rīts|darbnīc)|leļļu\s+teātr|pasaka|pasakas|multfilma|karuselis|bumbu\s+basein)/u', $cleanForKids)) {
             if (preg_match('/(izrāde|teātr)/u', $text)) {
                 return [['Ģimenēm & Bērniem', 'Teātris & Kino'], 'family'];
@@ -688,24 +703,9 @@ class BezRindasScraper extends BaseScraper
             return [['Ģimenēm & Bērniem'], 'family'];
         }
 
-        // 4. Theatre, Stage Plays & Stand-up Comedy
-        if (preg_match('/(teātr|izrāde|komēdij|stand up|stand-up|humor|aktier|drāma|pirmizrād|luga|iestudējum|balets|opera)/u', $text)) {
-            return [['Teātris & Kino'], 'chill'];
-        }
-
-        // 5. Music & Concerts
-        if (preg_match('/(koncert|mūzik|muzika|jazz|džezs|orķestr|koris|dziesm|dzied|grupa|solist|vokāl|ģitār|klavier|simfonij|filharmon|operet|roks|pops|dziesmu|jam session|soundtrack)/u', $text)) {
-            return [['Mūzika & Koncerti'], 'concert'];
-        }
-
-        // 6. Exhibitions, Art & Museums
-        if (preg_match('/(izstāde|muzej|māksl|ekspozīcij|glezn|tūre|tour|guided|vēstur|ekskursij|galerij|glezniecīb|keramik|tēlniecīb)/u', $text)) {
-            return [['Kultūra & Māksla'], 'exhibition'];
-        }
-
-        // 7. Education, Workshops, Masterclasses
-        if (preg_match('/(meistarklas|seminār|lekcij|darbnīc|kursi|apmācīb|diskusij|konferenc)/u', $text)) {
-            return [['Izglītība & Semināri'], 'workshop'];
+        // 7. Sports & Active (basketbols, futbols, hokejs, florbols, turnīri, čempionāti, sacensības, padels, handbols)
+        if (preg_match('/(sports|sporta|sacensīb|maratons|skrējiens|turnīr|čempionāt|futbol|basketbol|hokej|florbol|volejbol|handbol|padel|teniss|bokss|fiba|eurobasket|kvalifikācij|virslīg|joga|pārgājiens|velobrauciens|orientēšan|mačs|sporta spēl|mājas spēl|finālspēl|basketball|handball|tournament|championship)/u', $text)) {
+            return [['Sports & Aktīvā atpūta'], 'active'];
         }
 
         // 8. Nightlife, Parties & Clubs

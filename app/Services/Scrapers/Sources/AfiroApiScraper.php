@@ -298,6 +298,12 @@ class AfiroApiScraper extends BaseScraper
             }
         }
 
+        // Title checks if categories empty or missing sports
+        $isSportsTitle = preg_match('/\b(?:sports?|sporta|turnīr|čempionāt|kauss|mačs|futbol|basketbol|hokej|florbol|volejbol|handbol|padel|basketball|championship|tournament|handball|virslīg|skrējiens|maratons|fiba)\b/ui', $titleLower);
+        if ($isSportsTitle && !preg_match('/\b(?:izrāde|luga|teātr|koncert|izstād|muzej|lekcij)\b/ui', $titleLower)) {
+            $result[] = 'Sports & Aktīvā atpūta';
+        }
+
         if (empty($result)) {
             $result[] = 'Kultūra & Māksla';
         }
@@ -312,7 +318,11 @@ class AfiroApiScraper extends BaseScraper
 
         if (in_array('kids', $cats) || in_array('family', $cats) || str_contains($t, 'bērn') || str_contains($t, 'ģimen')) return 'family';
         if (in_array('music', $cats) || in_array('concerts', $cats) || str_contains($t, 'koncert')) return 'concert';
-        if (in_array('sports', $cats) || in_array('active', $cats) || str_contains($t, 'skrējiens') || str_contains($t, 'vel')) return 'active';
+        if (
+            in_array('sports', $cats) || in_array('active', $cats) ||
+            str_contains($t, 'skrējiens') || str_contains($t, 'vel') ||
+            preg_match('/\b(?:sports?|turnīr|čempionāt|kauss|mačs|futbol|basketbol|hokej|florbol|volejbol|handbol|padel|basketball|championship|tournament|handball|virslīg|fiba)\b/ui', $t)
+        ) return 'active';
         if (in_array('nightlife', $cats) || in_array('party', $cats) || str_contains($t, 'ballīt') || str_contains($t, 'disko')) return 'party';
         if (in_array('workshops', $cats) || in_array('education', $cats) || str_contains($t, 'meistarklas')) return 'workshop';
         if (in_array('exhibitions', $cats) || in_array('art', $cats) || str_contains($t, 'izstād')) return 'exhibition';

@@ -255,6 +255,29 @@ class ConsolidateCategoriesCommand extends Command
                 }
             }
 
+            // Cross-category sanity guards:
+            $sportsId = $canonicalMap['sports']->id ?? null;
+            $izstadesId = $canonicalMap['izstades']->id ?? null;
+            $teatrisId = $canonicalMap['teatris']->id ?? null;
+            $citiId = $canonicalMap['citi']->id ?? null;
+
+            // 1. If smartSlug is sports, remove false izstades/teatris from default fallbacks
+            if ($smartSlug === 'sports' && $sportsId) {
+                if ($izstadesId && isset($eventCanonicalLinks[$event->id][$izstadesId])) {
+                    unset($eventCanonicalLinks[$event->id][$izstadesId]);
+                }
+                if ($teatrisId && isset($eventCanonicalLinks[$event->id][$teatrisId])) {
+                    unset($eventCanonicalLinks[$event->id][$teatrisId]);
+                }
+            }
+
+            // 2. If smartSlug is teatris, muzika, izstades, seminari, kino, remove false sports
+            if (in_array($smartSlug, ['teatris', 'muzika', 'izstades', 'seminari', 'kino'], true) && $sportsId) {
+                if (isset($eventCanonicalLinks[$event->id][$sportsId])) {
+                    unset($eventCanonicalLinks[$event->id][$sportsId]);
+                }
+            }
+
             // If the event has ANY specific category, remove 'citi'
             $citiId = $canonicalMap['citi']->id ?? null;
             if ($citiId && isset($eventCanonicalLinks[$event->id][$citiId]) && count($eventCanonicalLinks[$event->id]) > 1) {
@@ -346,7 +369,7 @@ class ConsolidateCategoriesCommand extends Command
         if (
             str_contains($cleanForSports, 'sport') || str_contains($cleanForSports, 'skrie') ||
             str_contains($cleanForSports, 'skrieš') || str_contains($cleanForSports, 'vel') ||
-            str_contains($cleanForSports, 'maraton') || str_contains($cleanForSports, 'dab') ||
+            str_contains($cleanForSports, 'maraton') ||
             str_contains($cleanForSports, 'pargaj') || str_contains($cleanForSports, 'pārgāj') ||
             str_contains($cleanForSports, 'fitnes') || str_contains($cleanForSports, 'hike') ||
             str_contains($cleanForSports, 'orientē') || str_contains($cleanForSports, 'orient') ||
@@ -354,6 +377,12 @@ class ConsolidateCategoriesCommand extends Command
             str_contains($cleanForSports, 'sacens') || str_contains($cleanForSports, 'futbol') ||
             str_contains($cleanForSports, 'basketbol') || str_contains($cleanForSports, 'hokej') ||
             str_contains($cleanForSports, 'florbol') || str_contains($cleanForSports, 'volejbol') ||
+            str_contains($cleanForSports, 'handbol') || str_contains($cleanForSports, 'handball') ||
+            str_contains($cleanForSports, 'padel') || str_contains($cleanForSports, 'padels') ||
+            str_contains($cleanForSports, 'virslīg') || str_contains($cleanForSports, 'virslig') ||
+            str_contains($cleanForSports, 'basketball') || str_contains($cleanForSports, 'football') ||
+            str_contains($cleanForSports, 'hockey') || str_contains($cleanForSports, 'floorball') ||
+            str_contains($cleanForSports, 'championship') || str_contains($cleanForSports, 'tournament') ||
             str_contains($cleanForSports, 'tenis') || str_contains($cleanForSports, 'fiba') ||
             str_contains($cleanForSports, 'eurobasket') || str_contains($cleanForSports, 'pelde')
         ) {
@@ -487,8 +516,8 @@ class ConsolidateCategoriesCommand extends Command
         $rawCatTextForSports = preg_replace('/\b[a-zāčēģīķļņšūž]*(?:transport|eksport|export|pasport|passport)[a-zāčēģīķļņšūž]*\b/ui', '', $rawCatText);
         $titleForSports = preg_replace('/\b[a-zāčēģīķļņšūž]*(?:transport|eksport|export|pasport|passport)[a-zāčēģīķļņšūž]*\b/ui', '', $title);
 
-        $hasSportsInTitle = preg_match('/\b(?:sports?|sporta|turnīrs?|čempionāts?|kauss|mačs|futbol|basketbol|hokej|florbol|volejbol|skrējiens|maratons|fiba|virslīg)\b/ui', $titleForSports)
-            || (preg_match('/\b(?:spēle|spēles|spēļu)\b/ui', $titleForSports) && !preg_match('/\b(?:luga|izrāde|iestudējums|komēdija|teātris|bērniem)\b/ui', $titleForSports));
+        $hasSportsInTitle = preg_match('/\b(?:sports?|sporta|turnīr[a-zāčēģīķļņšūž]*|čempionāt[a-zāčēģīķļņšūž]*|kauss?|kausā|mačs?|mačā|mači|futbol[a-zāčēģīķļņšūž]*|basketbol[a-zāčēģīķļņšūž]*|hokej[a-zāčēģīķļņšūž]*|florbol[a-zāčēģīķļņšūž]*|volejbol[a-zāčēģīķļņšūž]*|handbol[a-zāčēģīķļņšūž]*|padel[a-zāčēģīķļņšūž]*|padels?|skrējiens?|maratons?|fiba|virslīg[a-zāčēģīķļņšūž]*|basketball|handball|tournament[s]?|championship[s]?|league)\b/ui', $titleForSports)
+            || (preg_match('/\b(?:sporta spēl[a-zāčēģīķļņšūž]*|mājas spēl[a-zāčēģīķļņšūž]*|finālspēl[a-zāčēģīķļņšūž]*|spēļu kalendārs)\b/ui', $titleForSports) && !preg_match('/\b(?:luga|izrāde|iestudējums|komēdija|teātris|bērniem)\b/ui', $titleForSports));
 
         if (
             $hasSportsInTitle ||
@@ -496,12 +525,15 @@ class ConsolidateCategoriesCommand extends Command
             preg_match('/\b(?:sports?|sporta|sportā|sportam|sporti|sportisk[a-zāčēģīķļņšūž]*|sportot)\b/ui', $textForSports) ||
             str_contains($textForSports, 'sacensīb') ||
             str_contains($textForSports, 'maratons') || str_contains($textForSports, 'skrējiens') || str_contains($textForSports, 'velobrauciens') ||
-            str_contains($textForSports, 'čempionāt') || str_contains($textForSports, 'turnīrs') || str_contains($textForSports, 'turnīrā') ||
+            str_contains($textForSports, 'čempionāt') || str_contains($textForSports, 'turnīr') ||
             str_contains($textForSports, 'pārgājiens') || str_contains($textForSports, 'basketbol') || str_contains($textForSports, 'futbol') ||
             str_contains($textForSports, 'hokej') || str_contains($textForSports, 'florbol') || str_contains($textForSports, 'volejbol') ||
+            str_contains($textForSports, 'handbol') || str_contains($textForSports, 'handball') ||
+            str_contains($textForSports, 'padel') || str_contains($textForSports, 'padels') ||
             str_contains($textForSports, 'tenis') || str_contains($textForSports, 'bokss') || str_contains($textForSports, 'fiba') ||
             str_contains($textForSports, 'eurobasket') || str_contains($textForSports, 'kvalifikācij') || str_contains($textForSports, 'valstsvienīb') ||
             str_contains($textForSports, 'virslīg') || str_contains($textForSports, 'čempionu līg') ||
+            str_contains($textForSports, 'basketball') || str_contains($textForSports, 'championship') || str_contains($textForSports, 'tournament') ||
             preg_match('/\b(?:mačs|mači|mačā|sporta spēl|mājas spēl|finālspēl|pusfinālspēl|līgas spēl)\b/ui', $textForSports) ||
             preg_match('/\b(?:pret|vs)\b/ui', $titleForSports)
         ) {

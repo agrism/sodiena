@@ -399,4 +399,210 @@ class CategoryConsolidationTest extends TestCase
         $this->assertContains('seminari', $categorySlugs);
         $this->assertNotContains('sports', $categorySlugs);
     }
+
+    public function test_karalu_spele_is_teatris_not_sports(): void
+    {
+        $source = Source::create([
+            'name' => 'Biļešu Paradīze',
+            'slug' => 'bp-karalu-spele',
+            'url' => 'https://example.com',
+            'scraper_class' => \App\Services\Scrapers\Sources\BilesuParadizeScraper::class,
+            'is_active' => true,
+        ]);
+
+        $service = app(EventIngestionService::class);
+
+        $dto = new ScrapedEventDTO(
+            title: 'KARAĻU SPĒLE',
+            description: 'Izrādes pamatā Stefana Cveiga “Šaha novele”. Pasaules čempions šahā Mirko Čentovičs...',
+            startAt: now()->addDays(5),
+            endAt: null,
+            isFree: false,
+            priceMin: 25,
+            priceMax: 35,
+            currency: 'EUR',
+            categoryNames: ['Teātris'],
+            venueName: 'Jaunais Rīgas teātris, Lielā zāle',
+            address: 'Lāčplēša iela 25',
+            city: 'Rīga',
+            imageUrl: null,
+            ticketUrl: null,
+            sourceUrl: 'https://example.com/karalu-spele',
+            sourceExternalId: 'karalu-spele-1'
+        );
+
+        $service->ingestDTO($dto, $source);
+
+        $event = Event::where('source_external_id', 'karalu-spele-1')->first();
+        $this->assertNotNull($event);
+        $categorySlugs = $event->categories->pluck('slug')->toArray();
+
+        $this->assertContains('teatris', $categorySlugs);
+        $this->assertNotContains('sports', $categorySlugs);
+    }
+
+    public function test_museum_exhibition_lecture_with_historian_liga_is_not_sports(): void
+    {
+        $source = Source::create([
+            'name' => 'Jūrmalas muzejs',
+            'slug' => 'jm-test',
+            'url' => 'https://example.com',
+            'scraper_class' => \App\Services\Scrapers\Sources\JurmalasMuzejsScraper::class,
+            'is_active' => true,
+        ]);
+
+        $service = app(EventIngestionService::class);
+
+        $dto = new ScrapedEventDTO(
+            title: 'Ekspresizstādes "Augusts Muižulis - Lāčplēša Kara ordeņa kavalieris" atklāšana un Jūrmalas muzeja pētnieces, vēsturnieces Līgas Strazdas lekcija',
+            description: 'Ekspresizstāde un lekcija Jūrmalas muzejā par vēsturiskiem notikumiem.',
+            startAt: now()->addDays(4),
+            endAt: null,
+            isFree: true,
+            priceMin: 0,
+            priceMax: 0,
+            currency: 'EUR',
+            categoryNames: ['Izstādes & Māksla'],
+            venueName: 'Jūrmalas muzejs',
+            address: 'Tirgoņu iela 29',
+            city: 'Jūrmala',
+            imageUrl: null,
+            ticketUrl: null,
+            sourceUrl: 'https://example.com/muizulis',
+            sourceExternalId: 'muizulis-exhibition-1'
+        );
+
+        $service->ingestDTO($dto, $source);
+
+        $event = Event::where('source_external_id', 'muizulis-exhibition-1')->first();
+        $this->assertNotNull($event);
+        $categorySlugs = $event->categories->pluck('slug')->toArray();
+
+        $this->assertContains('izstades', $categorySlugs);
+        $this->assertContains('seminari', $categorySlugs);
+        $this->assertNotContains('sports', $categorySlugs);
+    }
+
+    public function test_padel_tournament_categorized_as_sports_not_izstades(): void
+    {
+        $source = Source::create([
+            'name' => 'Afiro API',
+            'slug' => 'afiro-padel-test',
+            'url' => 'https://example.com',
+            'scraper_class' => \App\Services\Scrapers\Sources\AfiroApiScraper::class,
+            'is_active' => true,
+        ]);
+
+        $service = app(EventIngestionService::class);
+
+        $dto = new ScrapedEventDTO(
+            title: 'Regulārie padela turnīri Padel Club Riga!',
+            description: 'Piedalies aizraujošos padela turnīros katru nedēļu.',
+            startAt: now()->addDays(2),
+            endAt: null,
+            isFree: false,
+            priceMin: 15,
+            priceMax: 25,
+            currency: 'EUR',
+            categoryNames: ['Kultūra & Māksla'], // Simulating Afiro fallback
+            venueName: 'Padel Club Riga',
+            address: 'Kandavas iela 14',
+            city: 'Rīga',
+            imageUrl: null,
+            ticketUrl: null,
+            sourceUrl: 'https://example.com/padel-turniri',
+            sourceExternalId: 'padel-tournament-1'
+        );
+
+        $service->ingestDTO($dto, $source);
+
+        $event = Event::where('source_external_id', 'padel-tournament-1')->first();
+        $this->assertNotNull($event);
+        $categorySlugs = $event->categories->pluck('slug')->toArray();
+
+        $this->assertContains('sports', $categorySlugs);
+        $this->assertNotContains('izstades', $categorySlugs);
+    }
+
+    public function test_english_basketball_championship_categorized_as_sports_not_izstades(): void
+    {
+        $source = Source::create([
+            'name' => 'Afiro API',
+            'slug' => 'afiro-bb-test',
+            'url' => 'https://example.com',
+            'scraper_class' => \App\Services\Scrapers\Sources\AfiroApiScraper::class,
+            'is_active' => true,
+        ]);
+
+        $service = app(EventIngestionService::class);
+
+        $dto = new ScrapedEventDTO(
+            title: 'Latvian Youth Basketball Championship',
+            description: 'Youth basketball matches U16 and U19.',
+            startAt: now()->addDays(3),
+            endAt: null,
+            isFree: true,
+            priceMin: 0,
+            priceMax: 0,
+            currency: 'EUR',
+            categoryNames: ['Kultūra & Māksla'], // Simulating Afiro fallback
+            venueName: 'Jūrmalas sporta skola',
+            address: 'Nometņu iela 2',
+            city: 'Jūrmala',
+            imageUrl: null,
+            ticketUrl: null,
+            sourceUrl: 'https://example.com/bb-champ',
+            sourceExternalId: 'bb-champ-1'
+        );
+
+        $service->ingestDTO($dto, $source);
+
+        $event = Event::where('source_external_id', 'bb-champ-1')->first();
+        $this->assertNotNull($event);
+        $categorySlugs = $event->categories->pluck('slug')->toArray();
+
+        $this->assertContains('sports', $categorySlugs);
+        $this->assertNotContains('izstades', $categorySlugs);
+    }
+
+    public function test_handball_virsliga_categorized_as_sports_not_izstades(): void
+    {
+        $source = Source::create([
+            'name' => 'Afiro API',
+            'slug' => 'afiro-handball-test',
+            'url' => 'https://example.com',
+            'scraper_class' => \App\Services\Scrapers\Sources\AfiroApiScraper::class,
+            'is_active' => true,
+        ]);
+
+        $service = app(EventIngestionService::class);
+
+        $dto = new ScrapedEventDTO(
+            title: 'Latvijas SynotTip handbola Virslīga — vīriešu spēļu kalendārs',
+            description: 'Latvijas handbola virslīgas mači un spēļu kalendārs.',
+            startAt: now()->addDays(4),
+            endAt: null,
+            isFree: false,
+            priceMin: 5,
+            priceMax: 10,
+            currency: 'EUR',
+            categoryNames: ['Kultūra & Māksla'], // Simulating Afiro fallback
+            venueName: 'Ogres sporta centrs',
+            address: 'Skolas iela 12',
+            city: 'Ogre',
+            imageUrl: null,
+            ticketUrl: null,
+            sourceUrl: 'https://example.com/handball-virsliga',
+            sourceExternalId: 'handball-virsliga-1'
+        );
+
+        $service->ingestDTO($dto, $source);
+
+        $event = Event::where('source_external_id', 'handball-virsliga-1')->first();
+        $this->assertNotNull($event);
+        $categorySlugs = $event->categories->pluck('slug')->toArray();
+
+        $this->assertContains('sports', $categorySlugs);
+        $this->assertNotContains('izstades', $categorySlugs);
+    }
 }

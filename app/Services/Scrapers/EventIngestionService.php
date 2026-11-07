@@ -255,6 +255,42 @@ class EventIngestionService
                 }
             }
 
+            // Guard: Exhibitions, museums, lectures, historical events are never sports (they are Izstādes or Semināri)
+            $isRealExhibitionOrLecture = (
+                str_contains($titleLower, 'izstād') || str_contains($titleLower, 'ekspozīcij') ||
+                str_contains($titleLower, 'muzej') || str_contains($titleLower, 'galerij') ||
+                str_contains($titleLower, 'lekcij') || str_contains($venueLower, 'muzej') ||
+                str_contains($venueLower, 'galerij')
+            ) && !preg_match('/\b(?:turnīr|čempionāt|kauss|mačs|futbol|basketbol|hokej|florbol|handbol|padel|virslīg)\b/ui', $titleLower);
+
+            if ($isRealExhibitionOrLecture && $sportsCat) {
+                $categoryIds = array_diff($categoryIds, [$sportsCat->id]);
+                if (str_contains($titleLower, 'lekcij') && $seminariCat && !in_array($seminariCat->id, $categoryIds, true)) {
+                    $categoryIds[] = $seminariCat->id;
+                }
+                if ($izstadesCat && !in_array($izstadesCat->id, $categoryIds, true)) {
+                    $categoryIds[] = $izstadesCat->id;
+                }
+            }
+
+            // Guard: Real sports events should never be tagged as 'izstādes' or 'teātris'
+            $isRealSports = (
+                $smartSlug === 'sports' ||
+                preg_match('/\b(?:turnīr|čempionāt|kauss|mačs|futbol|basketbol|hokej|florbol|volejbol|handbol|padel|virslīg|basketball|handball|tournament|championship)\b/ui', $titleLower)
+            ) && !$isRealTheatre && !$isStrictCinema && !$isRealExhibitionOrLecture;
+
+            if ($isRealSports) {
+                if ($izstadesCat) {
+                    $categoryIds = array_diff($categoryIds, [$izstadesCat->id]);
+                }
+                if ($teatrisCat) {
+                    $categoryIds = array_diff($categoryIds, [$teatrisCat->id]);
+                }
+                if ($sportsCat && !in_array($sportsCat->id, $categoryIds, true)) {
+                    $categoryIds[] = $sportsCat->id;
+                }
+            }
+
             // If specific categories exist, remove 'citi' fallback
             $citiCat = $this->resolveCanonicalCategory('citi');
             if ($citiCat && count($categoryIds) > 1 && in_array($citiCat->id, $categoryIds, true)) {
