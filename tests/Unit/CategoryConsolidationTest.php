@@ -235,4 +235,45 @@ class CategoryConsolidationTest extends TestCase
         $this->assertContains('seminari', $categorySlugs);
         $this->assertNotContains('sports', $categorySlugs);
     }
+
+    public function test_open_day_transporta_instituts_categorized_as_seminari_not_sports(): void
+    {
+        $source = Source::create([
+            'name' => 'Afiro API',
+            'slug' => 'afiro-test',
+            'url' => 'https://example.com',
+            'scraper_class' => \App\Services\Scrapers\Sources\AfiroApiScraper::class,
+            'is_active' => true,
+        ]);
+
+        $service = app(EventIngestionService::class);
+
+        $dto = new ScrapedEventDTO(
+            title: 'Atvērto durvju diena topošajiem bakalaura studentiem un viņu vecākiem',
+            description: 'Uzzini par studiju iespējām IT, robotikas, aviācijas, transporta un loģistikas jomās. 11:00-11:20 Ledlauža spēle, 12:30 Kahoot spēle.',
+            startAt: now()->addDays(3),
+            endAt: null,
+            isFree: true,
+            priceMin: 0,
+            priceMax: 0,
+            currency: 'EUR',
+            categoryNames: ['Izglītība & Semināri'],
+            venueName: 'Transporta un sakaru institūts (TSI)',
+            address: 'Lauvas iela 2',
+            city: 'Rīga',
+            imageUrl: null,
+            ticketUrl: null,
+            sourceUrl: 'https://example.com/tsi-open-day',
+            sourceExternalId: 'tsi-open-day-1'
+        );
+
+        $service->ingestDTO($dto, $source);
+
+        $event = Event::where('source_external_id', 'tsi-open-day-1')->first();
+        $this->assertNotNull($event);
+        $categorySlugs = $event->categories->pluck('slug')->toArray();
+
+        $this->assertContains('seminari', $categorySlugs);
+        $this->assertNotContains('sports', $categorySlugs);
+    }
 }

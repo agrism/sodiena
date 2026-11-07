@@ -192,6 +192,25 @@ class EventIngestionService
                 }
             }
 
+            // Guard: Educational Open Days, University presentations, Culinary schools are not sports (they are Seminari)
+            if (
+                str_contains($titleLower, 'atvērto durvju') ||
+                str_contains($titleLower, 'atvērtās durvis') ||
+                str_contains($titleLower, 'open day') ||
+                str_contains($titleLower, 'bakalaura') ||
+                str_contains($titleLower, 'kulinārijas skola') ||
+                (str_contains($titleLower, 'studij') && !str_contains($titleLower, 'deju studij') && !str_contains($titleLower, 'fitnesa studij'))
+            ) {
+                $sportsCat = $this->resolveCanonicalCategory('sports');
+                if ($sportsCat) {
+                    $categoryIds = array_diff($categoryIds, [$sportsCat->id]);
+                }
+                $seminariCat = $this->resolveCanonicalCategory('seminari');
+                if ($seminariCat && !in_array($seminariCat->id, $categoryIds, true)) {
+                    $categoryIds[] = $seminariCat->id;
+                }
+            }
+
             // If specific categories exist, remove 'citi' fallback
             $citiCat = $this->resolveCanonicalCategory('citi');
             if ($citiCat && count($categoryIds) > 1 && in_array($citiCat->id, $categoryIds, true)) {

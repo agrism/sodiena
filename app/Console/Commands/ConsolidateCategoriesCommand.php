@@ -342,12 +342,35 @@ class ConsolidateCategoriesCommand extends Command
         }
 
         // 6. Sports
-        if (str_contains($clean, 'sport') || str_contains($clean, 'skrie') || str_contains($clean, 'skrieš') || str_contains($clean, 'vel') || str_contains($clean, 'maraton') || str_contains($clean, 'dab') || str_contains($clean, 'pargaj') || str_contains($clean, 'pārgāj') || str_contains($clean, 'fitnes') || str_contains($clean, 'hike') || str_contains($clean, 'orientē') || str_contains($clean, 'orient') || str_contains($clean, 'turnir') || str_contains($clean, 'turnīr') || str_contains($clean, 'sacens') || str_contains($clean, 'futbol') || str_contains($clean, 'basketbol') || str_contains($clean, 'hokej') || str_contains($clean, 'florbol') || str_contains($clean, 'volejbol') || str_contains($clean, 'tenis') || str_contains($clean, 'fiba') || str_contains($clean, 'eurobasket') || str_contains($clean, 'pelde')) {
+        $cleanForSports = preg_replace('/\b[a-zāčēģīķļņšūž]*(?:transport|eksport|export|pasport|passport)[a-zāčēģīķļņšūž]*\b/ui', '', $clean);
+        if (
+            str_contains($cleanForSports, 'sport') || str_contains($cleanForSports, 'skrie') ||
+            str_contains($cleanForSports, 'skrieš') || str_contains($cleanForSports, 'vel') ||
+            str_contains($cleanForSports, 'maraton') || str_contains($cleanForSports, 'dab') ||
+            str_contains($cleanForSports, 'pargaj') || str_contains($cleanForSports, 'pārgāj') ||
+            str_contains($cleanForSports, 'fitnes') || str_contains($cleanForSports, 'hike') ||
+            str_contains($cleanForSports, 'orientē') || str_contains($cleanForSports, 'orient') ||
+            str_contains($cleanForSports, 'turnir') || str_contains($cleanForSports, 'turnīr') ||
+            str_contains($cleanForSports, 'sacens') || str_contains($cleanForSports, 'futbol') ||
+            str_contains($cleanForSports, 'basketbol') || str_contains($cleanForSports, 'hokej') ||
+            str_contains($cleanForSports, 'florbol') || str_contains($cleanForSports, 'volejbol') ||
+            str_contains($cleanForSports, 'tenis') || str_contains($cleanForSports, 'fiba') ||
+            str_contains($cleanForSports, 'eurobasket') || str_contains($cleanForSports, 'pelde')
+        ) {
             return 'sports';
         }
 
         // 7. Semināri
-        if (str_contains($clean, 'seminar') || str_contains($clean, 'seminār') || str_contains($clean, 'meistarklas') || str_contains($clean, 'lekcij') || str_contains($clean, 'kurs') || str_contains($clean, 'izglit') || str_contains($clean, 'izglīt') || str_contains($clean, 'biznes') || str_contains($clean, 'workshop') || str_contains($clean, 'conference') || str_contains($clean, 'konferenc') || str_contains($clean, 'apmac') || str_contains($clean, 'apmāc') || str_contains($clean, 'nodarbīb') || str_contains($clean, 'nodarbib') || str_contains($clean, 'vebinar') || str_contains($clean, 'vebinār') || str_contains($clean, 'diskusij') || str_contains($clean, 'sarun')) {
+        if (
+            str_contains($clean, 'seminar') || str_contains($clean, 'seminār') || str_contains($clean, 'meistarklas') ||
+            str_contains($clean, 'lekcij') || str_contains($clean, 'kurs') || str_contains($clean, 'izglit') ||
+            str_contains($clean, 'izglīt') || str_contains($clean, 'biznes') || str_contains($clean, 'workshop') ||
+            str_contains($clean, 'conference') || str_contains($clean, 'konferenc') || str_contains($clean, 'apmac') ||
+            str_contains($clean, 'apmāc') || str_contains($clean, 'nodarbīb') || str_contains($clean, 'nodarbib') ||
+            str_contains($clean, 'vebinar') || str_contains($clean, 'vebinār') || str_contains($clean, 'diskusij') ||
+            str_contains($clean, 'sarun') || str_contains($clean, 'atvērto durvju') || str_contains($clean, 'open day') ||
+            str_contains($clean, 'studij') || str_contains($clean, 'education')
+        ) {
             return 'seminari';
         }
 
@@ -399,6 +422,10 @@ class ConsolidateCategoriesCommand extends Command
         }
 
         // 2. Sports (basketbols, futbols, hokejs, florbols, turnīri, čempionāti, sacensības, spēles)
+        $textForSports = preg_replace('/\b[a-zāčēģīķļņšūž]*(?:transport|eksport|export|pasport|passport)[a-zāčēģīķļņšūž]*\b/ui', '', $text);
+        $rawCatTextForSports = preg_replace('/\b[a-zāčēģīķļņšūž]*(?:transport|eksport|export|pasport|passport)[a-zāčēģīķļņšūž]*\b/ui', '', $rawCatText);
+        $titleForSports = preg_replace('/\b[a-zāčēģīķļņšūž]*(?:transport|eksport|export|pasport|passport)[a-zāčēģīķļņšūž]*\b/ui', '', $title);
+
         $isCulturalOrMuseum = (
             str_contains($text, 'randiņ') ||
             str_contains($text, 'piedzīvojums tumsā') ||
@@ -407,22 +434,23 @@ class ConsolidateCategoriesCommand extends Command
             str_contains($text, 'sensorium') ||
             str_contains($text, 'tumsā')
         );
-        $hasSportsInTitle = preg_match('/\b(?:sports|sporta|turnīrs|čempionāts|kauss|mačs|spēle|līga|futbol|basketbol|hokej|florbol|volejbol|skrējiens|maratons)\b/ui', $title);
+        $hasSportsInTitle = preg_match('/\b(?:sports?|sporta|turnīrs?|čempionāts?|kauss|mačs|spēle|līga|futbol|basketbol|hokej|florbol|volejbol|skrējiens|maratons)\b/ui', $titleForSports);
 
         if (
             (!$isCulturalOrMuseum || $hasSportsInTitle) &&
             (
-                str_contains($rawCatText, 'sport') ||
-                str_contains($text, 'sports') || str_contains($text, 'sporta') || str_contains($text, 'sacensīb') ||
-                str_contains($text, 'maratons') || str_contains($text, 'skrējiens') || str_contains($text, 'velobrauciens') ||
-                str_contains($text, 'čempionāt') || str_contains($text, 'turnīrs') || str_contains($text, 'turnīrā') ||
-                str_contains($text, 'pārgājiens') || str_contains($text, 'basketbol') || str_contains($text, 'futbol') ||
-                str_contains($text, 'hokej') || str_contains($text, 'florbol') || str_contains($text, 'volejbol') ||
-                str_contains($text, 'tenis') || str_contains($text, 'bokss') || str_contains($text, 'fiba') ||
-                str_contains($text, 'eurobasket') || str_contains($text, 'kvalifikācij') || str_contains($text, 'valstsvienīb') ||
-                str_contains($text, 'virslīg') || str_contains($text, 'čempionu līg') ||
-                preg_match('/\b(?:mačs|mači|mačā|sporta spēl|mājas spēl|finālspēl|pusfinālspēl|līgas spēl)\b/ui', $text) ||
-                preg_match('/\b(?:līga|līgas|līgā|līgu|spēle|spēles|spēļu)\b/ui', $title)
+                preg_match('/\b(?:sports?|sporta|sportā|sportam|sportisk[a-zāčēģīķļņšūž]*)\b/ui', $rawCatTextForSports) ||
+                preg_match('/\b(?:sports?|sporta|sportā|sportam|sporti|sportisk[a-zāčēģīķļņšūž]*|sportot)\b/ui', $textForSports) ||
+                str_contains($textForSports, 'sacensīb') ||
+                str_contains($textForSports, 'maratons') || str_contains($textForSports, 'skrējiens') || str_contains($textForSports, 'velobrauciens') ||
+                str_contains($textForSports, 'čempionāt') || str_contains($textForSports, 'turnīrs') || str_contains($textForSports, 'turnīrā') ||
+                str_contains($textForSports, 'pārgājiens') || str_contains($textForSports, 'basketbol') || str_contains($textForSports, 'futbol') ||
+                str_contains($textForSports, 'hokej') || str_contains($textForSports, 'florbol') || str_contains($textForSports, 'volejbol') ||
+                str_contains($textForSports, 'tenis') || str_contains($textForSports, 'bokss') || str_contains($textForSports, 'fiba') ||
+                str_contains($textForSports, 'eurobasket') || str_contains($textForSports, 'kvalifikācij') || str_contains($textForSports, 'valstsvienīb') ||
+                str_contains($textForSports, 'virslīg') || str_contains($textForSports, 'čempionu līg') ||
+                preg_match('/\b(?:mačs|mači|mačā|sporta spēl|mājas spēl|finālspēl|pusfinālspēl|līgas spēl)\b/ui', $textForSports) ||
+                preg_match('/\b(?:līga|līgas|līgā|līgu|spēle|spēles|spēļu)\b/ui', $titleForSports)
             )
         ) {
             return 'sports';
@@ -454,8 +482,17 @@ class ConsolidateCategoriesCommand extends Command
             return 'berniem';
         }
 
-        // 6. Semināri
-        if (str_contains($text, 'meistarklas') || str_contains($text, 'seminār') || str_contains($text, 'lekcij') || str_contains($text, 'apmācīb') || str_contains($text, 'konferenc') || str_contains($text, 'vebinār') || str_contains($text, 'nodarbīb') || str_contains($text, 'diskusij')) {
+        // 6. Semināri (izglītība, atvērto durvju dienas, lekcijas, kursi, meistarklases, konferences)
+        if (
+            str_contains($text, 'meistarklas') || str_contains($text, 'seminār') || str_contains($text, 'lekcij') ||
+            str_contains($text, 'apmācīb') || str_contains($text, 'konferenc') || str_contains($text, 'vebinār') ||
+            str_contains($text, 'nodarbīb') || str_contains($text, 'diskusij') ||
+            str_contains($text, 'atvērto durvju') || str_contains($text, 'atvērtās durvis') ||
+            str_contains($text, 'open day') || str_contains($text, 'studiju iespēj') ||
+            str_contains($text, 'bakalaura') || str_contains($text, 'maģistra') || str_contains($text, 'doktorantūr') ||
+            str_contains($text, 'izglītīb') || str_contains($text, 'kursi') || str_contains($text, 'prezentācij') ||
+            str_contains($text, 'kulinārijas skola')
+        ) {
             return 'seminari';
         }
 
