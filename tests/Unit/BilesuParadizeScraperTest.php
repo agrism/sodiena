@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Models\Event;
+use App\Models\Location;
 use App\Models\Source;
 use App\Services\Scrapers\EventIngestionService;
 use App\Services\Scrapers\Sources\BilesuParadizeScraper;
@@ -159,5 +160,45 @@ class BilesuParadizeScraperTest extends TestCase
 
         $this->assertEquals('https://www.bilesuparadize.lv/lv/event/175374', $dtos[1]->ticketUrl);
         $this->assertEquals($date2, $dtos[1]->startAt->format('Y-m-d H:i:s'));
+    }
+
+    public function test_national_theatre_organizer_resolves_to_nacionalais_not_jrt(): void
+    {
+        // Existing JRT location in database
+        $jrt = Location::create([
+            'name' => 'Jaunais Rīgas teātris, Lielā zāle',
+            'city' => 'Rīga',
+            'region' => 'Rīga',
+            'address' => 'Lāčplēša iela 25',
+        ]);
+
+        $source = Source::create([
+            'name' => 'Biļešu Paradīze',
+            'slug' => 'bp-test-nat',
+            'url' => 'https://www.bilesuparadize.lv/lv',
+            'scraper_class' => BilesuParadizeScraper::class,
+            'is_active' => true,
+        ]);
+
+        $service = app(EventIngestionService::class);
+
+        $dto = new \App\Services\Scrapers\DTO\ScrapedEventDTO(
+            title: 'Intīmās dzīves',
+            startAt: now()->addDays(5),
+            venueName: 'Lielā zāle',
+            city: 'Rīga',
+            sourceExternalId: 'bp-intimas-test',
+            rawData: [
+                'organizer' => 'LATVIJAS NACIONĀLAIS TEĀTRIS VSIA',
+            ]
+        );
+
+        $service->ingestDTO($dto, $source);
+
+        $event = Event::where('source_external_id', 'bp-intimas-test')->first();
+        $this->assertNotNull($event);
+        $this->assertNotEquals($jrt->id, $event->location_id);
+        $this->assertStringContainsString('Nacionālais teātris', $event->location->name);
+        $this->assertEquals('Kronvalda bulvāris 2', $event->location->address);
     }
 }

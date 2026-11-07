@@ -193,4 +193,46 @@ class CategoryConsolidationTest extends TestCase
         $this->assertDatabaseMissing('categories', ['slug' => 'kino-un-filmas-jaunumi']);
         $this->assertDatabaseMissing('categories', ['slug' => 'neatpazits-zanrs-xyz']);
     }
+
+    public function test_piedzivojums_tumsa_categorized_as_teatris_and_seminari_not_sports(): void
+    {
+        $source = Source::create([
+            'name' => 'Biļešu Paradīze',
+            'slug' => 'bp-test',
+            'url' => 'https://example.com',
+            'scraper_class' => \App\Services\Scrapers\Sources\BilesuParadizeScraper::class,
+            'is_active' => true,
+        ]);
+
+        $service = app(EventIngestionService::class);
+
+        $dto = new ScrapedEventDTO(
+            title: 'Piedzīvojums tumsā',
+            description: 'Aizraujoša sporta spēle SHOWDOWN tumsā. Noskaidrosim, kurš ir īstais SHOWDOWN čempions!',
+            startAt: now()->addDays(2),
+            endAt: null,
+            isFree: false,
+            priceMin: 15,
+            priceMax: 20,
+            currency: 'EUR',
+            categoryNames: [],
+            venueName: 'Tumsas Pasaule',
+            address: 'Ķengaraga iela 1',
+            city: 'Rīga',
+            imageUrl: null,
+            ticketUrl: null,
+            sourceUrl: 'https://example.com/piedzivojums',
+            sourceExternalId: 'tumsa-101'
+        );
+
+        $service->ingestDTO($dto, $source);
+
+        $event = Event::where('source_external_id', 'tumsa-101')->first();
+        $this->assertNotNull($event);
+        $categorySlugs = $event->categories->pluck('slug')->toArray();
+
+        $this->assertContains('teatris', $categorySlugs);
+        $this->assertContains('seminari', $categorySlugs);
+        $this->assertNotContains('sports', $categorySlugs);
+    }
 }

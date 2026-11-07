@@ -399,7 +399,14 @@ class ConsolidateCategoriesCommand extends Command
         }
 
         // 2. Sports (basketbols, futbols, hokejs, florbols, turnīri, čempionāti, sacensības, spēles)
-        $isCulturalOrMuseum = str_contains($text, 'randiņ') || str_contains($text, 'tumsas muzejs') || str_contains($text, 'sensorium');
+        $isCulturalOrMuseum = (
+            str_contains($text, 'randiņ') ||
+            str_contains($text, 'piedzīvojums tumsā') ||
+            str_contains($text, 'piedzivojums tumsa') ||
+            str_contains($text, 'tumsas muzejs') ||
+            str_contains($text, 'sensorium') ||
+            str_contains($text, 'tumsā')
+        );
         $hasSportsInTitle = preg_match('/\b(?:sports|sporta|turnīrs|čempionāts|kauss|mačs|spēle|līga|futbol|basketbol|hokej|florbol|volejbol|skrējiens|maratons)\b/ui', $title);
 
         if (
@@ -430,7 +437,8 @@ class ConsolidateCategoriesCommand extends Command
                 str_contains($text, 'luga') || str_contains($text, 'lugā') || str_contains($text, 'iestudējum') ||
                 str_contains($text, 'dramaturg') || str_contains($text, 'aktier') || str_contains($text, 'režisor') ||
                 str_contains($text, 'operet') || str_contains($text, 'balet') || str_contains($text, 'cirks') ||
-                str_contains($text, 'stand-up') || str_contains($text, 'standup') || str_contains($text, 'komēdij')
+                str_contains($text, 'stand-up') || str_contains($text, 'standup') || str_contains($text, 'komēdij') ||
+                str_contains($text, 'piedzīvojums tumsā') || str_contains($text, 'randiņš tumsā')
             )
         ) {
             return 'teatris';

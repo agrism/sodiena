@@ -168,19 +168,27 @@ class EventIngestionService
                 }
             }
 
-            // Guard: Randiņš tumsā and Tumsas muzejs / Sensorium are not Sports
-            if (str_contains($titleLower, 'randiņ') || str_contains($titleLower, 'tumsā') || str_contains($venueLower, 'tumsas muzejs') || str_contains($venueLower, 'sensorium')) {
+            // Guard: Randiņš tumsā / Piedzīvojums tumsā and Tumsas muzejs / Sensorium are not Sports (user: lai ir izrāde, semināri)
+            if (
+                str_contains($titleLower, 'randiņ') ||
+                str_contains($titleLower, 'piedzīvojums tumsā') ||
+                str_contains($titleLower, 'piedzivojums tumsa') ||
+                str_contains($titleLower, 'tumsā') ||
+                str_contains($titleLower, 'tumsa') ||
+                str_contains($venueLower, 'tumsas muzejs') ||
+                str_contains($venueLower, 'sensorium')
+            ) {
                 $sportsCat = $this->resolveCanonicalCategory('sports');
                 if ($sportsCat) {
                     $categoryIds = array_diff($categoryIds, [$sportsCat->id]);
                 }
+                $teatrisCat = $this->resolveCanonicalCategory('teatris');
                 $seminariCat = $this->resolveCanonicalCategory('seminari');
-                $izstadesCat = $this->resolveCanonicalCategory('izstades');
+                if ($teatrisCat && !in_array($teatrisCat->id, $categoryIds, true)) {
+                    $categoryIds[] = $teatrisCat->id;
+                }
                 if ($seminariCat && !in_array($seminariCat->id, $categoryIds, true)) {
                     $categoryIds[] = $seminariCat->id;
-                }
-                if ($izstadesCat && !in_array($izstadesCat->id, $categoryIds, true)) {
-                    $categoryIds[] = $izstadesCat->id;
                 }
             }
 
@@ -610,6 +618,25 @@ class EventIngestionService
         $locationName = $rawVenue ?: ($cityName . ' centrs');
         $cleanQueryName = $this->cleanLocationName($locationName);
 
+        $rawOrg = is_string($dto->rawData['organizer'] ?? null) ? mb_strtolower($dto->rawData['organizer'], 'UTF-8') : '';
+        $isNationalTheatreOrg = str_contains($rawOrg, 'nacionālais teātris') || str_contains($rawOrg, 'nacionalais teatris');
+        $isJrtOrg = str_contains($rawOrg, 'jaunais rīgas') || str_contains($rawOrg, 'jaunais rigas');
+        $isDailesOrg = str_contains($rawOrg, 'dailes teātris') || str_contains($rawOrg, 'dailes teatris');
+
+        // If venue is a bare generic hall name and organizer is a recognized major theatre, expand query name
+        if (preg_match('/^(?:lielā|mazā|jaunā|aktieru|kamer|skatītāju)\s*zāle$/ui', trim($cleanQueryName))) {
+            if ($isNationalTheatreOrg) {
+                $cleanQueryName = 'Latvijas Nacionālais teātris, ' . $cleanQueryName;
+                $locationName = $cleanQueryName;
+            } elseif ($isDailesOrg) {
+                $cleanQueryName = 'Dailes teātris, ' . $cleanQueryName;
+                $locationName = $cleanQueryName;
+            } elseif ($isJrtOrg) {
+                $cleanQueryName = 'Jaunais Rīgas teātris, ' . $cleanQueryName;
+                $locationName = $cleanQueryName;
+            }
+        }
+
         // 1. Exact / direct translation match in same city
         $location = Location::where(function ($q) use ($locationName, $cleanQueryName) {
             $q->where('name', $locationName)
@@ -640,6 +667,19 @@ class EventIngestionService
             foreach ($cityLocations as $candidate) {
                 $candName = $candidate->name;
                 $cleanCandName = $this->cleanLocationName($candName);
+                $candLower = mb_strtolower($cleanCandName, 'UTF-8');
+
+                // Safeguard against theater organizer cross-contamination
+                if ($isNationalTheatreOrg && (str_contains($candLower, 'jaunais rīgas') || str_contains($candLower, 'jaunais rigas') || str_contains($candLower, 'dailes'))) {
+                    continue;
+                }
+                if ($isJrtOrg && (str_contains($candLower, 'nacionāl') || str_contains($candLower, 'nacional') || str_contains($candLower, 'dailes'))) {
+                    continue;
+                }
+                if ($isDailesOrg && (str_contains($candLower, 'nacionāl') || str_contains($candLower, 'nacional') || str_contains($candLower, 'jaunais rīgas') || str_contains($candLower, 'jaunais rigas'))) {
+                    continue;
+                }
+
                 $baseCandName = $this->getBaseVenueName($cleanCandName);
                 $candStreet = $this->extractStreetAndNumber($candidate->address);
 
@@ -652,7 +692,10 @@ class EventIngestionService
                 // B. Substring match if one venue name is fully contained in another (e.g. "Tradīciju māja" in "Daugavpils Vienības nama Tradīciju māja")
                 $normQuery = preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower($cleanQueryName, 'UTF-8'));
                 $normCand = preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower($cleanCandName, 'UTF-8'));
-                if (mb_strlen($normQuery, 'UTF-8') >= 8 && mb_strlen($normCand, 'UTF-8') >= 8) {
+                $genericHalls = ['liela zale', 'maza zale', 'kamerzale', 'jauna zale', 'aktieru zale', 'skatitaju zale', 'balta zale', 'koncertzale'];
+                $isGenericHall = in_array(trim($normQuery), $genericHalls, true);
+
+                if (!$isGenericHall && mb_strlen($normQuery, 'UTF-8') >= 8 && mb_strlen($normCand, 'UTF-8') >= 8) {
                     if (str_contains($normCand, $normQuery) || str_contains($normQuery, $normCand)) {
                         $location = $candidate;
                         break;
@@ -680,12 +723,23 @@ class EventIngestionService
         }
 
         if (!$location) {
+            $address = $dto->address;
+            $latitude = $dto->latitude;
+            $longitude = $dto->longitude;
+
+            if ($isNationalTheatreOrg && (!$address || str_contains($cleanQueryName, 'Nacionālais teātris') || str_contains($cleanQueryName, 'Nacionālā teātr'))) {
+                $address = $address ?: 'Kronvalda bulvāris 2';
+                $latitude = $latitude ?: 56.953631;
+                $longitude = $longitude ?: 24.104910;
+            }
+
             $location = Location::create([
                 'name' => $cleanQueryName,
                 'city' => $cityName,
                 'region' => $regionName,
-                'address' => $dto->address,
-                'latitude' => $dto->latitude,
+                'address' => $address,
+                'latitude' => $latitude,
+                'longitude' => $longitude,
                 'longitude' => $dto->longitude,
                 'place_type' => $dto->placeType ?: 'venue',
             ]);

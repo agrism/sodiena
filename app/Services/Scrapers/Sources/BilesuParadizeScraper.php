@@ -192,7 +192,7 @@ class BilesuParadizeScraper extends BaseScraper
         }
 
         $seenSessionIds = [];
-        $fallbackHall = null;
+        $fallbackHallsByPerf = [];
 
         // Parse individual performance session objects
         $candidateItems = [];
@@ -258,36 +258,110 @@ class BilesuParadizeScraper extends BaseScraper
             }
             $title = $this->cleanText($title);
 
+            // Organizer resolution
+            $organizer = null;
+            if (isset($item['organizer_name'])) {
+                $orgResolved = $resolve($item['organizer_name']);
+                if (is_string($orgResolved) && !empty($orgResolved)) {
+                    $organizer = $this->cleanText($orgResolved);
+                }
+            } elseif (is_array($perfObj) && isset($perfObj['organizer'])) {
+                $orgObj = $resolve($perfObj['organizer']);
+                if (is_array($orgObj) && isset($orgObj['name'])) {
+                    $orgName = $resolve($orgObj['name']);
+                    if (is_string($orgName) && !empty($orgName)) {
+                        $organizer = $this->cleanText($orgName);
+                    }
+                }
+            }
+
             // Hall / Venue resolution
-            $hallName = null;
+            $venueTitle = null;
+            if (isset($item['venue_titles'])) {
+                $vTitles = $resolve($item['venue_titles']);
+                if (is_array($vTitles)) {
+                    $venueTitle = $resolve($vTitles['lv'] ?? ($vTitles['en'] ?? reset($vTitles)));
+                } elseif (is_string($vTitles)) {
+                    $venueTitle = $vTitles;
+                }
+            } elseif (isset($item['venue'])) {
+                $vObj = $resolve($item['venue']);
+                if (is_array($vObj) && isset($vObj['title'])) {
+                    $venueTitle = $resolve($vObj['title']);
+                }
+            } elseif (is_array($perfObj) && isset($perfObj['venue_titles'])) {
+                $vTitles = $resolve($perfObj['venue_titles']);
+                if (is_array($vTitles)) {
+                    $venueTitle = $resolve($vTitles['lv'] ?? ($vTitles['en'] ?? reset($vTitles)));
+                } elseif (is_string($vTitles)) {
+                    $venueTitle = $vTitles;
+                }
+            }
+
+            $hallTitle = null;
             if (isset($item['hall_titles'])) {
                 $hTitles = $resolve($item['hall_titles']);
                 if (is_array($hTitles)) {
-                    $hallName = $resolve($hTitles['lv'] ?? ($hTitles['en'] ?? reset($hTitles)));
+                    $hallTitle = $resolve($hTitles['lv'] ?? ($hTitles['en'] ?? reset($hTitles)));
                 } elseif (is_string($hTitles)) {
-                    $hallName = $hTitles;
+                    $hallTitle = $hTitles;
                 }
             } elseif (isset($item['hall'])) {
                 $hallObj = $resolve($item['hall']);
                 if (is_array($hallObj) && isset($hallObj['title'])) {
-                    $hallName = $resolve($hallObj['title']);
+                    $hallTitle = $resolve($hallObj['title']);
                 }
-            } elseif (isset($item['venue_titles'])) {
-                $vTitles = $resolve($item['venue_titles']);
-                if (is_array($vTitles)) {
-                    $hallName = $resolve($vTitles['lv'] ?? ($vTitles['en'] ?? reset($vTitles)));
-                } elseif (is_string($vTitles)) {
-                    $hallName = $vTitles;
+            } elseif (is_array($perfObj) && isset($perfObj['hall_titles'])) {
+                $hTitles = $resolve($perfObj['hall_titles']);
+                if (is_array($hTitles)) {
+                    $hallTitle = $resolve($hTitles['lv'] ?? ($hTitles['en'] ?? reset($hTitles)));
+                } elseif (is_string($hTitles)) {
+                    $hallTitle = $hTitles;
                 }
             }
 
-            if (!$hallName && $fallbackHall) {
-                $hallName = $fallbackHall;
-            } elseif ($hallName && is_string($hallName) && $hallName !== 'Rīga') {
-                $fallbackHall = $hallName;
+            $resolvedVenue = null;
+            if ($venueTitle && is_string($venueTitle)) {
+                $venueTitle = $this->cleanText($venueTitle);
+                if ($hallTitle && is_string($hallTitle)) {
+                    $hallTitle = $this->cleanText($hallTitle);
+                    if (!str_contains(mb_strtolower($hallTitle), mb_strtolower($venueTitle))) {
+                        $resolvedVenue = "{$venueTitle}, {$hallTitle}";
+                    } else {
+                        $resolvedVenue = $hallTitle;
+                    }
+                } else {
+                    $resolvedVenue = $venueTitle;
+                }
+            } elseif ($hallTitle && is_string($hallTitle)) {
+                $hallTitle = $this->cleanText($hallTitle);
+                // If hall is a generic hall name and organizer is a recognized major theatre, attach theatre name
+                if ($organizer && preg_match('/^(?:lielā|mazā|jaunā|aktieru|kamer|skatītāju)\s*zāle$/ui', trim($hallTitle))) {
+                    $orgLower = mb_strtolower($organizer, 'UTF-8');
+                    if (str_contains($orgLower, 'nacionālais teātris') || str_contains($orgLower, 'nacionalais teatris')) {
+                        $resolvedVenue = "Latvijas Nacionālais teātris, {$hallTitle}";
+                    } elseif (str_contains($orgLower, 'dailes teātris') || str_contains($orgLower, 'dailes teatris')) {
+                        $resolvedVenue = "Dailes teātris, {$hallTitle}";
+                    } elseif (str_contains($orgLower, 'jaunais rīgas') || str_contains($orgLower, 'jaunais rigas')) {
+                        $resolvedVenue = "Jaunais Rīgas teātris, {$hallTitle}";
+                    } else {
+                        $resolvedVenue = $hallTitle;
+                    }
+                } else {
+                    $resolvedVenue = $hallTitle;
+                }
             }
 
-            $venueName = is_string($hallName) ? $this->cleanText($hallName) : 'Rīga';
+            $perfId = isset($item['performance_id']) ? $resolve($item['performance_id']) : null;
+            $perfKey = is_scalar($perfId) ? (string) $perfId : 'default';
+
+            if (!$resolvedVenue && isset($fallbackHallsByPerf[$perfKey])) {
+                $resolvedVenue = $fallbackHallsByPerf[$perfKey];
+            } elseif ($resolvedVenue && is_string($resolvedVenue) && $resolvedVenue !== 'Rīga') {
+                $fallbackHallsByPerf[$perfKey] = $resolvedVenue;
+            }
+
+            $venueName = is_string($resolvedVenue) ? $this->cleanText($resolvedVenue) : 'Rīga';
 
             // City resolution
             $city = 'Rīga';
@@ -480,23 +554,6 @@ class BilesuParadizeScraper extends BaseScraper
             }
 
             $shortDescription = $description ? \Illuminate\Support\Str::limit(strip_tags($description), 160) : null;
-
-            // Organizer resolution
-            $organizer = null;
-            if (isset($item['organizer_name'])) {
-                $orgResolved = $resolve($item['organizer_name']);
-                if (is_string($orgResolved) && !empty($orgResolved)) {
-                    $organizer = $this->cleanText($orgResolved);
-                }
-            } elseif (is_array($perfObj) && isset($perfObj['organizer'])) {
-                $orgObj = $resolve($perfObj['organizer']);
-                if (is_array($orgObj) && isset($orgObj['name'])) {
-                    $orgName = $resolve($orgObj['name']);
-                    if (is_string($orgName) && !empty($orgName)) {
-                        $organizer = $this->cleanText($orgName);
-                    }
-                }
-            }
 
             $dtos->push(new ScrapedEventDTO(
                 title: $title,
