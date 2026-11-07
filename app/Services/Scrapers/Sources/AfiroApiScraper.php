@@ -298,7 +298,16 @@ class AfiroApiScraper extends BaseScraper
             }
         }
 
-        // Title checks if categories empty or missing sports
+        // Title checks if categories empty or missing music, theatre, sports
+        $isMusicTitle = (
+            str_contains($titleLower, 'koncerts') || str_contains($titleLower, 'dziesm') ||
+            str_contains($titleLower, 'orķestr') || str_contains($titleLower, 'koris') ||
+            str_contains($titleLower, 'grupa ') || str_contains($titleLower, 'jubilejas koncerts')
+        ) && !preg_match('/\b(?:vs|pret|čempionāts|kauss|virslīga|fiba|turnīrs)\b/ui', $titleLower);
+        if ($isMusicTitle && !str_contains($titleLower, 'izstād')) {
+            $result[] = 'Mūzika & Koncerti';
+        }
+
         $isSportsTitle = preg_match('/\b(?:sports?|sporta|turnīr|čempionāt|kauss|mačs|futbol|basketbol|hokej|florbol|volejbol|handbol|padel|basketball|championship|tournament|handball|virslīg|skrējiens|maratons|fiba)\b/ui', $titleLower);
         if ($isSportsTitle && !preg_match('/\b(?:izrāde|luga|teātr|koncert|izstād|muzej|lekcij)\b/ui', $titleLower)) {
             $result[] = 'Sports & Aktīvā atpūta';
@@ -308,7 +317,14 @@ class AfiroApiScraper extends BaseScraper
             $result[] = 'Kultūra & Māksla';
         }
 
-        return array_unique($result);
+        if (in_array('Mūzika & Koncerti', $result) && !str_contains($titleLower, 'izstād') && !str_contains($titleLower, 'māksl')) {
+            $result = array_diff($result, ['Kultūra & Māksla']);
+        }
+        if (in_array('Sports & Aktīvā atpūta', $result)) {
+            $result = array_diff($result, ['Kultūra & Māksla']);
+        }
+
+        return array_values(array_unique($result));
     }
 
     private function resolveEntertainmentType(array $categories, string $title): string

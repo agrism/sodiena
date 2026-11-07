@@ -80,18 +80,18 @@ class DzejasDienasScraper extends BaseScraper
                         $venueInfo = $this->resolveLocation($finalTitle, $finalDescription . ' ' . $shortContent);
 
                         // Category & entertainment type
-                        $categories = ['Kultūra & Tradīcijas', 'Izstādes & Māksla'];
+                        $categories = ['Izstādes & Māksla'];
                         $entertainmentType = 'culture';
 
                         $fullContext = mb_strtolower($finalTitle . ' ' . $finalDescription);
                         if (str_contains($fullContext, 'bērn') || str_contains($fullContext, 'ģimen')) {
-                            $categories = ['Ģimenēm & Bērniem', 'Kultūra & Tradīcijas'];
+                            $categories = ['Ģimenēm & Bērniem'];
                             $entertainmentType = 'family';
                         } elseif (str_contains($fullContext, 'koncert') || str_contains($fullContext, 'dzied') || str_contains($fullContext, 'mūzik')) {
-                            $categories = ['Mūzika & Koncerti', 'Kultūra & Tradīcijas'];
+                            $categories = ['Mūzika & Koncerti'];
                             $entertainmentType = 'concert';
                         } elseif (str_contains($fullContext, 'meistardarbnīc') || str_contains($fullContext, 'meistarklas') || str_contains($fullContext, 'lekcij')) {
-                            $categories = ['Bizness & Izglītība', 'Kultūra & Tradīcijas'];
+                            $categories = ['Bizness & Izglītība'];
                             $entertainmentType = 'workshop';
                         }
 

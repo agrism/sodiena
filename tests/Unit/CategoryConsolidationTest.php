@@ -605,4 +605,46 @@ class CategoryConsolidationTest extends TestCase
         $this->assertContains('sports', $categorySlugs);
         $this->assertNotContains('izstades', $categorySlugs);
     }
+
+    public function test_bet_bet_jubilejas_koncerts_is_muzika_not_izstades(): void
+    {
+        $source = Source::create([
+            'name' => 'Latgales vēstniecība GORS',
+            'slug' => 'gors-test',
+            'url' => 'https://example.com',
+            'scraper_class' => \App\Services\Scrapers\Sources\LatgalesGorsScraper::class,
+            'is_active' => true,
+        ]);
+
+        $service = app(EventIngestionService::class);
+
+        $dto = new ScrapedEventDTO(
+            title: 'BET BET. 35 gadu jubilejas koncerts ar Raimonda PAULA dziesmām',
+            description: 'Grupas "bet bet" jubilejas koncerts.',
+            startAt: now()->addDays(5),
+            endAt: null,
+            isFree: false,
+            priceMin: 20,
+            priceMax: 30,
+            currency: 'EUR',
+            categoryNames: ['Mūzika & Koncerti', 'Kultūra & Tradīcijas'],
+            venueName: 'Latgales vēstniecība GORS',
+            address: 'Pils iela 4',
+            city: 'Rēzekne',
+            imageUrl: null,
+            ticketUrl: null,
+            sourceUrl: 'https://example.com/bet-bet-koncerts',
+            sourceExternalId: 'bet-bet-koncerts-1'
+        );
+
+        $service->ingestDTO($dto, $source);
+
+        $event = Event::where('source_external_id', 'bet-bet-koncerts-1')->first();
+        $this->assertNotNull($event);
+        $categorySlugs = $event->categories->pluck('slug')->toArray();
+
+        $this->assertContains('muzika', $categorySlugs);
+        $this->assertNotContains('izstades', $categorySlugs);
+        $this->assertNotContains('sports', $categorySlugs);
+    }
 }

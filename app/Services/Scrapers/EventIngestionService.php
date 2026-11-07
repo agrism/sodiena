@@ -174,7 +174,7 @@ class EventIngestionService
             $izstadesCat = $this->resolveCanonicalCategory('izstades');
             $seminariCat = $this->resolveCanonicalCategory('seminari');
 
-            // Guard: Real Theatre plays are never sports
+            // Guard: Real Theatre plays are never sports, and never exhibitions unless explicit exhibition
             $isRealTheatre = (
                 $smartSlug === 'teatris' ||
                 str_contains($titleLower, 'izrāde') || str_contains($titleLower, 'luga') ||
@@ -182,24 +182,37 @@ class EventIngestionService
                 str_contains($titleLower, 'stand-up') || str_contains($titleLower, 'standup') ||
                 (str_contains($venueLower, 'teātr') && !str_contains($venueLower, 'kino'))
             );
-            if ($isRealTheatre && $sportsCat) {
-                $categoryIds = array_diff($categoryIds, [$sportsCat->id]);
+            if ($isRealTheatre) {
+                if ($sportsCat) {
+                    $categoryIds = array_diff($categoryIds, [$sportsCat->id]);
+                }
                 if ($teatrisCat && !in_array($teatrisCat->id, $categoryIds, true)) {
                     $categoryIds[] = $teatrisCat->id;
                 }
+                $hasExplicitExhibition = str_contains($titleLower, 'izstād') || str_contains($titleLower, 'ekspozīcij') || str_contains($titleLower, 'glezn') || str_contains($titleLower, 'fotoizstād');
+                if (!$hasExplicitExhibition && $izstadesCat) {
+                    $categoryIds = array_diff($categoryIds, [$izstadesCat->id]);
+                }
             }
 
-            // Guard: Music concerts, bands, orchestras, choirs are never sports
+            // Guard: Music concerts, bands, orchestras, choirs are never sports, and never exhibitions unless explicit exhibition
             $isRealMusic = (
                 $smartSlug === 'muzika' ||
                 str_contains($titleLower, 'koncerts') || str_contains($titleLower, 'grupa ') ||
                 str_contains($titleLower, 'grupas ') || str_contains($titleLower, 'grupu ') ||
-                str_contains($titleLower, 'orķestr') || str_contains($titleLower, 'koris')
+                str_contains($titleLower, 'orķestr') || str_contains($titleLower, 'koris') ||
+                str_contains($titleLower, 'dziesm')
             ) && !preg_match('/\b(?:vs|pret|čempionāts|kauss|virslīga|fiba|turnīrs)\b/ui', $titleLower);
-            if ($isRealMusic && $sportsCat) {
-                $categoryIds = array_diff($categoryIds, [$sportsCat->id]);
+            if ($isRealMusic) {
+                if ($sportsCat) {
+                    $categoryIds = array_diff($categoryIds, [$sportsCat->id]);
+                }
                 if ($muzikaCat && !in_array($muzikaCat->id, $categoryIds, true)) {
                     $categoryIds[] = $muzikaCat->id;
+                }
+                $hasExplicitExhibition = str_contains($titleLower, 'izstād') || str_contains($titleLower, 'ekspozīcij') || str_contains($titleLower, 'glezn') || str_contains($titleLower, 'fotoizstād');
+                if (!$hasExplicitExhibition && $izstadesCat) {
+                    $categoryIds = array_diff($categoryIds, [$izstadesCat->id]);
                 }
             }
 

@@ -176,22 +176,22 @@ class LatgalesGorsScraper extends BaseScraper
         $lower = mb_strtolower($title . ' ' . $desc);
 
         if (str_contains($lower, 'koncert') || str_contains($lower, 'dziesm') || str_contains($lower, 'orķestr') || str_contains($lower, 'grupa') || str_contains($lower, 'mūzik')) {
-            return ['Mūzika & Koncerti', 'Kultūra & Tradīcijas'];
+            return ['Mūzika & Koncerti'];
         }
         if (str_contains($lower, 'teātr') || str_contains($lower, 'izrāde') || str_contains($lower, 'komēdij') || str_contains($lower, 'opera') || str_contains($lower, 'rokopera')) {
-            return ['Teātris & Izrādes', 'Kultūra & Tradīcijas'];
+            return ['Teātris & Izrādes'];
         }
         if (str_contains($lower, 'kino') || str_contains($lower, 'filma') || str_contains($lower, 'īsfilm') || str_contains($lower, 'festivāls')) {
             return ['Kino & Filmas', 'Festivāli & Svētki'];
         }
         if (str_contains($lower, 'bērn') || str_contains($lower, 'ģimen')) {
-            return ['Ģimenēm & Bērniem', 'Teātris & Izrādes'];
+            return ['Ģimenēm & Bērniem'];
         }
         if (str_contains($lower, 'izstād') || str_contains($lower, 'māksl')) {
-            return ['Izstādes & Māksla', 'Kultūra & Tradīcijas'];
+            return ['Izstādes & Māksla'];
         }
 
-        return ['Mūzika & Koncerti', 'Kultūra & Tradīcijas'];
+        return ['Mūzika & Koncerti'];
     }
 
     private function resolveEntertainmentType(string $title, string $desc): string

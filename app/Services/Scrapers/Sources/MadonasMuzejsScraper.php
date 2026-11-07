@@ -506,19 +506,19 @@ class MadonasMuzejsScraper extends BaseScraper
         $lower = mb_strtolower($text);
 
         if (str_contains($lower, 'koncert') || str_contains($lower, 'mūzik') || str_contains($lower, 'dziesm')) {
-            return ['Mūzika & Koncerti', 'Kultūra & Tradīcijas'];
+            return ['Mūzika & Koncerti'];
         }
         if (str_contains($lower, 'bērn') || str_contains($lower, 'ģimen') || str_contains($lower, 'skolēn')) {
-            return ['Ģimenēm & Bērniem', 'Kultūra & Tradīcijas'];
+            return ['Ģimenēm & Bērniem'];
         }
         if (str_contains($lower, 'plenēr') || str_contains($lower, 'meistardarbnīc') || str_contains($lower, 'lekcij')) {
-            return ['Kultūra & Tradīcijas', 'Izstādes & Māksla'];
+            return ['Izglītība & Semināri', 'Izstādes & Māksla'];
         }
         if (str_contains($lower, 'nakts') || str_contains($lower, 'svētk')) {
-            return ['Festivāli & Svētki', 'Kultūra & Tradīcijas'];
+            return ['Festivāli & Svētki'];
         }
 
-        return ['Izstādes & Māksla', 'Kultūra & Tradīcijas'];
+        return ['Izstādes & Māksla'];
     }
 
     private function resolveEntertainmentType(string $text): string

@@ -278,6 +278,14 @@ class ConsolidateCategoriesCommand extends Command
                 }
             }
 
+            // 3. If smartSlug is muzika or teatris, remove false izstades unless title/description really has an exhibition
+            if (in_array($smartSlug, ['muzika', 'teatris'], true) && $izstadesId) {
+                $hasRealExhibition = str_contains($titleLower, 'izstād') || str_contains($titleLower, 'ekspozīcij') || str_contains($titleLower, 'glezn') || str_contains($titleLower, 'fotoizstād');
+                if (!$hasRealExhibition && isset($eventCanonicalLinks[$event->id][$izstadesId])) {
+                    unset($eventCanonicalLinks[$event->id][$izstadesId]);
+                }
+            }
+
             // If the event has ANY specific category, remove 'citi'
             $citiId = $canonicalMap['citi']->id ?? null;
             if ($citiId && isset($eventCanonicalLinks[$event->id][$citiId]) && count($eventCanonicalLinks[$event->id]) > 1) {
