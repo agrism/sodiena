@@ -41,6 +41,7 @@ jobs:
           ssh -i ~/.ssh/id_rsa -p "$SSH_PORT" -o IdentitiesOnly=yes -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" << EOF
             set -e
             echo "🚀 Starting automated deployment for sodiena.lv..."
+            echo "📅 Deployed at: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
 
             cd "$TARGET_DIR"
 
@@ -73,3 +74,4 @@ jobs:
 
             echo "🎉 Deployment successfully completed!"
           EOF
+
