@@ -335,7 +335,7 @@ class HandballLvScraper extends BaseScraper
             priceMin: null,
             priceMax: null,
             currency: 'EUR',
-            ticketUrl: $link,
+            ticketUrl: null,
             imageUrl: self::DEFAULT_IMAGE,
             sourceUrl: $link,
             sourceExternalId: $matchId ? (string) $matchId : null,

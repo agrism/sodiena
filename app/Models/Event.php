@@ -338,12 +338,18 @@ class Event extends Model
                         }
                     }
 
-                    $links[] = [
-                        'url' => $cleanUrl,
-                        'title' => $matchedPlatform ? $matchedPlatform['title'] : 'Biļetes',
-                        'label' => $matchedPlatform ? $matchedPlatform['label'] : 'Pirkt biļetes',
-                        'platform' => $matchedPlatform ? $matchedPlatform['platform'] : 'tickets',
-                    ];
+                    // If direct ticket URL is identical to official source URL and not on a recognized ticket platform,
+                    // it is an official website link rather than a ticket purchase link.
+                    $isDuplicateSource = !$matchedPlatform && !empty($this->attributes['source_url']) && $cleanUrl === $this->attributes['source_url'];
+
+                    if (!$isDuplicateSource) {
+                        $links[] = [
+                            'url' => $cleanUrl,
+                            'title' => $matchedPlatform ? $matchedPlatform['title'] : 'Biļetes',
+                            'label' => $matchedPlatform ? $matchedPlatform['label'] : 'Pirkt biļetes',
+                            'platform' => $matchedPlatform ? $matchedPlatform['platform'] : 'tickets',
+                        ];
+                    }
                 }
             }
         }

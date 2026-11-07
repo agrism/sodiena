@@ -428,7 +428,7 @@ class FloorballLvScraper extends BaseScraper
             priceMin: null,
             priceMax: null,
             currency: 'EUR',
-            ticketUrl: $gameUrl,
+            ticketUrl: null,
             imageUrl: $meta['image'],
             sourceUrl: $gameUrl,
             sourceExternalId: $sourceExternalId,

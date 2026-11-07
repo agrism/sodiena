@@ -460,7 +460,7 @@ class EventIngestionService
                     'start_at' => $dto->startAt ?: $existingEvent->start_at,
                     'end_at' => $dto->endAt ?: $existingEvent->end_at,
                     'image_url' => $finalImageUrl,
-                    'ticket_url' => $dto->ticketUrl ?: $existingEvent->ticket_url,
+                    'ticket_url' => $existingEvent->source_id === $source->id ? $dto->ticketUrl : ($dto->ticketUrl ?: $existingEvent->ticket_url),
                     'is_free' => $dto->isFree,
                     'price_min' => $pMin,
                     'price_max' => $pMax,

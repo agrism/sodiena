@@ -328,7 +328,7 @@ class EstLatblScraper extends BaseScraper
             priceMin: null,
             priceMax: null,
             currency: 'EUR',
-            ticketUrl: $gameUrl,
+            ticketUrl: null,
             imageUrl: $imageUrl,
             sourceUrl: $gameUrl,
             sourceExternalId: $gid ? (string) $gid : null,

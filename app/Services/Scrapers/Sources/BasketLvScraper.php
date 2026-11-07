@@ -506,7 +506,7 @@ class BasketLvScraper extends BaseScraper
             priceMin: null,
             priceMax: null,
             currency: 'EUR',
-            ticketUrl: $sourceUrl,
+            ticketUrl: null,
             imageUrl: $leagueConfig['default_image'],
             sourceUrl: $sourceUrl,
             sourceExternalId: $sourceExternalId,

@@ -474,7 +474,7 @@ class VolejbolsLvScraper extends BaseScraper
             priceMin: null,
             priceMax: null,
             currency: 'EUR',
-            ticketUrl: $matchUrl,
+            ticketUrl: null,
             imageUrl: self::DEFAULT_IMAGE,
             sourceUrl: $matchUrl,
             sourceExternalId: $sourceExternalId,

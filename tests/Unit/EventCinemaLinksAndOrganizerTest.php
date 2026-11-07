@@ -108,4 +108,29 @@ class EventCinemaLinksAndOrganizerTest extends TestCase
         $this->assertNull($eventWithAfiroOrg->organizer_display_name);
         $this->assertNull($eventWithAfiroOrg->organizer_url);
     }
+
+    public function test_ticket_links_ignores_duplicate_source_url_when_not_ticket_platform(): void
+    {
+        $event = new Event([
+            'title' => 'Lielvārde/Unihoc vs FBK Valmiera',
+            'slug' => 'lielvarde-vs-valmiera-test',
+            'ticket_url' => 'https://www.floorball.lv/lv/2026/chempionats/vv/kalendars',
+            'source_url' => 'https://www.floorball.lv/lv/2026/chempionats/vv/kalendars',
+            'raw_data' => [],
+        ]);
+
+        $this->assertEmpty($event->ticket_links);
+
+        // But genuine ticket platforms with matching source_url are retained
+        $bilesuEvent = new Event([
+            'title' => 'Koncerts Doma baznīcā',
+            'slug' => 'koncerts-doma-baznica-test',
+            'ticket_url' => 'https://www.bilesuparadize.lv/lv/event/99999',
+            'source_url' => 'https://www.bilesuparadize.lv/lv/event/99999',
+            'raw_data' => [],
+        ]);
+
+        $this->assertCount(1, $bilesuEvent->ticket_links);
+        $this->assertEquals('Pirkt biļetes (Biļešu Paradīze)', $bilesuEvent->ticket_links[0]['label']);
+    }
 }
