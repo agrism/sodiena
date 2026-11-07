@@ -119,9 +119,9 @@ class HandballLvScraper extends BaseScraper
             'venue' => 'Ulbrokas sporta komplekss',
             'city' => 'Ulbroka',
             'region' => 'Rīga un Pierīga',
-            'address' => 'Institūta iela 1, Ulbroka',
-            'lat' => 56.93800,
-            'lon' => 24.28600,
+            'address' => 'Institūta iela 1B, Ulbroka',
+            'lat' => 56.92862,
+            'lon' => 24.32186,
         ],
         'Murjāņu sporta ģimnāzija' => [
             'venue' => 'Murjāņu sporta ģimnāzijas sporta halle',
@@ -132,12 +132,12 @@ class HandballLvScraper extends BaseScraper
             'lon' => 24.66700,
         ],
         'Jēkabpils 3. vidusskola' => [
-            'venue' => 'Jēkabpils sporta halle',
+            'venue' => 'Jēkabpils 3. vidusskolas sporta manēža',
             'city' => 'Jēkabpils',
             'region' => 'Latgale',
-            'address' => 'Jaunā iela 39, Jēkabpils',
-            'lat' => 56.49500,
-            'lon' => 25.87500,
+            'address' => 'Slimnīcas iela 5, Jēkabpils',
+            'lat' => 56.50652,
+            'lon' => 25.88886,
         ],
     ];
 

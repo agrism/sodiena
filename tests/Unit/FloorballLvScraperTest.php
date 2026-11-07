@@ -143,6 +143,25 @@ class FloorballLvScraperTest extends TestCase
         $this->assertEquals('Vidzeme', $loc1['region']);
         $this->assertEquals('Piebalgas iela 18, Cēsis', $loc1['address']);
 
+        // Lielvārdes sporta centrs
+        $locLielvarde = $scraper->resolveLocation('Lielvārdes sporta centrs', 'Lielvārde/Unihoc');
+        $this->assertEquals('Lielvārdes sporta centrs', $locLielvarde['venue']);
+        $this->assertEquals('Raiņa iela 22, Lielvārde', $locLielvarde['address']);
+        $this->assertEqualsWithDelta(56.71433, $locLielvarde['lat'], 0.0001);
+        $this->assertEqualsWithDelta(24.82019, $locLielvarde['lon'], 0.0001);
+
+        // Ulbrokas sporta komplekss
+        $locUlbroka = $scraper->resolveLocation('Ulbrokas sporta komplekss', 'Masters Ulbroka/LU');
+        $this->assertEquals('Institūta iela 1B, Ulbroka', $locUlbroka['address']);
+        $this->assertEqualsWithDelta(56.92862, $locUlbroka['lat'], 0.0001);
+        $this->assertEqualsWithDelta(24.32186, $locUlbroka['lon'], 0.0001);
+
+        // Spuņciems
+        $locSpunciems = $scraper->resolveLocation('Spuņciems', 'FBK Baloži');
+        $this->assertEquals('Skolas iela 1, Spuņciems, Salas pagasts, Mārupes novads', $locSpunciems['address']);
+        $this->assertEqualsWithDelta(56.93818, $locSpunciems['lat'], 0.0001);
+        $this->assertEqualsWithDelta(23.70735, $locSpunciems['lon'], 0.0001);
+
         // Estonian venue
         $loc2 = $scraper->resolveLocation('Jõgeva spordihoone, rohu 10', 'Jõgeva SK Tähe/Olivia');
         $this->assertEquals('Jõgeva', $loc2['city']);

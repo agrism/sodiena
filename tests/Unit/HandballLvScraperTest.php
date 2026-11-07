@@ -165,6 +165,19 @@ HTML;
         $this->assertEquals('Zemgale', $loc1['region']);
         $this->assertEquals('Tērvetes iela 10, Dobele', $loc1['address']);
 
+        // Ulbrokas sporta komplekss
+        $locUlbroka = $scraper->resolveLocation('Ulbrokas sporta komplekss', '');
+        $this->assertEquals('Institūta iela 1B, Ulbroka', $locUlbroka['address']);
+        $this->assertEqualsWithDelta(56.92862, $locUlbroka['lat'], 0.0001);
+        $this->assertEqualsWithDelta(24.32186, $locUlbroka['lon'], 0.0001);
+
+        // Jēkabpils 3. vidusskola
+        $locJekabpils = $scraper->resolveLocation('Jēkabpils 3. vidusskola', 'Jēkabpils');
+        $this->assertEquals('Jēkabpils 3. vidusskolas sporta manēža', $locJekabpils['venue']);
+        $this->assertEquals('Slimnīcas iela 5, Jēkabpils', $locJekabpils['address']);
+        $this->assertEqualsWithDelta(56.50652, $locJekabpils['lat'], 0.0001);
+        $this->assertEqualsWithDelta(25.88886, $locJekabpils['lon'], 0.0001);
+
         // Team fallback
         $loc2 = $scraper->resolveLocation('', 'ASK/MSĢ');
         $this->assertEquals('Rīga', $loc2['city']);
