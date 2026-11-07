@@ -1,0 +1,75 @@
+name: Deploy to Hetzner
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to Hetzner Production
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        env:
+          SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY || secrets.HETZNER_SSH_KEY }}
+          SSH_HOST: ${{ secrets.SSH_HOST || secrets.HETZNER_HOST || '65.21.182.7' }}
+          SSH_USER: ${{ secrets.SSH_USER || secrets.HETZNER_USERNAME || 'root' }}
+          SSH_PORT: ${{ secrets.SSH_PORT || '22' }}
+          TARGET_DIR: ${{ secrets.PROJECT_PATH || '/var/www/sodiena.lv' }}
+        run: |
+          if [ -z "$SSH_KEY" ]; then
+            echo "❌ Error: SSH_PRIVATE_KEY or HETZNER_SSH_KEY is not configured in GitHub Secrets."
+            echo "👉 Please add SSH_PRIVATE_KEY in GitHub Repo Settings -> Secrets and variables -> Actions."
+            exit 1
+          fi
+
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts
+
+          ssh -i ~/.ssh/id_rsa -p "$SSH_PORT" -o IdentitiesOnly=yes -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" << EOF
+            set -e
+            echo "🚀 Starting automated deployment for sodiena.lv..."
+
+            cd "$TARGET_DIR"
+
+            echo "📥 Pulling latest code from origin/main..."
+            git fetch origin main
+            git reset --hard origin/main
+
+            echo "📦 Installing PHP dependencies..."
+            composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction
+
+            echo "🎨 Installing Node dependencies and building Vite assets..."
+            npm install --no-audit --prefer-offline
+            npm run build
+
+            echo "🗄️ Running database migrations..."
+            php artisan migrate --force
+
+            echo "⚡ Clearing and warming up caches..."
+            php artisan optimize:clear
+            php artisan optimize
+
+            echo "🔄 Reloading PHP-FPM for OPcache reset..."
+            systemctl reload php8.3-fpm
+
+            echo "🔒 Ensuring correct directory permissions..."
+            chown -R www-data:www-data storage bootstrap/cache public/build
+
+            echo "🏥 Health checking live website..."
+            curl -fsS -o /dev/null https://sodiena.lv/ || curl -fsS -o /dev/null http://127.0.0.1/
+
+            echo "🎉 Deployment successfully completed!"
+          EOF
