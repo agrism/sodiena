@@ -21,7 +21,7 @@ class LffVirsligaScraperTest extends TestCase
         $scraper = new LffVirsligaScraper();
         $this->assertEquals('lff-virsliga', $scraper->getSlug());
         $this->assertEquals('Tonybet Virslīga (LFF)', $scraper->getName());
-        $this->assertEquals('/images/virsliga.webp', LffVirsligaScraper::DEFAULT_IMAGE);
+        $this->assertEquals('https://sodiena.hel1.your-objectstorage.com/leagues/virsliga.webp', LffVirsligaScraper::DEFAULT_IMAGE);
     }
 
     public function test_parse_tab1_match_valid(): void
@@ -234,6 +234,6 @@ HTML;
         $this->assertEquals('Jelgava', $saved->location->city);
         $this->assertEquals('Zemgale', $saved->location->region);
         $this->assertEquals(LffVirsligaScraper::DEFAULT_IMAGE, $saved->image_url);
-        $this->assertEquals('http://localhost:8000/images/virsliga.webp', $saved->display_image_url);
+        $this->assertEquals(LffVirsligaScraper::DEFAULT_IMAGE, $saved->display_image_url);
     }
 }

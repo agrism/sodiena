@@ -11,7 +11,7 @@ use Symfony\Component\DomCrawler\Crawler;
 
 class LffVirsligaScraper extends BaseScraper
 {
-    public const DEFAULT_IMAGE = '/images/virsliga.webp';
+    public const DEFAULT_IMAGE = 'https://sodiena.hel1.your-objectstorage.com/leagues/virsliga.webp';
 
     public function getSlug(): string
     {

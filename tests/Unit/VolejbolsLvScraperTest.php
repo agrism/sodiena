@@ -21,7 +21,7 @@ class VolejbolsLvScraperTest extends TestCase
         $scraper = new VolejbolsLvScraper();
         $this->assertEquals('volejbols-lv', $scraper->getSlug());
         $this->assertEquals('Latvijas Volejbola Federācija (volejbols.lv)', $scraper->getName());
-        $this->assertEquals('/images/volejbols.webp', VolejbolsLvScraper::DEFAULT_IMAGE);
+        $this->assertEquals('https://sodiena.hel1.your-objectstorage.com/leagues/volejbols.webp', VolejbolsLvScraper::DEFAULT_IMAGE);
     }
 
     public function test_parse_match_elme_messer_baltic_league(): void
@@ -339,7 +339,7 @@ HTML;
         $this->assertEquals('Ventspils', $saved->location->city);
         $this->assertEquals('Kurzeme', $saved->location->region);
         $this->assertEquals(VolejbolsLvScraper::DEFAULT_IMAGE, $saved->image_url);
-        $this->assertEquals('http://localhost:8000/images/volejbols.webp', $saved->display_image_url);
+        $this->assertEquals(VolejbolsLvScraper::DEFAULT_IMAGE, $saved->display_image_url);
     }
 }
 

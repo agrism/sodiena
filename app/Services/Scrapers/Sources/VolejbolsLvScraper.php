@@ -12,7 +12,7 @@ use Symfony\Component\DomCrawler\Crawler;
 
 class VolejbolsLvScraper extends BaseScraper
 {
-    public const DEFAULT_IMAGE = '/images/volejbols.webp';
+    public const DEFAULT_IMAGE = 'https://sodiena.hel1.your-objectstorage.com/leagues/volejbols.webp';
 
     public function getSlug(): string
     {

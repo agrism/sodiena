@@ -21,7 +21,7 @@ class HandballLvScraperTest extends TestCase
         $scraper = new HandballLvScraper();
         $this->assertEquals('handball-lv', $scraper->getSlug());
         $this->assertEquals('Latvijas Handbola Federācija (handball.lv)', $scraper->getName());
-        $this->assertEquals('/images/handball.webp', HandballLvScraper::DEFAULT_IMAGE);
+        $this->assertEquals('https://sodiena.hel1.your-objectstorage.com/leagues/handball.webp', HandballLvScraper::DEFAULT_IMAGE);
     }
 
     public function test_parse_row_valid_game(): void
@@ -232,7 +232,7 @@ HTML;
         $this->assertEquals('Dobele', $saved->location->city);
         $this->assertEquals('Zemgale', $saved->location->region);
         $this->assertEquals(HandballLvScraper::DEFAULT_IMAGE, $saved->image_url);
-        $this->assertEquals('http://localhost:8000/images/handball.webp', $saved->display_image_url);
+        $this->assertEquals(HandballLvScraper::DEFAULT_IMAGE, $saved->display_image_url);
     }
 }
 

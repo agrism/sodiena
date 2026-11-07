@@ -21,9 +21,9 @@ class LhfHokejsScraperTest extends TestCase
         $scraper = new LhfHokejsScraper();
         $this->assertEquals('lhf-hokejs', $scraper->getSlug());
         $this->assertEquals('Latvijas Hokeja Federācija (lhf.lv)', $scraper->getName());
-        $this->assertEquals('/images/hokejs_ohl.webp', LhfHokejsScraper::DEFAULT_IMAGE);
-        $this->assertEquals('/images/hokejs_ohl.webp', LhfHokejsScraper::DEFAULT_IMAGE_OHL);
-        $this->assertEquals('/images/hokejs_sievietes.webp', LhfHokejsScraper::DEFAULT_IMAGE_SIEVĪTES);
+        $this->assertEquals('https://sodiena.hel1.your-objectstorage.com/leagues/hokejs_ohl.webp', LhfHokejsScraper::DEFAULT_IMAGE);
+        $this->assertEquals('https://sodiena.hel1.your-objectstorage.com/leagues/hokejs_ohl.webp', LhfHokejsScraper::DEFAULT_IMAGE_OHL);
+        $this->assertEquals('https://sodiena.hel1.your-objectstorage.com/leagues/hokejs_sievietes.webp', LhfHokejsScraper::DEFAULT_IMAGE_SIEVĪTES);
     }
 
     public function test_parse_row_ohl_game(): void
@@ -329,6 +329,6 @@ HTML;
         $this->assertEquals('Rīga', $saved->location->city);
         $this->assertEquals('Rīga un Pierīga', $saved->location->region);
         $this->assertEquals(LhfHokejsScraper::DEFAULT_IMAGE_OHL, $saved->image_url);
-        $this->assertEquals('http://localhost:8000/images/hokejs_ohl.webp', $saved->display_image_url);
+        $this->assertEquals(LhfHokejsScraper::DEFAULT_IMAGE_OHL, $saved->display_image_url);
     }
 }

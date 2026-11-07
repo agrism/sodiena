@@ -12,9 +12,9 @@ use Symfony\Component\DomCrawler\Crawler;
 
 class LhfHokejsScraper extends BaseScraper
 {
-    public const DEFAULT_IMAGE = '/images/hokejs_ohl.webp';
-    public const DEFAULT_IMAGE_OHL = '/images/hokejs_ohl.webp';
-    public const DEFAULT_IMAGE_SIEVĪTES = '/images/hokejs_sievietes.webp';
+    public const DEFAULT_IMAGE = 'https://sodiena.hel1.your-objectstorage.com/leagues/hokejs_ohl.webp';
+    public const DEFAULT_IMAGE_OHL = 'https://sodiena.hel1.your-objectstorage.com/leagues/hokejs_ohl.webp';
+    public const DEFAULT_IMAGE_SIEVĪTES = 'https://sodiena.hel1.your-objectstorage.com/leagues/hokejs_sievietes.webp';
 
     public function getSlug(): string
     {

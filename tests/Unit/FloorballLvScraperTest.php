@@ -20,9 +20,9 @@ class FloorballLvScraperTest extends TestCase
         $scraper = new FloorballLvScraper();
         $this->assertEquals('floorball-lv', $scraper->getSlug());
         $this->assertEquals('Latvijas Florbola Savienība (floorball.lv)', $scraper->getName());
-        $this->assertEquals('/images/floorball_elvi.webp', FloorballLvScraper::DEFAULT_IMAGE);
-        $this->assertEquals('/images/floorball_elvi.webp', FloorballLvScraper::DEFAULT_IMAGE_ELVI);
-        $this->assertEquals('/images/floorball_latest.webp', FloorballLvScraper::DEFAULT_IMAGE_LATEST);
+        $this->assertEquals('https://sodiena.hel1.your-objectstorage.com/leagues/floorball_elvi.webp', FloorballLvScraper::DEFAULT_IMAGE);
+        $this->assertEquals('https://sodiena.hel1.your-objectstorage.com/leagues/floorball_elvi.webp', FloorballLvScraper::DEFAULT_IMAGE_ELVI);
+        $this->assertEquals('https://sodiena.hel1.your-objectstorage.com/leagues/floorball_latest.webp', FloorballLvScraper::DEFAULT_IMAGE_LATEST);
     }
 
     public function test_parse_row_elvi_men_game(): void
@@ -202,6 +202,6 @@ class FloorballLvScraperTest extends TestCase
         $this->assertEquals('Ķekava', $saved->location->city);
         $this->assertEquals('Rīga un Pierīga', $saved->location->region);
         $this->assertEquals(FloorballLvScraper::DEFAULT_IMAGE_ELVI, $saved->image_url);
-        $this->assertEquals('http://localhost:8000/images/floorball_elvi.webp', $saved->display_image_url);
+        $this->assertEquals(FloorballLvScraper::DEFAULT_IMAGE_ELVI, $saved->display_image_url);
     }
 }

@@ -11,7 +11,7 @@ use Symfony\Component\DomCrawler\Crawler;
 
 class EstLatblScraper extends BaseScraper
 {
-    public const DEFAULT_IMAGE = '/images/estlatbl.webp';
+    public const DEFAULT_IMAGE = 'https://sodiena.hel1.your-objectstorage.com/leagues/estlatbl.webp';
 
     public function getSlug(): string
     {

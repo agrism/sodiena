@@ -168,6 +168,22 @@ class EventIngestionService
                 }
             }
 
+            // Guard: Randiņš tumsā and Tumsas muzejs / Sensorium are not Sports
+            if (str_contains($titleLower, 'randiņ') || str_contains($titleLower, 'tumsā') || str_contains($venueLower, 'tumsas muzejs') || str_contains($venueLower, 'sensorium')) {
+                $sportsCat = $this->resolveCanonicalCategory('sports');
+                if ($sportsCat) {
+                    $categoryIds = array_diff($categoryIds, [$sportsCat->id]);
+                }
+                $seminariCat = $this->resolveCanonicalCategory('seminari');
+                $izstadesCat = $this->resolveCanonicalCategory('izstades');
+                if ($seminariCat && !in_array($seminariCat->id, $categoryIds, true)) {
+                    $categoryIds[] = $seminariCat->id;
+                }
+                if ($izstadesCat && !in_array($izstadesCat->id, $categoryIds, true)) {
+                    $categoryIds[] = $izstadesCat->id;
+                }
+            }
+
             // If specific categories exist, remove 'citi' fallback
             $citiCat = $this->resolveCanonicalCategory('citi');
             if ($citiCat && count($categoryIds) > 1 && in_array($citiCat->id, $categoryIds, true)) {

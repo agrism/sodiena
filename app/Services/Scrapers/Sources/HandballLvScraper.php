@@ -11,7 +11,7 @@ use Symfony\Component\DomCrawler\Crawler;
 
 class HandballLvScraper extends BaseScraper
 {
-    public const DEFAULT_IMAGE = '/images/handball.webp';
+    public const DEFAULT_IMAGE = 'https://sodiena.hel1.your-objectstorage.com/leagues/handball.webp';
 
     public function getSlug(): string
     {

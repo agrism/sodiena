@@ -13,9 +13,9 @@ use Illuminate\Support\Facades\Log;
 
 class FloorballLvScraper extends BaseScraper
 {
-    public const DEFAULT_IMAGE = '/images/floorball_elvi.webp';
-    public const DEFAULT_IMAGE_ELVI = '/images/floorball_elvi.webp';
-    public const DEFAULT_IMAGE_LATEST = '/images/floorball_latest.webp';
+    public const DEFAULT_IMAGE = 'https://sodiena.hel1.your-objectstorage.com/leagues/floorball_elvi.webp';
+    public const DEFAULT_IMAGE_ELVI = 'https://sodiena.hel1.your-objectstorage.com/leagues/floorball_elvi.webp';
+    public const DEFAULT_IMAGE_LATEST = 'https://sodiena.hel1.your-objectstorage.com/leagues/floorball_latest.webp';
 
     public function getSlug(): string
     {

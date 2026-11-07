@@ -11,8 +11,8 @@ use Illuminate\Support\Facades\Log;
 
 class BasketLvScraper extends BaseScraper
 {
-    public const DEFAULT_IMAGE_NBL = '/images/ramirent-nbl.webp';
-    public const DEFAULT_IMAGE_SBBL = '/images/sbbl.webp';
+    public const DEFAULT_IMAGE_NBL = 'https://sodiena.hel1.your-objectstorage.com/leagues/ramirent-nbl.webp';
+    public const DEFAULT_IMAGE_SBBL = 'https://sodiena.hel1.your-objectstorage.com/leagues/sbbl.webp';
 
     public const LEAGUES = [
         'nbl' => [

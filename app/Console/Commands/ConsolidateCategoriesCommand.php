@@ -399,18 +399,24 @@ class ConsolidateCategoriesCommand extends Command
         }
 
         // 2. Sports (basketbols, futbols, hokejs, florbols, turnīri, čempionāti, sacensības, spēles)
+        $isCulturalOrMuseum = str_contains($text, 'randiņ') || str_contains($text, 'tumsas muzejs') || str_contains($text, 'sensorium');
+        $hasSportsInTitle = preg_match('/\b(?:sports|sporta|turnīrs|čempionāts|kauss|mačs|spēle|līga|futbol|basketbol|hokej|florbol|volejbol|skrējiens|maratons)\b/ui', $title);
+
         if (
-            str_contains($rawCatText, 'sport') ||
-            str_contains($text, 'sports') || str_contains($text, 'sporta') || str_contains($text, 'sacensīb') ||
-            str_contains($text, 'maratons') || str_contains($text, 'skrējiens') || str_contains($text, 'velobrauciens') ||
-            str_contains($text, 'čempionāt') || str_contains($text, 'turnīrs') || str_contains($text, 'turnīrā') ||
-            str_contains($text, 'pārgājiens') || str_contains($text, 'basketbol') || str_contains($text, 'futbol') ||
-            str_contains($text, 'hokej') || str_contains($text, 'florbol') || str_contains($text, 'volejbol') ||
-            str_contains($text, 'tenis') || str_contains($text, 'bokss') || str_contains($text, 'fiba') ||
-            str_contains($text, 'eurobasket') || str_contains($text, 'kvalifikācij') || str_contains($text, 'valstsvienīb') ||
-            str_contains($text, 'virslīg') || str_contains($text, 'čempionu līg') ||
-            preg_match('/\b(?:mačs|mači|mačā|sporta spēl|mājas spēl|finālspēl|pusfinālspēl|līgas spēl)\b/ui', $text) ||
-            preg_match('/\b(?:līga|līgas|līgā|līgu|spēle|spēles|spēļu)\b/ui', $title)
+            (!$isCulturalOrMuseum || $hasSportsInTitle) &&
+            (
+                str_contains($rawCatText, 'sport') ||
+                str_contains($text, 'sports') || str_contains($text, 'sporta') || str_contains($text, 'sacensīb') ||
+                str_contains($text, 'maratons') || str_contains($text, 'skrējiens') || str_contains($text, 'velobrauciens') ||
+                str_contains($text, 'čempionāt') || str_contains($text, 'turnīrs') || str_contains($text, 'turnīrā') ||
+                str_contains($text, 'pārgājiens') || str_contains($text, 'basketbol') || str_contains($text, 'futbol') ||
+                str_contains($text, 'hokej') || str_contains($text, 'florbol') || str_contains($text, 'volejbol') ||
+                str_contains($text, 'tenis') || str_contains($text, 'bokss') || str_contains($text, 'fiba') ||
+                str_contains($text, 'eurobasket') || str_contains($text, 'kvalifikācij') || str_contains($text, 'valstsvienīb') ||
+                str_contains($text, 'virslīg') || str_contains($text, 'čempionu līg') ||
+                preg_match('/\b(?:mačs|mači|mačā|sporta spēl|mājas spēl|finālspēl|pusfinālspēl|līgas spēl)\b/ui', $text) ||
+                preg_match('/\b(?:līga|līgas|līgā|līgu|spēle|spēles|spēļu)\b/ui', $title)
+            )
         ) {
             return 'sports';
         }
