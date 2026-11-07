@@ -43,7 +43,7 @@ class EventImageStorageServiceTest extends TestCase
         $this->assertNotNull($s3Url);
         $event->refresh();
         $this->assertEquals($s3Url, $event->internal_image_url);
-        $this->assertEquals($s3Url, $event->display_image_url);
+        $this->assertEquals(str_starts_with($s3Url, 'http') ? $s3Url : url($s3Url), $event->display_image_url);
     }
 
     public function test_display_image_url_priority(): void
