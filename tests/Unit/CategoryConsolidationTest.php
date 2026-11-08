@@ -64,6 +64,38 @@ class CategoryConsolidationTest extends TestCase
         $this->assertEquals('svetki', ConsolidateCategoriesCommand::mapToCanonicalSlug('Festivāli & Svētki'));
         $this->assertEquals('svetki', ConsolidateCategoriesCommand::mapToCanonicalSlug('Gastronomija & Tirgi'));
         $this->assertEquals('svetki', ConsolidateCategoriesCommand::mapToCanonicalSlug('Naktsdzīve & Ballītes'));
+        $this->assertEquals('svetki', ConsolidateCategoriesCommand::mapToCanonicalSlug('Lāčplēša diena'));
+        $this->assertEquals('svetki', ConsolidateCategoriesCommand::mapToCanonicalSlug('Lāpu gājiens'));
+        $this->assertEquals('svetki', ConsolidateCategoriesCommand::mapToCanonicalSlug('Valsts svētki'));
+        $this->assertEquals('svetki', ConsolidateCategoriesCommand::mapToCanonicalSlug('18. novembra pasākumi'));
+        $this->assertEquals('svetki', ConsolidateCategoriesCommand::mapToCanonicalSlug('Kultūra & Svētki'));
+
+        // Test inferFromContentAndVenue for holiday events
+        $this->assertEquals('svetki', ConsolidateCategoriesCommand::inferFromContentAndVenue(
+            'Lāčplēša diena Ogrē',
+            'Aicinām pulcēties pie Ogres kultūras centra lāpu gājienam',
+            'Ogres novada Kultūras centrs'
+        ));
+        $this->assertEquals('svetki', ConsolidateCategoriesCommand::inferFromContentAndVenue(
+            'Lāpu gājiens Lielvārdē',
+            'Tradicionālais Lāčplēša dienas lāpu gājiens un piemiņas brīdis',
+            'Lielvārde'
+        ));
+        $this->assertEquals('svetki', ConsolidateCategoriesCommand::inferFromContentAndVenue(
+            'Latvijas Republikas proklamēšanas 106. gadadiena',
+            'Svinīgs pasākums un svētku koncerts',
+            'Auces pilsētas Kultūras nams'
+        ));
+        $this->assertEquals('sports', ConsolidateCategoriesCommand::inferFromContentAndVenue(
+            'Lāčplēša dienas kross',
+            'Skrējiens un sporta sacensības visiem interesentiem',
+            'Stadions'
+        ));
+        $this->assertEquals('kino', ConsolidateCategoriesCommand::inferFromContentAndVenue(
+            'Filmas "Dvēseļu putenis" seanss Lāčplēša dienā',
+            'Kino seanss Lāčplēša dienā',
+            'Kino Rio'
+        ));
 
         $this->assertEquals('citi', ConsolidateCategoriesCommand::mapToCanonicalSlug('Pilnīgi nezināma lieta 12345'));
     }
@@ -646,5 +678,86 @@ class CategoryConsolidationTest extends TestCase
         $this->assertContains('muzika', $categorySlugs);
         $this->assertNotContains('izstades', $categorySlugs);
         $this->assertNotContains('sports', $categorySlugs);
+    }
+
+    public function test_holiday_events_ingestion_and_entertainment_type(): void
+    {
+        $source = Source::create([
+            'name' => 'Kulturas Dati Test',
+            'slug' => 'kulturas-dati-test',
+            'url' => 'https://example.com',
+            'scraper_class' => \App\Services\Scrapers\BezRindasScraper::class,
+            'is_active' => true,
+        ]);
+
+        $service = app(EventIngestionService::class);
+
+        $dto = new ScrapedEventDTO(
+            title: 'Lāčplēša dienas lāpu gājiens Ogrē',
+            description: 'Lāpu gājiens no Strēlnieku pieminekļa līdz Brīvības piemineklim.',
+            startAt: now()->addDays(5),
+            endAt: null,
+            isFree: true,
+            priceMin: 0,
+            priceMax: 0,
+            currency: 'EUR',
+            categoryNames: ['Kultūra', 'Sports'],
+            venueName: 'Ogres novada Kultūras centrs',
+            address: 'Brīvības iela 15',
+            city: 'Ogre',
+            imageUrl: null,
+            ticketUrl: null,
+            sourceUrl: 'https://example.com/lacplesa-diena',
+            sourceExternalId: 'lacplesa-diena-1'
+        );
+
+        $service->ingestDTO($dto, $source);
+
+        $event = Event::where('source_external_id', 'lacplesa-diena-1')->first();
+        $this->assertNotNull($event);
+        $categorySlugs = $event->categories->pluck('slug')->toArray();
+
+        $this->assertContains('svetki', $categorySlugs);
+        $this->assertNotContains('sports', $categorySlugs);
+        $this->assertNotContains('izstades', $categorySlugs);
+        $this->assertEquals('celebration', $event->entertainment_type);
+        $this->assertEquals('Svētki', $event->localized_entertainment_type);
+    }
+
+    public function test_categories_consolidate_updates_entertainment_type_for_celebration(): void
+    {
+        $source = Source::create([
+            'name' => 'Consolidate Test Source',
+            'slug' => 'consolidate-test-source',
+            'url' => 'https://example.com',
+            'scraper_class' => \App\Services\Scrapers\BezRindasScraper::class,
+            'is_active' => true,
+        ]);
+
+        $location = Location::create([
+            'name' => 'Ogres Kultūras Centrs',
+            'city' => 'Ogre',
+            'region' => 'Vidzeme',
+            'address' => 'Brīvības iela 15',
+        ]);
+
+        $event = Event::create([
+            'source_id' => $source->id,
+            'source_slug' => $source->slug,
+            'location_id' => $location->id,
+            'title' => 'Lāčplēša dienas svinīgais pasākums',
+            'slug' => 'lacplesa-dienas-pasakums',
+            'description' => 'Aicinām visus uz Lāčplēša dienas pasākumu',
+            'entertainment_type' => 'chill',
+            'start_at' => now()->addDays(5),
+            'status' => 'published',
+            'published_at' => now(),
+        ]);
+
+        $this->artisan('categories:consolidate')->assertSuccessful();
+
+        $event->refresh();
+        $this->assertEquals('celebration', $event->entertainment_type);
+        $this->assertTrue($event->categories->contains('slug', 'svetki'));
     }
 }

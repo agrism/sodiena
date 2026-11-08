@@ -854,6 +854,11 @@ class Event extends Model
                 'en' => 'Festival',
                 'ru' => 'Фестиваль',
             ],
+            'celebration' => [
+                'lv' => 'Svētki',
+                'en' => 'Celebration',
+                'ru' => 'Праздник',
+            ],
             'sports' => [
                 'lv' => 'Sports',
                 'en' => 'Sports',

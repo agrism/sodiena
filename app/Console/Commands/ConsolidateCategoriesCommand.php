@@ -7,6 +7,7 @@ use App\Models\CategoryTranslation;
 use App\Models\Event;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class ConsolidateCategoriesCommand extends Command
@@ -189,14 +190,8 @@ class ConsolidateCategoriesCommand extends Command
         }
 
         // 3. Remap event_category pivot records
-        $pivotRows = DB::table('category_event')->get();
-        if ($pivotRows->isEmpty()) {
-            // Check alternative table name if applicable
-            $pivotRows = DB::table('event_category')->get();
-            $pivotTable = 'event_category';
-        } else {
-            $pivotTable = 'category_event';
-        }
+        $pivotTable = Schema::hasTable('category_event') ? 'category_event' : 'event_category';
+        $pivotRows = Schema::hasTable($pivotTable) ? DB::table($pivotTable)->get() : collect();
 
         $remappedCount = 0;
         $eventCanonicalLinks = []; // event_id => array of canonical_category_ids
@@ -271,19 +266,26 @@ class ConsolidateCategoriesCommand extends Command
                 }
             }
 
-            // 2. If smartSlug is teatris, muzika, izstades, seminari, kino, remove false sports
-            if (in_array($smartSlug, ['teatris', 'muzika', 'izstades', 'seminari', 'kino'], true) && $sportsId) {
+            // 2. If smartSlug is teatris, muzika, izstades, seminari, kino, svetki, remove false sports
+            if (in_array($smartSlug, ['teatris', 'muzika', 'izstades', 'seminari', 'kino', 'svetki'], true) && $sportsId) {
                 if (isset($eventCanonicalLinks[$event->id][$sportsId])) {
                     unset($eventCanonicalLinks[$event->id][$sportsId]);
                 }
             }
 
-            // 3. If smartSlug is muzika or teatris, remove false izstades unless title/description really has an exhibition
-            if (in_array($smartSlug, ['muzika', 'teatris'], true) && $izstadesId) {
+            // 3. If smartSlug is muzika, teatris, svetki, remove false izstades unless title/description really has an exhibition
+            if (in_array($smartSlug, ['muzika', 'teatris', 'svetki'], true) && $izstadesId) {
                 $hasRealExhibition = str_contains($titleLower, 'izstād') || str_contains($titleLower, 'ekspozīcij') || str_contains($titleLower, 'glezn') || str_contains($titleLower, 'fotoizstād');
                 if (!$hasRealExhibition && isset($eventCanonicalLinks[$event->id][$izstadesId])) {
                     unset($eventCanonicalLinks[$event->id][$izstadesId]);
                 }
+            }
+
+            // If the event has category 'svetki' and entertainment_type is chill, exhibition, or empty, upgrade to celebration or concert
+            $hasSvetki = isset($eventCanonicalLinks[$event->id][$canonicalMap['svetki']->id ?? 0]);
+            if ($hasSvetki && (empty($event->entertainment_type) || in_array($event->entertainment_type, ['chill', 'exhibition'], true))) {
+                $newType = preg_match('/\b(?:koncerts?|koncertā|orķestr[a-zāčēģīķļņšūž]*|koris|kora)\b/ui', $event->title) ? 'concert' : 'celebration';
+                $event->update(['entertainment_type' => $newType]);
             }
 
             // If the event has ANY specific category, remove 'citi'
@@ -362,17 +364,39 @@ class ConsolidateCategoriesCommand extends Command
             return 'muzika';
         }
 
-        // 4. Izstādes
+        // 4. Svētki & Valsts svētki (checked before izstades to prevent 'kultur' matching cultural celebrations)
+        if (
+            str_contains($clean, 'svetk') || str_contains($clean, 'svētk') ||
+            str_contains($clean, 'festival') || str_contains($clean, 'festivāl') ||
+            str_contains($clean, 'tirdz') || str_contains($clean, 'tirdziņ') ||
+            str_contains($clean, 'tirg') || str_contains($clean, 'gadatirg') ||
+            str_contains($clean, 'ball') || str_contains($clean, 'party') ||
+            str_contains($clean, 'naktsdziv') || str_contains($clean, 'naktsdzīv') ||
+            str_contains($clean, 'gastronom') || str_contains($clean, 'svinīb') ||
+            str_contains($clean, 'svinib') || str_contains($clean, 'salūts') ||
+            str_contains($clean, 'lāčplēš') || str_contains($clean, 'lacples') ||
+            str_contains($clean, 'lāpu gājiens') || str_contains($clean, 'lapu gajiens') ||
+            str_contains($clean, 'lāpu gājien') || str_contains($clean, 'lapu gajien') ||
+            str_contains($clean, 'valsts svētk') || str_contains($clean, 'valsts svetk') ||
+            str_contains($clean, 'proklamēšan') || str_contains($clean, 'proklamesan') ||
+            str_contains($clean, 'neatkarīb') || str_contains($clean, 'neatkarib') ||
+            str_contains($clean, 'piemiņ') || str_contains($clean, 'atcer') ||
+            str_contains($clean, 'brīvības cīnītāj') || str_contains($clean, '18. novembr')
+        ) {
+            return 'svetki';
+        }
+
+        // 5. Izstādes
         if (str_contains($clean, 'izstad') || str_contains($clean, 'izstād') || str_contains($clean, 'maksl') || str_contains($clean, 'māksl') || str_contains($clean, 'art') || str_contains($clean, 'exhibit') || str_contains($clean, 'muzej') || str_contains($clean, 'galerij') || str_contains($clean, 'kultur') || str_contains($clean, 'kultūr') || str_contains($clean, 'tradic') || str_contains($clean, 'tradīc') || str_contains($clean, 'mantojum') || str_contains($clean, 'ekspozic') || str_contains($clean, 'ekspozīc') || str_contains($clean, 'glezn') || str_contains($clean, 'fotoizstād')) {
             return 'izstades';
         }
 
-        // 5. Bērniem
+        // 6. Bērniem
         if (str_contains($clean, 'bern') || str_contains($clean, 'bērn') || str_contains($clean, 'gimen') || str_contains($clean, 'ģimen') || str_contains($clean, 'kid') || str_contains($clean, 'child') || str_contains($clean, 'family') || str_contains($clean, 'det') || str_contains($clean, 'дет') || str_contains($clean, 'mazuļ') || str_contains($clean, 'skolēn')) {
             return 'berniem';
         }
 
-        // 6. Sports
+        // 7. Sports
         $cleanForSports = preg_replace('/\b[a-zāčēģīķļņšūž]*(?:transport|eksport|export|pasport|passport)[a-zāčēģīķļņšūž]*\b/ui', '', $clean);
         if (
             str_contains($cleanForSports, 'sport') || str_contains($cleanForSports, 'skrie') ||
@@ -397,7 +421,7 @@ class ConsolidateCategoriesCommand extends Command
             return 'sports';
         }
 
-        // 7. Semināri
+        // 8. Semināri
         if (
             str_contains($clean, 'seminar') || str_contains($clean, 'seminār') || str_contains($clean, 'meistarklas') ||
             str_contains($clean, 'lekcij') || str_contains($clean, 'kurs') || str_contains($clean, 'izglit') ||
@@ -411,12 +435,12 @@ class ConsolidateCategoriesCommand extends Command
             return 'seminari';
         }
 
-        // 8. Svētki
-        if (str_contains($clean, 'svetk') || str_contains($clean, 'svētk') || str_contains($clean, 'festival') || str_contains($clean, 'festivāl') || str_contains($clean, 'tirdz') || str_contains($clean, 'tirdziņ') || str_contains($clean, 'tirg') || str_contains($clean, 'tirdziņš') || str_contains($clean, 'gadatirg') || str_contains($clean, 'ball') || str_contains($clean, 'party') || str_contains($clean, 'naktsdziv') || str_contains($clean, 'naktsdzīv') || str_contains($clean, 'gastronom') || str_contains($clean, 'svinīb') || str_contains($clean, 'svinib') || str_contains($clean, 'vakars') || str_contains($clean, 'salūts')) {
+        // 9. Svētki fallback
+        if (str_contains($clean, 'svetk') || str_contains($clean, 'svētk') || str_contains($clean, 'vakars')) {
             return 'svetki';
         }
 
-        // 9. Cits
+        // 10. Cits
         return 'citi';
     }
 
@@ -458,7 +482,14 @@ class ConsolidateCategoriesCommand extends Command
             return 'kino';
         }
 
-        // 2. Teātris (theatres, plays, performances, dramaturgy - strictly excluding cinema venues and film text)
+        // 2. National holidays, Lāčplēša diena, lāpu gājieni, 18. novembris, commemorative dates
+        $holidayRegex = '/(?:\b|(?<=[^a-zāčēģīķļņšūž]))((?:valsts\s+svētk|valsts\s+svetk)[a-zāčēģīķļņšūž]*|(?:lāčplēša|lacplesa)\s+dien[a-zāčēģīķļņšūž]*|(?:lāpu\s+gājien|lapu\s+gajien)[a-zāčēģīķļņšūž]*|proklamēšan[a-zāčēģīķļņšūž]*|proklamesan[a-zāčēģīķļņšūž]*|neatkarības\s+atjaunošan[a-zāčēģīķļņšūž]*|baltā\s+galdaut[a-zāčēģīķļņšūž]*|brīvības\s+cīnītāj[a-zāčēģīķļņšūž]*|barikāžu\s+atcer[a-zāčēģīķļņšūž]*|barikāžu\s+aizstāvj[a-zāčēģīķļņšūž]*|18\.\s*novembr[a-zāčēģīķļņšūž]*)(?:\b|(?=[^a-zāčēģīķļņšūž]))/ui';
+        $isSportsHoliday = preg_match('/\b(?:skrējiens?|maratons?|kross?|turnīrs?|čempionāts?|kauss|mačs|futbol|basketbol|hokej|florbol|orientēšan[a-zāčēģīķļņšūž]*)\b/ui', $title);
+        if (preg_match($holidayRegex, $title) && !$isSportsHoliday) {
+            return 'svetki';
+        }
+
+        // 3. Teātris (theatres, plays, performances, dramaturgy - strictly excluding cinema venues and film text)
         if (
             !$isCinemaVenue && !$hasFilmText &&
             (
@@ -549,7 +580,15 @@ class ConsolidateCategoriesCommand extends Command
         }
 
         // 8. Svētki
-        if (str_contains($text, 'svētki') || str_contains($text, 'svētkos') || str_contains($text, 'festivāl') || str_contains($text, 'gadatirg') || str_contains($text, 'tirdziņ') || str_contains($text, 'zaļumballe') || str_contains($text, 'ballīte') || str_contains($text, 'naktsdzīv')) {
+        if (
+            str_contains($text, 'svētk') || str_contains($text, 'svetk') ||
+            str_contains($text, 'festivāl') || str_contains($text, 'festival') ||
+            str_contains($text, 'gadatirg') || str_contains($text, 'tirdziņ') ||
+            str_contains($text, 'zaļumballe') || str_contains($text, 'ballīte') ||
+            str_contains($text, 'balle') || str_contains($text, 'naktsdzīv') ||
+            str_contains($text, 'svinīb') || str_contains($text, 'salūts') ||
+            preg_match($holidayRegex, $text)
+        ) {
             return 'svetki';
         }
 

@@ -304,6 +304,26 @@ class EventIngestionService
                 }
             }
 
+            // Guard: National holidays, Lāčplēša diena, torchlight processions are Svētki, never Sports or Izstādes (unless actual race/exhibition)
+            $holidayRegex = '/(?:\b|(?<=[^a-zāčēģīķļņšūž]))((?:valsts\s+svētk|valsts\s+svetk)[a-zāčēģīķļņšūž]*|(?:lāčplēša|lacplesa)\s+dien[a-zāčēģīķļņšūž]*|(?:lāpu\s+gājien|lapu\s+gajien)[a-zāčēģīķļņšūž]*|proklamēšan[a-zāčēģīķļņšūž]*|proklamesan[a-zāčēģīķļņšūž]*|neatkarības\s+atjaunošan[a-zāčēģīķļņšūž]*|baltā\s+galdaut[a-zāčēģīķļņšūž]*|brīvības\s+cīnītāj[a-zāčēģīķļņšūž]*|barikāžu\s+atcer[a-zāčēģīķļņšūž]*|barikāžu\s+aizstāvj[a-zāčēģīķļņšūž]*|18\.\s*novembr[a-zāčēģīķļņšūž]*)(?:\b|(?=[^a-zāčēģīķļņšūž]))/ui';
+            $isCelebrationHoliday = (
+                $smartSlug === 'svetki' ||
+                preg_match($holidayRegex, $titleLower)
+            ) && !preg_match('/\b(?:skrējiens?|maratons?|kross?|turnīrs?|čempionāts?|kauss|mačs|futbol|basketbol|hokej|florbol|orientēšan[a-zāčēģīķļņšūž]*)\b/ui', $titleLower);
+
+            if ($isCelebrationHoliday) {
+                $svetkiCat = $this->resolveCanonicalCategory('svetki');
+                if ($sportsCat) {
+                    $categoryIds = array_diff($categoryIds, [$sportsCat->id]);
+                }
+                if ($izstadesCat && !str_contains($titleLower, 'izstād') && !str_contains($titleLower, 'ekspozīcij')) {
+                    $categoryIds = array_diff($categoryIds, [$izstadesCat->id]);
+                }
+                if ($svetkiCat && !in_array($svetkiCat->id, $categoryIds, true)) {
+                    $categoryIds[] = $svetkiCat->id;
+                }
+            }
+
             // If specific categories exist, remove 'citi' fallback
             $citiCat = $this->resolveCanonicalCategory('citi');
             if ($citiCat && count($categoryIds) > 1 && in_array($citiCat->id, $categoryIds, true)) {
@@ -513,7 +533,7 @@ class EventIngestionService
                     'is_free' => $dto->isFree,
                     'price_min' => $pMin,
                     'price_max' => $pMax,
-                    'entertainment_type' => $dto->entertainmentType ?: $existingEvent->entertainment_type,
+                    'entertainment_type' => $dto->entertainmentType ?: (($existingEvent->entertainment_type && !in_array($existingEvent->entertainment_type, ['chill', 'exhibition'], true)) ? $existingEvent->entertainment_type : $this->guessEntertainmentType($dto->title, $dto->categoryNames)),
                     'raw_data' => array_merge($existingEvent->raw_data ?? [], $dto->rawData),
                 ];
 
@@ -654,7 +674,7 @@ class EventIngestionService
         if (str_contains($lower, 'teātr') || str_contains($lower, 'kino') || str_contains($lower, 'theatre') || str_contains($lower, 'cinema')) return 'film';
         if (str_contains($lower, 'māksl') || str_contains($lower, 'izstād') || str_contains($lower, 'art') || str_contains($lower, 'exhibit')) return 'palette';
         if (str_contains($lower, 'ēdien') || str_contains($lower, 'tirdziņ') || str_contains($lower, 'food') || str_contains($lower, 'gastronom')) return 'utensils';
-        if (str_contains($lower, 'festivāl') || str_contains($lower, 'svētk') || str_contains($lower, 'fest')) return 'sparkles';
+        if (str_contains($lower, 'festivāl') || str_contains($lower, 'svētk') || str_contains($lower, 'fest') || str_contains($lower, 'lāčplēš') || str_contains($lower, 'lāpu')) return 'sparkles';
         return 'calendar';
     }
 
@@ -667,6 +687,7 @@ class EventIngestionService
         if (str_contains($lower, 'dab') || str_contains($lower, 'pārgājien') || str_contains($lower, 'hike')) return 'emerald';
         if (str_contains($lower, 'teātr') || str_contains($lower, 'māksl') || str_contains($lower, 'theatre')) return 'rose';
         if (str_contains($lower, 'ēdien') || str_contains($lower, 'garš') || str_contains($lower, 'food')) return 'orange';
+        if (str_contains($lower, 'festivāl') || str_contains($lower, 'svētk') || str_contains($lower, 'lāčplēš') || str_contains($lower, 'lāpu')) return 'pink';
         return 'teal';
     }
 
@@ -676,6 +697,17 @@ class EventIngestionService
 
         if (str_contains($text, 'bērn') || str_contains($text, 'ģimen') || str_contains($text, 'kids') || str_contains($text, 'children')) return 'family';
         if (str_contains($text, 'koncert') || str_contains($text, 'mūzik') || str_contains($text, 'concert') || str_contains($text, 'music')) return 'concert';
+
+        $holidayRegex = '/(?:\b|(?<=[^a-zāčēģīķļņšūž]))((?:valsts\s+svētk|valsts\s+svetk)[a-zāčēģīķļņšūž]*|(?:lāčplēša|lacplesa)\s+dien[a-zāčēģīķļņšūž]*|(?:lāpu\s+gājien|lapu\s+gajien)[a-zāčēģīķļņšūž]*|proklamēšan[a-zāčēģīķļņšūž]*|proklamesan[a-zāčēģīķļņšūž]*|neatkarības\s+atjaunošan[a-zāčēģīķļņšūž]*|baltā\s+galdaut[a-zāčēģīķļņšūž]*|brīvības\s+cīnītāj[a-zāčēģīķļņšūž]*|barikāžu\s+atcer[a-zāčēģīķļņšūž]*|barikāžu\s+aizstāvj[a-zāčēģīķļņšūž]*|18\.\s*novembr[a-zāčēģīķļņšūž]*)(?:\b|(?=[^a-zāčēģīķļņšūž]))/ui';
+
+        if (
+            preg_match($holidayRegex, $text) ||
+            str_contains($text, 'svētk') || str_contains($text, 'svetk') || str_contains($text, 'svinīb') ||
+            str_contains($text, 'piemiņ') || str_contains($text, 'atcer') || str_contains($text, 'salūts')
+        ) {
+            return 'celebration';
+        }
+
         if (str_contains($text, 'pārgājien') || str_contains($text, 'sport') || str_contains($text, 'skrējiens') || str_contains($text, 'marathon')) return 'active';
         if (str_contains($text, 'festivāl') || str_contains($text, 'ballīt') || str_contains($text, 'party') || str_contains($text, 'festival')) return 'party';
         if (str_contains($text, 'meistarklas') || str_contains($text, 'seminār') || str_contains($text, 'workshop') || str_contains($text, 'lecture')) return 'workshop';
