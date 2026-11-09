@@ -312,6 +312,14 @@ class Event extends Model
                     }
                 }
 
+                if (!$matchedPlatform) {
+                    $itemKind = is_array($item) ? strtolower($item['kind'] ?? '') : '';
+                    if (!in_array($itemKind, ['ticket', 'tickets', 'buy_ticket'])) {
+                        // Do not treat general website or details links as ticket purchase buttons
+                        continue;
+                    }
+                }
+
                 $links[] = [
                     'url' => $cleanUrl,
                     'title' => $matchedPlatform ? $matchedPlatform['title'] : (is_array($item) && !empty($item['title']) ? $item['title'] : 'Biļetes'),

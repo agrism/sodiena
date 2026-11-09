@@ -119,6 +119,21 @@ class AfiroApiScraper extends BaseScraper
         // Extract real ticketing and official event URLs instead of aggregator links
         $extractedUrls = $this->extractRealUrls($description, $item);
 
+        // Filter out floorball league calendar stubs (FloorballLvScraper handles actual matches directly from floorball.lv)
+        $titleLower = mb_strtolower($title);
+        $descLower = mb_strtolower($description);
+        $sourceLower = strtolower($extractedUrls['sourceUrl'] ?? '');
+        $ticketLower = strtolower($extractedUrls['ticketUrl'] ?? '');
+
+        if (
+            str_contains($descLower, 'floorball.lv') ||
+            str_contains($sourceLower, 'floorball.lv') ||
+            str_contains($ticketLower, 'floorball.lv') ||
+            preg_match('/\b(?:florbola\s+čempionāts|elvi\s+florbola|latvijas\s+florbola)\b/ui', $titleLower)
+        ) {
+            return null;
+        }
+
         return new ScrapedEventDTO(
             title: $title,
             startAt: $startAt,

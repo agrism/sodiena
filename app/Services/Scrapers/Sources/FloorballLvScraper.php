@@ -46,6 +46,21 @@ class FloorballLvScraper extends BaseScraper
             'image' => self::DEFAULT_IMAGE_LATEST,
             'url' => 'https://www.floorball.lv/lv/2026/chempionats/LE/kalendars',
         ],
+        'v1' => [
+            'name' => 'Latvijas 1. līga (Vīrieši)',
+            'image' => self::DEFAULT_IMAGE_ELVI,
+            'url' => 'https://www.floorball.lv/lv/2026/chempionats/v1/kalendars',
+        ],
+        's1' => [
+            'name' => 'Latvijas 1. līga (Sievietes)',
+            'image' => self::DEFAULT_IMAGE_ELVI,
+            'url' => 'https://www.floorball.lv/lv/2026/chempionats/s1/kalendars',
+        ],
+        'v2' => [
+            'name' => 'Latvijas 2. līga (Vīrieši)',
+            'image' => self::DEFAULT_IMAGE_ELVI,
+            'url' => 'https://www.floorball.lv/lv/2026/chempionats/v2/kalendars',
+        ],
     ];
 
     /**
@@ -62,6 +77,14 @@ class FloorballLvScraper extends BaseScraper
         ],
         'Gaujas iela 45, Cēsis' => [
             'venue' => 'Cēsu sporta zāle (Gaujas iela 45)',
+            'city' => 'Cēsis',
+            'region' => 'Vidzeme',
+            'address' => 'Gaujas iela 45, Cēsis',
+            'lat' => 57.30896,
+            'lon' => 25.24579,
+        ],
+        'Cēsu 2. pamatskola' => [
+            'venue' => 'Cēsu 2. pamatskolas sporta zāle',
             'city' => 'Cēsis',
             'region' => 'Vidzeme',
             'address' => 'Gaujas iela 45, Cēsis',
@@ -108,6 +131,22 @@ class FloorballLvScraper extends BaseScraper
             'lat' => 56.82403,
             'lon' => 24.23006,
         ],
+        'Nākotnes iela 1A' => [
+            'venue' => 'Ķekavas sporta komplekss',
+            'city' => 'Ķekava',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Nākotnes iela 1A, Ķekava',
+            'lat' => 56.82845,
+            'lon' => 24.23812,
+        ],
+        'Brīvības iela 9, Ķekava' => [
+            'venue' => 'Ķekavas sporta centrs',
+            'city' => 'Ķekava',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Brīvības iela 9, Ķekava',
+            'lat' => 56.82845,
+            'lon' => 24.23812,
+        ],
         'Valmieras olimpiskais centrs' => [
             'venue' => 'Valmieras Olimpiskais centrs',
             'city' => 'Valmiera',
@@ -132,6 +171,246 @@ class FloorballLvScraper extends BaseScraper
             'lat' => 57.07909,
             'lon' => 24.33935,
         ],
+        'Inčukalna Sporta centrs' => [
+            'venue' => 'Inčukalna Sporta centrs',
+            'city' => 'Inčukalns',
+            'region' => 'Vidzeme',
+            'address' => 'Atmodas iela 2, Inčukalns',
+            'lat' => 57.09841,
+            'lon' => 24.68652,
+        ],
+        'Ogres Kalna Pamatskola' => [
+            'venue' => 'Ogres Kalna pamatskolas sporta halle',
+            'city' => 'Ogre',
+            'region' => 'Vidzeme',
+            'address' => 'Meža prospekts 14, Ogre',
+            'lat' => 56.82054,
+            'lon' => 24.62145,
+        ],
+        'Kuldīgas sporta halle' => [
+            'venue' => 'Kuldīgas sporta halle',
+            'city' => 'Kuldīga',
+            'region' => 'Kurzeme',
+            'address' => 'Piltenes iela 25, Kuldīga',
+            'lat' => 56.97412,
+            'lon' => 21.96821,
+        ],
+        'Grobiņas sporta centrs' => [
+            'venue' => 'Grobiņas Sporta centrs',
+            'city' => 'Grobiņa',
+            'region' => 'Kurzeme',
+            'address' => 'M. Namiķa iela 2b, Grobiņa',
+            'lat' => 56.53610,
+            'lon' => 21.16480,
+        ],
+        'Grobiņas SC' => [
+            'venue' => 'Grobiņas Sporta centrs',
+            'city' => 'Grobiņa',
+            'region' => 'Kurzeme',
+            'address' => 'M. Namiķa iela 2b, Grobiņa',
+            'lat' => 56.53610,
+            'lon' => 21.16480,
+        ],
+        'Baložu vidusskola' => [
+            'venue' => 'Baložu vidusskolas sporta halle',
+            'city' => 'Baloži',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Skolas iela 6, Baloži',
+            'lat' => 56.87622,
+            'lon' => 24.11945,
+        ],
+        'Zemgales vidusskola' => [
+            'venue' => 'Zemgales vidusskolas sporta halle',
+            'city' => 'Slampe',
+            'region' => 'Zemgale',
+            'address' => 'Zemgales vidusskola, Slampes pagasts',
+            'lat' => 56.84912,
+            'lon' => 23.30054,
+        ],
+        'Irlavas sporta nams' => [
+            'venue' => 'Irlavas sporta nams "Svēte"',
+            'city' => 'Irlava',
+            'region' => 'Kurzeme',
+            'address' => '"Svēte", Irlavas pagasts',
+            'lat' => 56.86720,
+            'lon' => 23.00412,
+        ],
+        'Ozolnieku vidusskola' => [
+            'venue' => 'Ozolnieku vidusskolas sporta halle',
+            'city' => 'Ozolnieki',
+            'region' => 'Zemgale',
+            'address' => 'Stadiona iela 5, Ozolnieki',
+            'lat' => 56.69123,
+            'lon' => 23.78456,
+        ],
+        'Stalbes sporta zāle' => [
+            'venue' => 'Stalbes sporta zāle',
+            'city' => 'Stalbe',
+            'region' => 'Vidzeme',
+            'address' => 'Skolas iela 1, Stalbe',
+            'lat' => 57.37120,
+            'lon' => 25.03210,
+        ],
+        'Rencēnu pamatskola' => [
+            'venue' => 'Rencēnu pamatskolas sporta zāle',
+            'city' => 'Rencēni',
+            'region' => 'Vidzeme',
+            'address' => 'Rīgas iela 6, Rencēni',
+            'lat' => 57.73145,
+            'lon' => 25.42154,
+        ],
+        'Limbažu Olimpiskais centrs' => [
+            'venue' => 'Limbažu Olimpiskais centrs',
+            'city' => 'Limbaži',
+            'region' => 'Vidzeme',
+            'address' => 'Sporta iela 3, Limbaži',
+            'lat' => 57.51421,
+            'lon' => 24.71890,
+        ],
+        'Līgatnes Sporta centrs' => [
+            'venue' => 'Līgatnes Sporta centrs',
+            'city' => 'Līgatne',
+            'region' => 'Vidzeme',
+            'address' => 'Spriņģu iela 4, Līgatne',
+            'lat' => 57.23412,
+            'lon' => 25.04120,
+        ],
+        'Rēzeknes Olimpiskais Centrs' => [
+            'venue' => 'Rēzeknes Olimpiskais centrs',
+            'city' => 'Rēzekne',
+            'region' => 'Latgale',
+            'address' => 'Stacijas iela 30b, Rēzekne',
+            'lat' => 56.51654,
+            'lon' => 27.34212,
+        ],
+        'Poļu ģimnāzija, Marijas 1D' => [
+            'venue' => 'Daugavpils poļu ģimnāzijas sporta halle',
+            'city' => 'Daugavpils',
+            'region' => 'Latgale',
+            'address' => 'Marijas iela 1D, Daugavpils',
+            'lat' => 55.87520,
+            'lon' => 26.54120,
+        ],
+        'Sporta nams Mēmele' => [
+            'venue' => 'Sporta nams "Mēmele"',
+            'city' => 'Bauska',
+            'region' => 'Zemgale',
+            'address' => 'Rīgas iela 41, Bauska',
+            'lat' => 56.41120,
+            'lon' => 24.18450,
+        ],
+        'Salaspils sporta nams' => [
+            'venue' => 'Salaspils sporta nams',
+            'city' => 'Salaspils',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Smilšu iela 1, Salaspils',
+            'lat' => 56.85871,
+            'lon' => 24.35412,
+        ],
+        'Būtnāru sporta halle' => [
+            'venue' => 'Būtnāru sporta halle',
+            'city' => 'Saldus novads',
+            'region' => 'Kurzeme',
+            'address' => 'Būtnāri, Rubas pagasts',
+            'lat' => 56.44412,
+            'lon' => 22.58120,
+        ],
+        'Rimi Olimpiskais centrs' => [
+            'venue' => 'Rimi Olimpiskais centrs',
+            'city' => 'Rīga',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Grostonas iela 6B, Rīga',
+            'lat' => 56.96912,
+            'lon' => 24.12945,
+        ],
+        'Bulduru tehnikums' => [
+            'venue' => 'Bulduru tehnikuma sporta zāle',
+            'city' => 'Jūrmala',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Viestura iela 6, Jūrmala',
+            'lat' => 56.98541,
+            'lon' => 23.85412,
+        ],
+        'Sporta halle Pārventa' => [
+            'venue' => 'Sporta halle "Pārventa"',
+            'city' => 'Ventspils',
+            'region' => 'Kurzeme',
+            'address' => 'Tārgales iela 5b, Ventspils',
+            'lat' => 57.40812,
+            'lon' => 21.58412,
+        ],
+        'Rīgas Teikas vidusskola' => [
+            'venue' => 'Rīgas Teikas vidusskolas sporta halle',
+            'city' => 'Rīga',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Aizkraukles iela 14, Rīga',
+            'lat' => 56.97412,
+            'lon' => 24.19512,
+        ],
+        'Valkas JC ģimnāzija' => [
+            'venue' => 'Valkas Jāņa Cimzes ģimnāzijas sporta halle',
+            'city' => 'Valka',
+            'region' => 'Vidzeme',
+            'address' => 'Raiņa iela 28A, Valka',
+            'lat' => 57.77612,
+            'lon' => 26.01842,
+        ],
+        'Valga' => [
+            'venue' => 'Valkas / Valgas sporta halle',
+            'city' => 'Valka',
+            'region' => 'Vidzeme',
+            'address' => 'Raiņa iela 28A, Valka',
+            'lat' => 57.77612,
+            'lon' => 26.01842,
+        ],
+        'Ziemeļvalstu ģimnāzija' => [
+            'venue' => 'Ziemeļvalstu ģimnāzijas sporta zāle',
+            'city' => 'Rīga',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Paula Lejiņa iela 12, Rīga',
+            'lat' => 56.93812,
+            'lon' => 24.01542,
+        ],
+        'Kokneses sporta centrs' => [
+            'venue' => 'Kokneses sporta centrs',
+            'city' => 'Koknese',
+            'region' => 'Vidzeme',
+            'address' => 'Parka iela 27, Koknese',
+            'lat' => 56.64712,
+            'lon' => 25.43120,
+        ],
+        'Madonas sporta centrs' => [
+            'venue' => 'Madonas pilsētas sporta centrs',
+            'city' => 'Madona',
+            'region' => 'Vidzeme',
+            'address' => 'Gaujas iela 13, Madona',
+            'lat' => 56.85210,
+            'lon' => 26.22150,
+        ],
+        'Tērvetes sporta centrs' => [
+            'venue' => 'Tērvetes sporta halle',
+            'city' => 'Zelmeņi',
+            'region' => 'Zemgale',
+            'address' => 'Zelmeņi, Tērvetes pagasts',
+            'lat' => 56.46712,
+            'lon' => 23.34120,
+        ],
+        'Kalsnavas pamatskola' => [
+            'venue' => 'Kalsnavas pamatskolas sporta zāle',
+            'city' => 'Jaunkalsnava',
+            'region' => 'Vidzeme',
+            'address' => 'Pārupes iela 6, Jaunkalsnava',
+            'lat' => 56.70812,
+            'lon' => 25.96120,
+        ],
+        'Aizkraukles sporta centrs' => [
+            'venue' => 'Aizkraukles sporta centrs',
+            'city' => 'Aizkraukle',
+            'region' => 'Vidzeme',
+            'address' => 'Lāčplēša iela 21, Aizkraukle',
+            'lat' => 56.60412,
+            'lon' => 25.25120,
+        ],
         'Spuņciems' => [
             'venue' => 'Salas pagasta sporta halle',
             'city' => 'Spuņciems',
@@ -139,6 +418,22 @@ class FloorballLvScraper extends BaseScraper
             'address' => 'Skolas iela 1, Spuņciems, Salas pagasts, Mārupes novads',
             'lat' => 56.93818,
             'lon' => 23.70735,
+        ],
+        'Juglas vsk.' => [
+            'venue' => 'Rīgas Juglas vidusskolas sporta halle',
+            'city' => 'Rīga',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Kvēles iela 64, Rīga',
+            'lat' => 56.98512,
+            'lon' => 24.24120,
+        ],
+        'Vārmes sporta halle' => [
+            'venue' => 'Vārmes sporta halle',
+            'city' => 'Vārme',
+            'region' => 'Kurzeme',
+            'address' => 'Vārme, Kuldīgas novads',
+            'lat' => 56.86120,
+            'lon' => 22.18120,
         ],
         'Märjamaa Valla Spordikeskus' => [
             'venue' => 'Märjamaa Valla Spordikeskus',
@@ -164,7 +459,7 @@ class FloorballLvScraper extends BaseScraper
             'lat' => 59.41304,
             'lon' => 24.66072,
         ],
-        'Õismäe Sportmängude Hall,' => [
+        'Õismäe Sportmängude Hall' => [
             'venue' => 'Õismäe Sportmängude hall',
             'city' => 'Tallina',
             'region' => 'Igaunija',
@@ -172,13 +467,37 @@ class FloorballLvScraper extends BaseScraper
             'lat' => 59.41304,
             'lon' => 24.66072,
         ],
-        'Jõgeva spordihoone, rohu 10' => [
+        'Jõgeva spordihoone' => [
             'venue' => 'Jõgeva spordihoone Virtus',
             'city' => 'Jõgeva',
             'region' => 'Igaunija',
-            'address' => 'Rohu 10, Jõgeva, Igaunija',
+            'address' => 'Aia 40, Jõgeva, Igaunija',
             'lat' => 58.74810,
             'lon' => 26.38874,
+        ],
+        'Jõgeva SH' => [
+            'venue' => 'Jõgeva spordihoone Virtus',
+            'city' => 'Jõgeva',
+            'region' => 'Igaunija',
+            'address' => 'Aia 40, Jõgeva, Igaunija',
+            'lat' => 58.74810,
+            'lon' => 26.38874,
+        ],
+        'Virtuse SH' => [
+            'venue' => 'Jõgeva spordihoone Virtus',
+            'city' => 'Jõgeva',
+            'region' => 'Igaunija',
+            'address' => 'Aia 40, Jõgeva, Igaunija',
+            'lat' => 58.74810,
+            'lon' => 26.38874,
+        ],
+        'Eesti Maaülikooli spordihoone' => [
+            'venue' => 'Eesti Maaülikooli spordihoone',
+            'city' => 'Tartu',
+            'region' => 'Igaunija',
+            'address' => 'Kreutzwaldi 3, Tartu, Igaunija',
+            'lat' => 58.38812,
+            'lon' => 26.69912,
         ],
     ];
 
@@ -380,9 +699,13 @@ class FloorballLvScraper extends BaseScraper
         $venueRaw = trim(strip_tags($row[5] ?? ''));
         $location = $this->resolveLocation($venueRaw, $home);
 
+        $refereesRaw = trim(strip_tags($row[6] ?? ''));
+        $referees = !empty($refereesRaw) ? html_entity_decode($refereesRaw, ENT_QUOTES | ENT_HTML5, 'UTF-8') : null;
+
         $gameUrl = $meta['url'];
         if (preg_match('/href="([^"]+)"/', $row[3] ?? '', $protoMatch)) {
-            $gameUrl = $protoMatch[1];
+            $proto = $protoMatch[1];
+            $gameUrl = str_starts_with($proto, 'http') ? $proto : ('https://www.floorball.lv' . $proto);
         }
 
         // Deterministic external ID
@@ -397,16 +720,36 @@ class FloorballLvScraper extends BaseScraper
 
         $leagueName = $meta['name'];
         $title = "{$home} vs {$away}";
-        $shortDescription = "{$leagueName}: {$home} pret {$away} ({$location['venue']}).";
+        $shortDescription = "{$leagueName}: {$home} pret {$away} ({$location['venue']}, {$location['city']}).";
+
+        $monthNames = [
+            1 => 'janvārī', 2 => 'februārī', 3 => 'martā', 4 => 'aprīlī', 5 => 'maijā', 6 => 'jūnijā',
+            7 => 'jūlijā', 8 => 'augustā', 9 => 'septembrī', 10 => 'oktobrī', 11 => 'novembrī', 12 => 'decembrī'
+        ];
+        $dateFormatted = "{$startAt->day}. " . ($monthNames[$startAt->month] ?? '') . " plkst. {$time}";
 
         $descLines = [
-            "{$leagueName} spēle: {$home} pret {$away}.",
+            "🏑 {$leagueName} čempionāta spēle: {$home} pret {$away}.",
             '',
-            "Norises vieta: {$location['venue']}, {$location['city']}",
+            "Latvijas Florbola Savienības (LFS) rīkotā oficiālā čempionāta spēle, kurā laukumā tiekas {$home} pret {$away}.",
+            '',
+            "📍 Norises vieta: {$location['venue']}",
         ];
         if (!empty($location['address'])) {
-            $descLines[] = "Adrese: {$location['address']}";
+            $descLines[] = "🏢 Adrese: {$location['address']}";
+        } else {
+            $descLines[] = "🏢 Pilsēta: {$location['city']}";
         }
+        $descLines[] = "📅 Sākums: {$dateFormatted}";
+        if (!empty($referees)) {
+            $descLines[] = "👥 Spēles tiesneši: {$referees}";
+        }
+        $descLines[] = '';
+        $descLines[] = '🎟️ Ieeja un biļetes:';
+        $descLines[] = "Ieejas noteikumi un biļešu iegāde saskaņā ar mājinieku komandas ({$home}) un sporta bāzes noteikumiem. Līdzjutēji aicināti atbalstīt komandu klātienē!";
+        $descLines[] = '';
+        $descLines[] = '🔗 Oficiālā informācija, rezultāti un turnīra tabula: floorball.lv';
+
         $description = implode("\n", $descLines);
 
         return new ScrapedEventDTO(
@@ -441,6 +784,7 @@ class FloorballLvScraper extends BaseScraper
                 'home_id' => $homeId,
                 'away_id' => $awayId,
                 'venue_raw' => $venueRaw,
+                'referees' => $referees,
                 'date_raw' => $dateText,
                 'time_raw' => $timeText,
             ]
@@ -449,7 +793,7 @@ class FloorballLvScraper extends BaseScraper
 
     public function resolveLocation(string $venueRaw, string $homeTeam): array
     {
-        $trimmed = trim($venueRaw);
+        $trimmed = trim(rtrim(trim($venueRaw), ','));
 
         // 1. Direct or fuzzy substring match in known floorball venues
         foreach ($this->venues as $name => $data) {
