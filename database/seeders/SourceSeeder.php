@@ -139,6 +139,13 @@ class SourceSeeder extends Seeder
                 'is_active' => true,
             ],
             [
+                'name' => 'Optibet Telpu futbola Virslīga (LFF)',
+                'slug' => 'lff-telpu-futbols',
+                'url' => 'https://lff.lv/sacensibas/telpu-futbols/virsliga/?tab=content_1_2',
+                'scraper_class' => \App\Services\Scrapers\Sources\LffTelpuFutbolsScraper::class,
+                'is_active' => true,
+            ],
+            [
                 'name' => 'Latvijas Handbola Federācija (handball.lv)',
                 'slug' => 'handball-lv',
                 'url' => 'https://handball.lv/league/1278/calendar',

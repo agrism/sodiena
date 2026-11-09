@@ -1,5 +1,10 @@
 # Sodiena.lv Agent Instructions & Domain Rules
 
+## Git & GitHub Push Policy (STRICT RULE)
+- **NEVER PUSH TO GITHUB**: The AI agent is STRICTLY FORBIDDEN from running `git push` under ANY circumstances on ANY repository or branch.
+- **Manual Push by User Only**: The user will test and verify all changes in the development environment first. The user will personally push to GitHub only after confirming that everything works.
+- Never run automatic push or deployment scripts.
+
 ## Event Categorization Rules
 1. **Cinema / Kino (Strict & Priority)**:
    - **Venues**: `K. Suns` (or `K.Suns`, `K Suns`), `Kino Rio` (Ventspils Kino Rio), `Forum Cinemas`, `Apollo Kino`, `Cinamon`, `Splendid Palace`, `Kino Bize`, `Kino Lora`, `Kino Gaisma` are **ALWAYS KINO** and **NEVER TEĀTRIS**.
