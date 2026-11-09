@@ -284,6 +284,7 @@ class Event extends Model
             'ticketbest.eu' => ['title' => 'TicketBest', 'label' => 'Pirkt biļetes (TicketBest)', 'platform' => 'ticketbest'],
             'ticketbest.lv' => ['title' => 'TicketBest', 'label' => 'Pirkt biļetes (TicketBest)', 'platform' => 'ticketbest'],
             'ticketly.eu' => ['title' => 'Ticketly', 'label' => 'Pirkt biļetes (Ticketly)', 'platform' => 'ticketly'],
+            'ekase.lv' => ['title' => 'eKase', 'label' => 'Pirkt biļetes (eKase.lv)', 'platform' => 'ekase'],
         ];
 
         // 1. Check raw_data cta.links

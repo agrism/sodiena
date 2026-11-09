@@ -162,7 +162,7 @@ class AfiroApiScraper extends BaseScraper
         $ticketPlatforms = [
             'bilesuparadize.lv', 'bilesuserviss.lv', 'bezrindas.lv', 'ticketshop.lv',
             'aula.lv', 'fienta.com', 'apollokino.lv', 'forumcinemas.lv', 'splendidpalace.lv',
-            'cinamonkino.com', 'opera.lv', 'passportix.eu', 'ticketbest.eu', 'ticketly.eu',
+            'cinamonkino.com', 'opera.lv', 'passportix.eu', 'ticketbest.eu', 'ticketbest.lv', 'ticketly.eu', 'ekase.lv',
             'forms.gle', 'docs.google.com/forms', 'tally.so', 'distantrace.com', 'play.fiba3x3.com', 'cuescore.com'
         ];
 

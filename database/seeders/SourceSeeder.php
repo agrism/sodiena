@@ -118,6 +118,13 @@ class SourceSeeder extends Seeder
                 'is_active' => true,
             ],
             [
+                'name' => 'eKase (ekase.lv)',
+                'slug' => 'ekase',
+                'url' => 'https://ekase.lv/lv/events/program',
+                'scraper_class' => \App\Services\Scrapers\Sources\EkaseLvScraper::class,
+                'is_active' => true,
+            ],
+            [
                 'name' => 'Siguldas novada tūrisms',
                 'slug' => 'sigulda-tourism',
                 'url' => 'https://tourism.sigulda.lv/events/',
