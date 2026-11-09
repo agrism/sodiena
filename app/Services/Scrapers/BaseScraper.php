@@ -25,6 +25,11 @@ abstract class BaseScraper implements EventScraperInterface
         ]);
     }
 
+    public function setClient(Client $client): void
+    {
+        $this->httpClient = $client;
+    }
+
     /**
      * Fetch HTML and return a Symfony DomCrawler instance
      */

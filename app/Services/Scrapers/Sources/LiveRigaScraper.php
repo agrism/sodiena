@@ -15,6 +15,7 @@ use Symfony\Component\DomCrawler\Crawler;
 class LiveRigaScraper extends BaseScraper
 {
     protected ?Client $client = null;
+    protected array $detailDescriptionCache = [];
 
     protected function getClient(): Client
     {
@@ -122,7 +123,7 @@ class LiveRigaScraper extends BaseScraper
         return min(max($maxPage, 1), 30);
     }
 
-    public function parseCard(Crawler $cardNode, ?Carbon $today = null): ?ScrapedEventDTO
+    public function parseCard(Crawler $cardNode, ?Carbon $today = null, bool $fetchDetail = true): ?ScrapedEventDTO
     {
         $today = $today ?: Carbon::today('Europe/Riga');
 
@@ -186,14 +187,17 @@ class LiveRigaScraper extends BaseScraper
         $slug = basename(parse_url($sourceUrl, PHP_URL_PATH));
         $externalId = 'liveriga-' . Str::slug($slug) . '-' . $startAt->format('Y-m-d');
 
-        $description = "{$title}. Norises vieta: {$venueInfo['name']}, {$venueInfo['city']}. Informācija: {$sourceUrl}";
+        // Fetch detail description from event page if available
+        $detailDesc = $fetchDetail ? $this->fetchDetailDescription($sourceUrl) : null;
+        $description = $detailDesc ?: "{$title}. Norises vieta: {$venueInfo['name']}, {$venueInfo['city']}. Informācija: {$sourceUrl}";
+        $shortDesc = Str::limit(strip_tags($description), 160);
 
         return new ScrapedEventDTO(
             title: $title,
             startAt: $startAt,
             endAt: $endAt,
             description: $description,
-            shortDescription: $title,
+            shortDescription: $shortDesc,
             venueName: $venueInfo['name'],
             city: $venueInfo['city'],
             region: 'Rīga un Pierīga',
@@ -206,6 +210,56 @@ class LiveRigaScraper extends BaseScraper
             sourceExternalId: $externalId,
             locale: 'lv',
         );
+    }
+
+    public function fetchDetailDescription(string $url): ?string
+    {
+        if (empty($url)) {
+            return null;
+        }
+
+        if (array_key_exists($url, $this->detailDescriptionCache)) {
+            return $this->detailDescriptionCache[$url];
+        }
+
+        $html = $this->fetchPageHtml($url);
+        if (!$html) {
+            $this->detailDescriptionCache[$url] = null;
+            return null;
+        }
+
+        try {
+            $crawler = new Crawler($html);
+            $paras = [];
+            $node = $crawler->filter('article .textual-content, .textual-content');
+            if ($node->count() > 0) {
+                $node->filter('p')->each(function (Crawler $p) use (&$paras) {
+                    $t = html_entity_decode(strip_tags($p->text('')), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                    $t = preg_replace('/[\x{200B}-\x{200D}\x{FEFF}]/u', '', $t);
+                    $t = trim(preg_replace('/\s+/u', ' ', $t));
+                    if (!empty($t)) {
+                        $paras[] = $t;
+                    }
+                });
+            }
+
+            if (empty($paras) && $node->count() > 0) {
+                $raw = html_entity_decode(strip_tags($node->text('')), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                $raw = preg_replace('/[\x{200B}-\x{200D}\x{FEFF}]/u', '', $raw);
+                $raw = trim(preg_replace('/\s+/u', ' ', $raw));
+                if (!empty($raw)) {
+                    $paras[] = $raw;
+                }
+            }
+
+            $desc = !empty($paras) ? implode("\n\n", $paras) : null;
+            $this->detailDescriptionCache[$url] = $desc;
+            return $desc;
+        } catch (\Throwable $e) {
+            Log::warning("LiveRiga: failed to extract detail description from {$url}: " . $e->getMessage());
+            $this->detailDescriptionCache[$url] = null;
+            return null;
+        }
     }
 
     public function parseDate(string $dateStr, Carbon $today): ?array

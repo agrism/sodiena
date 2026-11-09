@@ -8,6 +8,10 @@ use App\Models\Source;
 use App\Services\Scrapers\EventIngestionService;
 use App\Services\Scrapers\Sources\LiveRigaScraper;
 use Carbon\Carbon;
+use GuzzleHttp\Client;
+use GuzzleHttp\Handler\MockHandler;
+use GuzzleHttp\HandlerStack;
+use GuzzleHttp\Psr7\Response;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Symfony\Component\DomCrawler\Crawler;
 use Tests\TestCase;
@@ -21,6 +25,23 @@ class LiveRigaScraperTest extends TestCase
         $scraper = new LiveRigaScraper();
         $this->assertEquals('live-riga', $scraper->getSlug());
         $this->assertEquals('Live Riga', $scraper->getName());
+    }
+
+    public function test_fetch_detail_description(): void
+    {
+        $mock = new MockHandler([
+            new Response(200, [], '<article><div class="textual-content"><p>Pirmais rindkopa.</p><p>Otrais rindkopa.</p></div></article>'),
+        ]);
+        $client = new Client(['handler' => HandlerStack::create($mock)]);
+        $scraper = new LiveRigaScraper();
+        $scraper->setClient($client);
+
+        $desc = $scraper->fetchDetailDescription('https://www.liveriga.com/test');
+        $this->assertEquals("Pirmais rindkopa.\n\nOtrais rindkopa.", $desc);
+
+        // Cached check (second call does not trigger mock exception)
+        $cachedDesc = $scraper->fetchDetailDescription('https://www.liveriga.com/test');
+        $this->assertEquals("Pirmais rindkopa.\n\nOtrais rindkopa.", $cachedDesc);
     }
 
     public function test_extract_total_pages(): void
@@ -110,7 +131,7 @@ HTML;
         $crawler = new Crawler($html);
         $scraper = new LiveRigaScraper();
         $today = Carbon::create(2026, 11, 9, 0, 0, 0, 'Europe/Riga');
-        $dto = $scraper->parseCard($crawler->filter('a.card.card-item')->first(), $today);
+        $dto = $scraper->parseCard($crawler->filter('a.card.card-item')->first(), $today, false);
 
         $this->assertNotNull($dto);
         $this->assertEquals('Pusdienlaika koncerts Anglikāņu baznīcā', $dto->title);
@@ -244,7 +265,7 @@ HTML;
 
         $crawler = new Crawler($cardHtml);
         $today = Carbon::create(2026, 11, 9, 0, 0, 0, 'Europe/Riga');
-        $dto = $scraper->parseCard($crawler->filter('a.card.card-item')->first(), $today);
+        $dto = $scraper->parseCard($crawler->filter('a.card.card-item')->first(), $today, false);
 
         $this->assertNotNull($dto);
 

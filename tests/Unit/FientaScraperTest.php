@@ -8,6 +8,10 @@ use App\Models\Source;
 use App\Services\Scrapers\EventIngestionService;
 use App\Services\Scrapers\Sources\FientaScraper;
 use Carbon\Carbon;
+use GuzzleHttp\Client;
+use GuzzleHttp\Handler\MockHandler;
+use GuzzleHttp\HandlerStack;
+use GuzzleHttp\Psr7\Response;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Symfony\Component\DomCrawler\Crawler;
 use Tests\TestCase;
@@ -24,6 +28,23 @@ class FientaScraperTest extends TestCase
         $this->assertEquals(FientaScraper::BASE_URL, 'https://fienta.com');
         $this->assertEquals(FientaScraper::DEFAULT_URL, 'https://fienta.com/lv');
         $this->assertEquals(FientaScraper::DEFAULT_IMAGE, 'https://fienta.com/assets_statamic/statamic/opengraph/fienta-og-en.png');
+    }
+
+    public function test_fetch_detail_description(): void
+    {
+        $mock = new MockHandler([
+            new Response(200, [], '<div id="desc"><div class="rich-text"><p>Pirmais rindkopa.</p><p>Otrais rindkopa.</p></div></div>'),
+        ]);
+        $client = new Client(['handler' => HandlerStack::create($mock)]);
+        $scraper = new FientaScraper();
+        $scraper->setClient($client);
+
+        $desc = $scraper->fetchDetailDescription('https://fienta.com/lv/test');
+        $this->assertEquals("Pirmais rindkopa.\n\nOtrais rindkopa.", $desc);
+
+        // Cached call
+        $cachedDesc = $scraper->fetchDetailDescription('https://fienta.com/lv/test');
+        $this->assertEquals("Pirmais rindkopa.\n\nOtrais rindkopa.", $cachedDesc);
     }
 
     public function test_parse_card_valid_event(): void
@@ -54,7 +75,7 @@ HTML;
 
         $crawler = new Crawler($html);
         $scraper = new FientaScraper();
-        $dto = $scraper->parseCard($crawler->filter('.event-card')->first());
+        $dto = $scraper->parseCard($crawler->filter('.event-card')->first(), false);
 
         $this->assertNotNull($dto);
         $this->assertEquals('Manā Parīzē - franču mūzikas koncerts', $dto->title);
@@ -230,7 +251,7 @@ HTML;
 
         $crawler = new Crawler($html);
         $scraper = new FientaScraper();
-        $dto = $scraper->parseCard($crawler->filter('.event-card')->first());
+        $dto = $scraper->parseCard($crawler->filter('.event-card')->first(), false);
         $this->assertNotNull($dto);
 
         $ingestionService = app(EventIngestionService::class);

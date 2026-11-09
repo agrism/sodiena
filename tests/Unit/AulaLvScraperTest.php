@@ -8,6 +8,10 @@ use App\Models\Source;
 use App\Services\Scrapers\EventIngestionService;
 use App\Services\Scrapers\Sources\AulaLvScraper;
 use Carbon\Carbon;
+use GuzzleHttp\Client;
+use GuzzleHttp\Handler\MockHandler;
+use GuzzleHttp\HandlerStack;
+use GuzzleHttp\Psr7\Response;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Symfony\Component\DomCrawler\Crawler;
 use Tests\TestCase;
@@ -24,6 +28,23 @@ class AulaLvScraperTest extends TestCase
         $this->assertEquals(AulaLvScraper::BASE_URL, 'https://www.aula.lv');
         $this->assertEquals(AulaLvScraper::DEFAULT_URL, 'https://www.aula.lv/visi');
         $this->assertEquals(AulaLvScraper::DEFAULT_IMAGE, 'https://www.aula.lv/assets/images/aula-graph-placeholder-white.png');
+    }
+
+    public function test_fetch_detail_description(): void
+    {
+        $mock = new MockHandler([
+            new Response(200, [], '<div class="custom-event-content-section"><div class="toggleable-content"><p>Pirmais rindkopa.</p><p>Otrais rindkopa.</p></div></div>'),
+        ]);
+        $client = new Client(['handler' => HandlerStack::create($mock)]);
+        $scraper = new AulaLvScraper();
+        $scraper->setClient($client);
+
+        $desc = $scraper->fetchDetailDescription('https://www.aula.lv/pasakumi/test');
+        $this->assertEquals("Pirmais rindkopa.\n\nOtrais rindkopa.", $desc);
+
+        // Cached call
+        $cachedDesc = $scraper->fetchDetailDescription('https://www.aula.lv/pasakumi/test');
+        $this->assertEquals("Pirmais rindkopa.\n\nOtrais rindkopa.", $cachedDesc);
     }
 
     public function test_parse_card_valid_event(): void
@@ -51,7 +72,7 @@ HTML;
 
         $crawler = new Crawler($html);
         $scraper = new AulaLvScraper();
-        $dto = $scraper->parseCard($crawler->filter('article.event-block')->first());
+        $dto = $scraper->parseCard($crawler->filter('article.event-block')->first(), false);
 
         $this->assertNotNull($dto);
         $this->assertEquals('Dināras Rudānes koncerts Dobeles Pilī', $dto->title);
@@ -244,7 +265,7 @@ HTML;
 
         $crawler = new Crawler($html);
         $scraper = new AulaLvScraper();
-        $dto = $scraper->parseCard($crawler->filter('article.event-block')->first());
+        $dto = $scraper->parseCard($crawler->filter('article.event-block')->first(), false);
         $this->assertNotNull($dto);
 
         $ingestionService = app(EventIngestionService::class);
@@ -271,3 +292,4 @@ HTML;
         $this->assertEquals('https://www.aula.lv/pasakumi/koru-koncerts-ar-latviju-sirdi?event=2497', $ticketLinks[0]['url']);
     }
 }
+

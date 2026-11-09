@@ -18,6 +18,8 @@ class FientaScraper extends BaseScraper
     public const DEFAULT_URL = 'https://fienta.com/lv';
     public const DEFAULT_IMAGE = 'https://fienta.com/assets_statamic/statamic/opengraph/fienta-og-en.png';
 
+    protected array $detailDescriptionCache = [];
+
     private const MONTHS = [
         'jan' => 1, 'feb' => 2, 'mar' => 3, 'apr' => 4, 'mai' => 5, 'jūn' => 6,
         'jūl' => 7, 'aug' => 8, 'sep' => 9, 'okt' => 10, 'nov' => 11, 'dec' => 12,
@@ -292,7 +294,7 @@ class FientaScraper extends BaseScraper
     /**
      * Parse a single event card from Fienta root page
      */
-    public function parseCard(Crawler $card): ?ScrapedEventDTO
+    public function parseCard(Crawler $card, bool $fetchDetail = true): ?ScrapedEventDTO
     {
         // 1. Link & URL
         $linkNode = $card->filter('a');
@@ -356,9 +358,10 @@ class FientaScraper extends BaseScraper
         // 6. Category detection adhering to AGENTS.md
         [$category, $entertainmentType] = $this->detectCategory($title, $location['venue']);
 
-        // 7. Structured description
-        $description = "Pasākums: {$title}.\n\nNorises vieta: {$location['venue']}, {$location['city']}.\nBiļetes un reģistrācija pieejama Fienta platformā.";
-        $shortDescription = Str::limit("{$title} — {$location['venue']}, {$location['city']}.", 160);
+        // 7. Full description from detail page if available
+        $detailDesc = $fetchDetail ? $this->fetchDetailDescription($fullUrl) : null;
+        $description = $detailDesc ?: "Pasākums: {$title}.\n\nNorises vieta: {$location['venue']}, {$location['city']}.\nBiļetes un reģistrācija pieejama Fienta platformā.";
+        $shortDescription = Str::limit(strip_tags($description), 160);
 
         return new ScrapedEventDTO(
             title: $title,
@@ -391,6 +394,55 @@ class FientaScraper extends BaseScraper
                 'fienta_url' => $fullUrl,
             ]
         );
+    }
+
+    public function fetchDetailDescription(string $url): ?string
+    {
+        if (empty($url)) {
+            return null;
+        }
+
+        if (array_key_exists($url, $this->detailDescriptionCache)) {
+            return $this->detailDescriptionCache[$url];
+        }
+
+        $crawler = $this->fetchCrawler($url);
+        if (!$crawler) {
+            $this->detailDescriptionCache[$url] = null;
+            return null;
+        }
+
+        try {
+            $paras = [];
+            $node = $crawler->filter('#desc .rich-text, #desc, .event-description');
+            if ($node->count() > 0) {
+                $node->filter('p, h2, h3, h4, li')->each(function (Crawler $p) use (&$paras) {
+                    $t = html_entity_decode(strip_tags($p->text('')), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                    $t = preg_replace('/[\x{200B}-\x{200D}\x{FEFF}]/u', '', $t);
+                    $t = trim(preg_replace('/\s+/u', ' ', $t));
+                    if (!empty($t)) {
+                        $paras[] = $t;
+                    }
+                });
+            }
+
+            if (empty($paras) && $node->count() > 0) {
+                $raw = html_entity_decode(strip_tags($node->text('')), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                $raw = preg_replace('/[\x{200B}-\x{200D}\x{FEFF}]/u', '', $raw);
+                $raw = trim(preg_replace('/\s+/u', ' ', $raw));
+                if (!empty($raw)) {
+                    $paras[] = $raw;
+                }
+            }
+
+            $desc = !empty($paras) ? implode("\n\n", $paras) : null;
+            $this->detailDescriptionCache[$url] = $desc;
+            return $desc;
+        } catch (\Throwable $e) {
+            Log::warning("Fienta: failed to extract detail description from {$url}: " . $e->getMessage());
+            $this->detailDescriptionCache[$url] = null;
+            return null;
+        }
     }
 
     /**

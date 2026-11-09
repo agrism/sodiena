@@ -18,6 +18,8 @@ class AulaLvScraper extends BaseScraper
     public const DEFAULT_URL = 'https://www.aula.lv/visi';
     public const DEFAULT_IMAGE = 'https://www.aula.lv/assets/images/aula-graph-placeholder-white.png';
 
+    protected array $detailDescriptionCache = [];
+
     /**
      * Common Latvian venues on Aula with verified coordinates and addresses
      */
@@ -346,7 +348,7 @@ class AulaLvScraper extends BaseScraper
     /**
      * Parse a single event card from Aula /visi AJAX response
      */
-    public function parseCard(Crawler $card): ?ScrapedEventDTO
+    public function parseCard(Crawler $card, bool $fetchDetail = true): ?ScrapedEventDTO
     {
         // 1. Title
         $titleNode = $card->filter('.title h2, a.title');
@@ -428,9 +430,10 @@ class AulaLvScraper extends BaseScraper
         // 7. Category detection adhering to AGENTS.md
         [$category, $entertainmentType] = $this->detectCategory($title, $location['venue']);
 
-        // 8. Structured description
-        $description = "Pasākums: {$title}.\n\nNorises vieta: {$location['venue']}, {$location['city']}.\nBiļetes pieejamas Aula.lv platformā.";
-        $shortDescription = Str::limit("{$title} — {$location['venue']}, {$location['city']}.", 160);
+        // 8. Full description from detail page if available
+        $detailDesc = $fetchDetail ? $this->fetchDetailDescription($fullUrl) : null;
+        $description = $detailDesc ?: "Pasākums: {$title}.\n\nNorises vieta: {$location['venue']}, {$location['city']}.\nBiļetes pieejamas Aula.lv platformā.";
+        $shortDescription = Str::limit(strip_tags($description), 160);
 
         return new ScrapedEventDTO(
             title: $title,
@@ -463,6 +466,55 @@ class AulaLvScraper extends BaseScraper
                 'aula_url' => $fullUrl,
             ]
         );
+    }
+
+    public function fetchDetailDescription(string $url): ?string
+    {
+        if (empty($url)) {
+            return null;
+        }
+
+        if (array_key_exists($url, $this->detailDescriptionCache)) {
+            return $this->detailDescriptionCache[$url];
+        }
+
+        $crawler = $this->fetchCrawler($url);
+        if (!$crawler) {
+            $this->detailDescriptionCache[$url] = null;
+            return null;
+        }
+
+        try {
+            $paras = [];
+            $node = $crawler->filter('.custom-event-content-section .toggleable-content, .custom-event-content-section .text-content, .inner-content.text-content');
+            if ($node->count() > 0) {
+                $node->filter('p, h2, h3, h4, li')->each(function (Crawler $p) use (&$paras) {
+                    $t = html_entity_decode(strip_tags($p->text('')), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                    $t = preg_replace('/[\x{200B}-\x{200D}\x{FEFF}]/u', '', $t);
+                    $t = trim(preg_replace('/\s+/u', ' ', $t));
+                    if (!empty($t)) {
+                        $paras[] = $t;
+                    }
+                });
+            }
+
+            if (empty($paras) && $node->count() > 0) {
+                $raw = html_entity_decode(strip_tags($node->text('')), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                $raw = preg_replace('/[\x{200B}-\x{200D}\x{FEFF}]/u', '', $raw);
+                $raw = trim(preg_replace('/\s+/u', ' ', $raw));
+                if (!empty($raw)) {
+                    $paras[] = $raw;
+                }
+            }
+
+            $desc = !empty($paras) ? implode("\n\n", $paras) : null;
+            $this->detailDescriptionCache[$url] = $desc;
+            return $desc;
+        } catch (\Throwable $e) {
+            Log::warning("Aula: failed to extract detail description from {$url}: " . $e->getMessage());
+            $this->detailDescriptionCache[$url] = null;
+            return null;
+        }
     }
 
     /**
@@ -608,3 +660,4 @@ class AulaLvScraper extends BaseScraper
         return ['Cits', 'other'];
     }
 }
+
