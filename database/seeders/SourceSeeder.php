@@ -125,6 +125,13 @@ class SourceSeeder extends Seeder
                 'is_active' => true,
             ],
             [
+                'name' => 'Fienta (fienta.com)',
+                'slug' => 'fienta',
+                'url' => 'https://fienta.com/lv',
+                'scraper_class' => \App\Services\Scrapers\Sources\FientaScraper::class,
+                'is_active' => true,
+            ],
+            [
                 'name' => 'Siguldas novada tūrisms',
                 'slug' => 'sigulda-tourism',
                 'url' => 'https://tourism.sigulda.lv/events/',
