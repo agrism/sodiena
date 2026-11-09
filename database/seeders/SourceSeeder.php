@@ -111,6 +111,13 @@ class SourceSeeder extends Seeder
                 'is_active' => true,
             ],
             [
+                'name' => 'TicketBest (ticketbest.lv)',
+                'slug' => 'ticketbest',
+                'url' => 'https://ticketbest.lv/',
+                'scraper_class' => \App\Services\Scrapers\Sources\TicketBestLvScraper::class,
+                'is_active' => true,
+            ],
+            [
                 'name' => 'Siguldas novada tūrisms',
                 'slug' => 'sigulda-tourism',
                 'url' => 'https://tourism.sigulda.lv/events/',

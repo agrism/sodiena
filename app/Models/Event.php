@@ -282,6 +282,7 @@ class Event extends Model
             'opera.lv' => ['title' => 'LNOB', 'label' => 'Pirkt biļetes (LNOB)', 'platform' => 'opera'],
             'passportix.eu' => ['title' => 'Passportix', 'label' => 'Pirkt biļetes (Passportix)', 'platform' => 'passportix'],
             'ticketbest.eu' => ['title' => 'TicketBest', 'label' => 'Pirkt biļetes (TicketBest)', 'platform' => 'ticketbest'],
+            'ticketbest.lv' => ['title' => 'TicketBest', 'label' => 'Pirkt biļetes (TicketBest)', 'platform' => 'ticketbest'],
             'ticketly.eu' => ['title' => 'Ticketly', 'label' => 'Pirkt biļetes (Ticketly)', 'platform' => 'ticketly'],
         ];
 
