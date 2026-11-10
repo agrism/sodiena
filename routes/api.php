@@ -19,8 +19,11 @@ Route::middleware('auth.bearer')->group(function () {
     Route::prefix('v1')->group(function () {
         Route::get('/events/sync', [EventApiController::class, 'sync'])->name('api.v1.events.sync');
         Route::get('/events', [EventApiController::class, 'index'])->name('api.v1.events.index');
+        Route::post('/events', [EventApiController::class, 'store'])->name('api.v1.events.store');
         Route::get('/events/promoted', [EventApiController::class, 'promoted'])->name('api.v1.events.promoted');
         Route::get('/events/{id}', [EventApiController::class, 'show'])->name('api.v1.events.show');
+        Route::match(['put', 'patch', 'post'], '/events/{id}', [EventApiController::class, 'update'])->name('api.v1.events.update');
+        Route::delete('/events/{id}', [EventApiController::class, 'destroy'])->name('api.v1.events.destroy');
         Route::match(['post', 'patch'], '/events/{id}/promote', [EventApiController::class, 'setPromoted'])->name('api.v1.events.promote');
         Route::match(['post', 'patch'], '/events/{id}/unpromote', [EventApiController::class, 'unpromote'])->name('api.v1.events.unpromote');
         Route::patch('/events/{id}', [EventApiController::class, 'setPromoted'])->name('api.v1.events.patch');
@@ -29,8 +32,11 @@ Route::middleware('auth.bearer')->group(function () {
     // Default unversioned aliases
     Route::get('/events/sync', [EventApiController::class, 'sync'])->name('api.events.sync');
     Route::get('/events', [EventApiController::class, 'index'])->name('api.events.index');
+    Route::post('/events', [EventApiController::class, 'store'])->name('api.events.store');
     Route::get('/events/promoted', [EventApiController::class, 'promoted'])->name('api.events.promoted');
     Route::get('/events/{id}', [EventApiController::class, 'show'])->name('api.events.show');
+    Route::match(['put', 'patch', 'post'], '/events/{id}', [EventApiController::class, 'update'])->name('api.events.update');
+    Route::delete('/events/{id}', [EventApiController::class, 'destroy'])->name('api.events.destroy');
     Route::match(['post', 'patch'], '/events/{id}/promote', [EventApiController::class, 'setPromoted'])->name('api.events.promote');
     Route::match(['post', 'patch'], '/events/{id}/unpromote', [EventApiController::class, 'unpromote'])->name('api.events.unpromote');
     Route::patch('/events/{id}', [EventApiController::class, 'setPromoted'])->name('api.events.patch');
