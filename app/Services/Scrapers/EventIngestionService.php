@@ -348,6 +348,32 @@ class EventIngestionService
                 $existingEvent = Event::withTrashed()->where('fingerprint', $fingerprint)->first();
             }
 
+            // Match by unique ticketing URL (e.g. Biļešu Paradīze, Biļešu Serviss, Aula, BezRindas)
+            if (!$existingEvent && !empty($dto->ticketUrl) && self::isTicketingSource($source->slug, $dto->ticketUrl)) {
+                $cleanTicketUrl = strtok($dto->ticketUrl, '?');
+                $candidateByTicket = Event::withTrashed()
+                    ->where(function ($q) use ($dto, $cleanTicketUrl) {
+                        $q->where('ticket_url', $dto->ticketUrl)
+                          ->orWhere('ticket_url', $cleanTicketUrl);
+                    })
+                    ->first();
+
+                if ($candidateByTicket) {
+                    $isDifferentSessionSameDay = false;
+                    if ($candidateByTicket->start_at && $dto->startAt && $candidateByTicket->start_at->toDateString() === $dto->startAt->toDateString()) {
+                        $candMinutes = $candidateByTicket->start_at->hour * 60 + $candidateByTicket->start_at->minute;
+                        $dtoMinutes = $dto->startAt->hour * 60 + $dto->startAt->minute;
+                        if (abs($candMinutes - $dtoMinutes) >= 45) {
+                            $isDifferentSessionSameDay = true;
+                        }
+                    }
+
+                    if (!$isDifferentSessionSameDay) {
+                        $existingEvent = $candidateByTicket;
+                    }
+                }
+            }
+
             // Fuzzy similarity check for same date and similar title / stems / descriptions
             if (!$existingEvent && $dto->startAt) {
                 $candidatesQuery = Event::whereDate('start_at', $dto->startAt->toDateString());
