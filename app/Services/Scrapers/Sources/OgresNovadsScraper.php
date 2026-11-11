@@ -636,10 +636,21 @@ class OgresNovadsScraper extends BaseScraper
             'ogre' => 'Ogre',
         ];
 
+        // Prioritize locationRaw and title to avoid street names or notices in description hijacking the city
+        $primaryText = mb_strtolower(trim($locationRaw . ' ' . $title), 'UTF-8');
         foreach ($parishMap as $needle => $cName) {
-            if (str_contains($text, $needle)) {
+            if (str_contains($primaryText, $needle)) {
                 $city = $cName;
                 break;
+            }
+        }
+
+        if ($city === 'Ogre' && !str_contains($primaryText, 'ogr')) {
+            foreach ($parishMap as $needle => $cName) {
+                if (str_contains($text, $needle)) {
+                    $city = $cName;
+                    break;
+                }
             }
         }
 

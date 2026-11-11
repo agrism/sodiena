@@ -298,3 +298,4 @@ HTML;
         $this->assertEquals('Brīvības iela 2, Ogre, LV-5001', $e2->address);
     }
 }
+

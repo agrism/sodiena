@@ -202,4 +202,92 @@ class OkulturaDeduplicationTest extends TestCase
         $this->assertEquals('updated', $res);
         $this->assertEquals(1, Event::count());
     }
+
+    public function test_municipal_schedule_discrepancy_merges_when_same_location(): void
+    {
+        $sourceNovads = Source::firstOrCreate(
+            ['slug' => 'ogres-novads'],
+            ['name' => 'Ogres novads', 'url' => 'https://ogresnovads.lv', 'scraper_class' => 'App\Services\Scrapers\Sources\OgresNovadsScraper', 'is_active' => true]
+        );
+
+        $sourceVisit = Source::firstOrCreate(
+            ['slug' => 'visitogre'],
+            ['name' => 'Visit Ogre', 'url' => 'https://visitogre.lv', 'scraper_class' => 'App\Services\Scrapers\Sources\VisitOgreScraper', 'is_active' => true]
+        );
+
+        $ingestionService = app(EventIngestionService::class);
+
+        // 1. VisitOgre has 18:00 in Taurupes Tautas nams
+        $dto1 = new ScrapedEventDTO(
+            title: 'Latvijas Republikas proklamēšanas dienai veltīts koncerts kopā ar Žoržu Siksnu Taurupē',
+            startAt: Carbon::parse('2026-11-16 18:00:00'),
+            venueName: 'Taurupes Tautas nams',
+            city: 'Taurupe',
+            region: 'Vidzeme',
+            categoryNames: ['Mūzika'],
+            sourceExternalId: 'visitogre-4588',
+        );
+        $ingestionService->ingestDTO($dto1, $sourceVisit);
+        $this->assertEquals(1, Event::count());
+
+        // 2. Ogres novads has 19:00 for the same concert
+        $dto2 = new ScrapedEventDTO(
+            title: 'Latvijas Republikas proklamēšanas dienai veltīts koncerts kopā ar Žoržu Siksnu Taurupē',
+            startAt: Carbon::parse('2026-11-16 19:00:00'),
+            venueName: 'Taurupes Tautas nams',
+            city: 'Taurupe',
+            region: 'Vidzeme',
+            categoryNames: ['Mūzika'],
+            sourceExternalId: 'novads-zorzs-siksna-taurupe',
+        );
+        $res = $ingestionService->ingestDTO($dto2, $sourceNovads);
+        $this->assertEquals('updated', $res);
+        $this->assertEquals(1, Event::count(), 'Identical concert with 60 min schedule discrepancy must merge');
+    }
+
+    public function test_generic_center_merges_with_specific_parish_when_descriptions_match(): void
+    {
+        $sourceNovads = Source::firstOrCreate(
+            ['slug' => 'ogres-novads'],
+            ['name' => 'Ogres novads', 'url' => 'https://ogresnovads.lv', 'scraper_class' => 'App\Services\Scrapers\Sources\OgresNovadsScraper', 'is_active' => true]
+        );
+
+        $sourceVisit = Source::firstOrCreate(
+            ['slug' => 'visitogre'],
+            ['name' => 'Visit Ogre', 'url' => 'https://visitogre.lv', 'scraper_class' => 'App\Services\Scrapers\Sources\VisitOgreScraper', 'is_active' => true]
+        );
+
+        $ingestionService = app(EventIngestionService::class);
+
+        $flyerText = "17. novembrī no plkst. 22.00 līdz 3.00 Valsts svētku balle ar grupu “Zelta kniede”. Galdiņu rezervācija (obligāta): 22408067 Ieeja 5,00EUR";
+
+        // 1. VisitOgre has generic default city Ogre
+        $dto1 = new ScrapedEventDTO(
+            title: 'Valsts svētku balle ar grupu “Zelta kniede”',
+            startAt: Carbon::parse('2026-11-17 22:00:00'),
+            description: $flyerText,
+            venueName: 'Ogres novada sporta centrs',
+            city: 'Ogre',
+            region: 'Vidzeme',
+            categoryNames: ['Festivāli & Svētki'],
+            sourceExternalId: 'visitogre-4624',
+        );
+        $ingestionService->ingestDTO($dto1, $sourceVisit);
+        $this->assertEquals(1, Event::count());
+
+        // 2. Ogres novads has specific parish Mazozoli
+        $dto2 = new ScrapedEventDTO(
+            title: 'Valsts svētku balle ar grupu “Zelta kniede”',
+            startAt: Carbon::parse('2026-11-17 22:00:00'),
+            description: $flyerText,
+            venueName: 'Mazozolu pagasta Kultūras nams',
+            city: 'Mazozoli',
+            region: 'Vidzeme',
+            categoryNames: ['Festivāli & Svētki'],
+            sourceExternalId: 'novads-valsts-svetku-balle-mazozoli',
+        );
+        $res = $ingestionService->ingestDTO($dto2, $sourceNovads);
+        $this->assertEquals('updated', $res);
+        $this->assertEquals(1, Event::count(), 'Identical flyer description with generic candidate city must merge and adopt parish');
+    }
 }

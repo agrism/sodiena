@@ -89,3 +89,4 @@ class OgresMuzejsDeduplicationTest extends TestCase
         $this->assertStringContainsString('Plašs izstādes apraksts', $merged->description);
     }
 }
+

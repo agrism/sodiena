@@ -360,11 +360,22 @@ class EventIngestionService
 
                 if ($candidateByTicket) {
                     $isDifferentSessionSameDay = false;
-                    if ($candidateByTicket->start_at && $dto->startAt && $candidateByTicket->start_at->toDateString() === $dto->startAt->toDateString()) {
-                        $candMinutes = $candidateByTicket->start_at->hour * 60 + $candidateByTicket->start_at->minute;
-                        $dtoMinutes = $dto->startAt->hour * 60 + $dto->startAt->minute;
-                        if (abs($candMinutes - $dtoMinutes) >= 45) {
-                            $isDifferentSessionSameDay = true;
+                    if ($candidateByTicket->start_at && $dto->startAt) {
+                        if ($candidateByTicket->start_at->toDateString() === $dto->startAt->toDateString()) {
+                            $candMinutes = $candidateByTicket->start_at->hour * 60 + $candidateByTicket->start_at->minute;
+                            $dtoMinutes = $dto->startAt->hour * 60 + $dto->startAt->minute;
+                            if (abs($candMinutes - $dtoMinutes) >= 45) {
+                                $isDifferentSessionSameDay = true;
+                            }
+                        } else {
+                            // Different date: verify it's a postponed event or matches titles
+                            $isPostponed = str_contains(mb_strtolower($dto->description ?? '', 'UTF-8'), 'pārcelt') ||
+                                str_contains(mb_strtolower($candidateByTicket->description ?? '', 'UTF-8'), 'pārcelt') ||
+                                ($dto->rawData['is_postponed'] ?? false);
+                            similar_text(mb_strtolower($candidateByTicket->title), mb_strtolower($dto->title), $titleSim);
+                            if (!$isPostponed && $titleSim < 50) {
+                                $isDifferentSessionSameDay = true;
+                            }
                         }
                     }
 
@@ -408,7 +419,23 @@ class EventIngestionService
                         $candCity = mb_strtolower(trim($candidate->location->city), 'UTF-8');
                         $dtoCity = mb_strtolower(trim($dto->city), 'UTF-8');
                         if ($candCity !== $dtoCity && !str_contains($candCity, $dtoCity) && !str_contains($dtoCity, $candCity)) {
-                            continue;
+                            // If candidate is a generic regional center (e.g. Ogre) and candidate title does not contain the city name,
+                            // but description is identical (e.g. shared flyer text / phone number), allow candidate to merge and adopt the specific parish
+                            $candTitleLower = mb_strtolower($candidate->title, 'UTF-8');
+                            $hasSpecificCityInTitle = str_contains($candTitleLower, $candCity);
+                            $candNormDesc = preg_replace('/\s+/u', ' ', trim((string) $candidate->description));
+                            $dtoNormDesc = preg_replace('/\s+/u', ' ', trim((string) $dto->description));
+                            $identicalDesc = (!empty($candNormDesc) && !empty($dtoNormDesc) && (
+                                $candNormDesc === $dtoNormDesc ||
+                                str_contains($candNormDesc, $dtoNormDesc) ||
+                                str_contains($dtoNormDesc, $candNormDesc)
+                            ));
+
+                            if (!$hasSpecificCityInTitle && $identicalDesc) {
+                                // Allow match and adopt specific parish
+                            } else {
+                                continue;
+                            }
                         }
                     }
 
@@ -422,8 +449,31 @@ class EventIngestionService
                         if ($candTime !== '00:00' && $dtoTime !== '00:00' && $candTime !== $dtoTime) {
                             $candMinutes = $candidate->start_at->hour * 60 + $candidate->start_at->minute;
                             $dtoMinutes = $dto->startAt->hour * 60 + $dto->startAt->minute;
-                            if (abs($candMinutes - $dtoMinutes) >= 45) {
-                                continue;
+
+                            // Allow up to 75m threshold when title is identical/near-identical (>=90%) at the same location (handles municipal doors vs start / schedule discrepancies)
+                            $maxAllowedMinutes = 45;
+                            if (!empty($locationId) && $candidate->location_id && $locationId === $candidate->location_id) {
+                                similar_text(mb_strtolower($candidate->title), mb_strtolower($dto->title), $titleSim);
+                                if ($titleSim >= 90) {
+                                    $maxAllowedMinutes = 75;
+                                }
+                            }
+
+                            if (abs($candMinutes - $dtoMinutes) >= $maxAllowedMinutes) {
+                                // If the announcement description of either candidate or dto explicitly mentions the other's start time,
+                                // they are milestones of the same scheduled event (e.g. doors open/registration vs event start)
+                                $candDot = str_replace(':', '.', $candTime);
+                                $dtoDot = str_replace(':', '.', $dtoTime);
+                                $candDesc = (string) $candidate->description;
+                                $dtoDesc = (string) $dto->description;
+                                $timeMentioned = (
+                                    (!empty($candDesc) && (str_contains($candDesc, $dtoTime) || str_contains($candDesc, $dtoDot))) ||
+                                    (!empty($dtoDesc) && (str_contains($dtoDesc, $candTime) || str_contains($dtoDesc, $candDot)))
+                                );
+
+                                if (!$timeMentioned) {
+                                    continue;
+                                }
                             }
                         }
                     }

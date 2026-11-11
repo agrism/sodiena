@@ -449,13 +449,17 @@ class VisitOgreScraper extends BaseScraper
         }
 
         $timeRange = $this->parseTime($description, $title);
-        $startTime = $timeRange['start'] ?? '19:00';
+        $startTime = $timeRange['start'] ?? null;
         $endTime = $timeRange['end'] ?? null;
 
-        try {
-            $startAt = Carbon::createFromFormat('Y-m-d H:i', "{$dateStr} {$startTime}", 'Europe/Riga');
-        } catch (\Throwable $e) {
-            $startAt = Carbon::parse($dateStr, 'Europe/Riga')->setTime(19, 0);
+        if ($startTime) {
+            try {
+                $startAt = Carbon::createFromFormat('Y-m-d H:i', "{$dateStr} {$startTime}", 'Europe/Riga');
+            } catch (\Throwable $e) {
+                $startAt = Carbon::parse($dateStr, 'Europe/Riga')->setTime(0, 0);
+            }
+        } else {
+            $startAt = Carbon::parse($dateStr, 'Europe/Riga')->setTime(0, 0);
         }
 
         $endAt = null;
@@ -627,10 +631,21 @@ class VisitOgreScraper extends BaseScraper
             'ogre' => 'Ogre',
         ];
 
+        // Prioritize title to avoid street names or mentions in description hijacking the city
+        $titleLower = mb_strtolower($title, 'UTF-8');
         foreach ($parishMap as $needle => $cName) {
-            if (str_contains($text, $needle)) {
+            if (str_contains($titleLower, $needle)) {
                 $city = $cName;
                 break;
+            }
+        }
+
+        if ($city === 'Ogre' && !str_contains($titleLower, 'ogr')) {
+            foreach ($parishMap as $needle => $cName) {
+                if (str_contains($text, $needle)) {
+                    $city = $cName;
+                    break;
+                }
             }
         }
 
@@ -841,8 +856,31 @@ class VisitOgreScraper extends BaseScraper
             ];
         }
 
+        // Match standalone time range e.g. "11.00 - 14.00" or "11:00-14:00"
+        if (preg_match('/(?:^|[^\d])([012]?\d)[\.:]([0-5]\d)\s*[-–]\s*([012]?\d)[\.:]([0-5]\d)/u', $search, $tm)) {
+            $h1 = (int) $tm[1];
+            $h2 = (int) $tm[3];
+            if ($h1 >= 7 && $h1 <= 23 && $h2 >= 7 && $h2 <= 23) {
+                return [
+                    'start' => sprintf('%02d:%02d', $h1, (int) $tm[2]),
+                    'end' => sprintf('%02d:%02d', $h2, (int) $tm[4]),
+                ];
+            }
+        }
+
+        // Match standalone time e.g. "18.00 lāpu gājiens" or "18.00"
+        if (preg_match('/(?:^|[^\d])([012]?\d)[\.:]([0-5]\d)(?:\s|$|[^\d\.:])/u', $search, $tm)) {
+            $h = (int) $tm[1];
+            if ($h >= 7 && $h <= 23) {
+                return [
+                    'start' => sprintf('%02d:%02d', $h, (int) $tm[2]),
+                    'end' => null,
+                ];
+            }
+        }
+
         return [
-            'start' => '19:00',
+            'start' => null,
             'end' => null,
         ];
     }
