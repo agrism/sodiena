@@ -215,6 +215,13 @@ class SourceSeeder extends Seeder
                 'scraper_class' => \App\Services\Scrapers\Sources\VisitOgreScraper::class,
                 'is_active' => true,
             ],
+            [
+                'name' => 'Ogres novada pašvaldība (ogresnovads.lv)',
+                'slug' => 'ogres-novads',
+                'url' => 'https://www.ogresnovads.lv/lv/notikumu-kalendars',
+                'scraper_class' => \App\Services\Scrapers\Sources\OgresNovadsScraper::class,
+                'is_active' => true,
+            ],
         ];
 
         foreach ($sources as $s) {
