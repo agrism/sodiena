@@ -516,6 +516,12 @@ class EventIngestionService
                 if ($pMax !== null && (float)$pMax <= 0) {
                     $pMax = null;
                 }
+                if ($pMin !== null && ((float)$pMin > 99999.99 || (float)$pMin < 0)) {
+                    $pMin = null;
+                }
+                if ($pMax !== null && ((float)$pMax > 99999.99 || (float)$pMax < 0)) {
+                    $pMax = null;
+                }
                 if ($pMin !== null && $pMax !== null && (float)$pMin > (float)$pMax) {
                     [$pMin, $pMax] = [$pMax, $pMin];
                 }
@@ -579,6 +585,12 @@ class EventIngestionService
             $newPMin = $dto->priceMin;
             $newPMax = $dto->priceMax;
             if ($newPMax !== null && (float)$newPMax <= 0) {
+                $newPMax = null;
+            }
+            if ($newPMin !== null && ((float)$newPMin > 99999.99 || (float)$newPMin < 0)) {
+                $newPMin = null;
+            }
+            if ($newPMax !== null && ((float)$newPMax > 99999.99 || (float)$newPMax < 0)) {
                 $newPMax = null;
             }
             if ($newPMin !== null && $newPMax !== null && (float)$newPMin > (float)$newPMax) {

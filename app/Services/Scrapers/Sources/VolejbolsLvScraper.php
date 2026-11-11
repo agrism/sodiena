@@ -322,6 +322,11 @@ class VolejbolsLvScraper extends BaseScraper
 
         foreach ($monthsToScrape as [$year, $month]) {
             $monthEvents = $this->scrapeMonth($year, $month, $todayStr, $subpageCache);
+            if ($monthEvents === null) {
+                // Endpoint blocked or unreachable (e.g. Cloudflare protection on datacenter IP), break early
+                Log::warning("VolejbolsLvScraper: unable to fetch calendar for {$year}-{$month}, skipping remaining months.");
+                break;
+            }
             $allEvents = $allEvents->merge($monthEvents);
         }
 
@@ -331,14 +336,17 @@ class VolejbolsLvScraper extends BaseScraper
     /**
      * Scrape a specific year and month
      */
-    public function scrapeMonth(int $year, int $month, string $todayStr, array &$subpageCache): Collection
+    public function scrapeMonth(int $year, int $month, string $todayStr, array &$subpageCache): ?Collection
     {
         $events = collect();
         $url = "https://volejbols.lv/wp-json/forget/v1/calendar/year-block/{$year}?month={$month}";
 
         try {
             $json = $this->fetchJson($url);
-            if (!$json || empty($json['html'])) {
+            if ($json === null) {
+                return null;
+            }
+            if (empty($json['html'])) {
                 return $events;
             }
 

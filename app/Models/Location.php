@@ -32,7 +32,13 @@ class Location extends Model
     {
         static::creating(function ($location) {
             if (empty($location->slug)) {
-                $location->slug = Str::slug($location->name . '-' . $location->city);
+                $baseSlug = Str::slug($location->name . '-' . $location->city);
+                $slug = $baseSlug;
+                $counter = 1;
+                while (static::where('slug', $slug)->exists()) {
+                    $slug = $baseSlug . '-' . (++$counter);
+                }
+                $location->slug = $slug;
             }
         });
 

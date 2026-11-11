@@ -100,6 +100,11 @@ class SiguldaTourismScraperTest extends TestCase
         $this->assertTrue($free3);
         $this->assertEquals(0.0, $min3);
         $this->assertEquals(0.0, $max3);
+
+        [$freePhone, $minPhone, $maxPhone] = $scraper->parsePrice('Pieteikšanās: 25130496 (Oskars)');
+        $this->assertFalse($freePhone);
+        $this->assertNull($minPhone);
+        $this->assertNull($maxPhone);
     }
 
     public function test_resolve_location_meta(): void

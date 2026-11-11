@@ -442,7 +442,16 @@ class EventApiController extends Controller
                 $vLat = !empty($validated['latitude']) ? (float) $validated['latitude'] : null;
                 $vLng = !empty($validated['longitude']) ? (float) $validated['longitude'] : null;
 
-                $loc = Location::where('name', $vName)->where('city', $vCity)->first();
+                $targetSlug = Str::slug($vName . '-' . $vCity);
+                $loc = Location::where('slug', $targetSlug)
+                    ->orWhere(function ($q) use ($vName, $vCity) {
+                        $q->where('name', $vName)->where('city', $vCity);
+                    })
+                    ->orWhereHas('translations', function ($tq) use ($vName, $vCity) {
+                        $tq->where('name', $vName)->where('city', $vCity);
+                    })
+                    ->first();
+
                 if (!$loc) {
                     $loc = Location::create([
                         'name' => $vName,
@@ -695,10 +704,27 @@ class EventApiController extends Controller
                 $vLat = !empty($validated['latitude']) ? (float) $validated['latitude'] : null;
                 $vLng = !empty($validated['longitude']) ? (float) $validated['longitude'] : null;
 
-                $loc = Location::firstOrCreate(
-                    ['name' => $vName, 'city' => $vCity],
-                    ['address' => $vAddress ?: null, 'region' => $vCity, 'latitude' => $vLat, 'longitude' => $vLng, 'place_type' => 'venue']
-                );
+                $targetSlug = Str::slug($vName . '-' . $vCity);
+                $loc = Location::where('slug', $targetSlug)
+                    ->orWhere(function ($q) use ($vName, $vCity) {
+                        $q->where('name', $vName)->where('city', $vCity);
+                    })
+                    ->orWhereHas('translations', function ($tq) use ($vName, $vCity) {
+                        $tq->where('name', $vName)->where('city', $vCity);
+                    })
+                    ->first();
+
+                if (!$loc) {
+                    $loc = Location::create([
+                        'name' => $vName,
+                        'city' => $vCity,
+                        'address' => $vAddress ?: null,
+                        'region' => $vCity,
+                        'latitude' => $vLat,
+                        'longitude' => $vLng,
+                        'place_type' => 'venue',
+                    ]);
+                }
                 if ($vLat !== null && empty($loc->latitude)) {
                     $loc->update(['latitude' => $vLat, 'longitude' => $vLng]);
                 }

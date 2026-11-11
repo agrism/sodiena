@@ -611,12 +611,21 @@ class SiguldaTourismScraper extends BaseScraper
             return [true, 0.0, 0.0];
         }
 
+        // If price text contains contact/registration phone number (e.g. "Pieteikšanās: 25130496")
+        if (preg_match('/(?:pieteik|tālr|tel|mob|info|zvani|sazin).*?\b\d{8}\b/iu', $priceText) || preg_match('/^\D*\b\d{8}\b\D*$/u', $priceText)) {
+            return [false, null, null];
+        }
+
         preg_match_all('/(\d+(?:[.,]\d+)?)/', $priceText, $matches);
         if (!empty($matches[1])) {
             $nums = array_map(fn ($n) => (float) str_replace(',', '.', $n), $matches[1]);
-            $min = min($nums);
-            $max = max($nums);
-            return [$min === 0.0, $min, $max];
+            // Filter out unreasonable prices (> 5000 EUR is likely a phone number, year or bank code)
+            $nums = array_filter($nums, fn ($n) => $n >= 0 && $n <= 5000);
+            if (!empty($nums)) {
+                $min = min($nums);
+                $max = max($nums);
+                return [$min === 0.0, $min, $max];
+            }
         }
 
         return [false, null, null];

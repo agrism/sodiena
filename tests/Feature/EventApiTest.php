@@ -334,4 +334,51 @@ class EventApiTest extends TestCase
         $response->assertStatus(422)
             ->assertJsonPath('success', false);
     }
+
+    public function test_api_store_resolves_location_without_duplicate_slug_exception(): void
+    {
+        // Existing location has slightly different raw name but generates the exact same slug
+        $existing = Location::create([
+            'name' => 'Komandu sporta spēļu halle Rīgā',
+            'slug' => 'komandu-sporta-spelu-halle-riga',
+            'city' => 'Rīga',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Krišjāņa Barona iela 99C, Rīga',
+        ]);
+
+        // Incoming API request with venue_name "Komandu sporta spēļu halle" and city "Rīga"
+        // which produces target slug "komandu-sporta-spelu-halle-riga"
+        $response = $this->withToken($this->token)->postJson('/api/v1/events', [
+            'title' => 'Florbola spēle API tests',
+            'description' => 'Lielisks sporta pasākums Komandu sporta spēļu hallē.',
+            'start_at' => now()->addDays(5)->toIso8601String(),
+            'venue_name' => 'Komandu sporta spēļu halle',
+            'city' => 'Rīga',
+            'address' => 'Krišjāņa Barona iela 99C, Rīga',
+            'latitude' => 56.963619,
+            'longitude' => 24.141323,
+            'source_slug' => 'piedzivo',
+        ]);
+
+        $response->assertStatus(201)
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.location.id', $existing->id);
+    }
+
+    public function test_location_creating_generates_unique_slug_on_collision(): void
+    {
+        $loc1 = Location::create([
+            'name' => 'Testa Halle',
+            'city' => 'Rīga',
+            'region' => 'Rīga',
+        ]);
+        $this->assertEquals('testa-halle-riga', $loc1->slug);
+
+        $loc2 = Location::create([
+            'name' => 'Testa Halle',
+            'city' => 'Rīga',
+            'region' => 'Rīga',
+        ]);
+        $this->assertEquals('testa-halle-riga-2', $loc2->slug);
+    }
 }
