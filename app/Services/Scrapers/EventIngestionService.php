@@ -369,6 +369,14 @@ class EventIngestionService
                         continue;
                     }
 
+                    // Sports matchup equivalence: on the same date, two equivalent matchups from different sources are always the same game
+                    $candTeams = self::extractMatchupTeams($candidate->title);
+                    $dtoTeams = self::extractMatchupTeams($dto->title);
+                    if ($candTeams && $dtoTeams && self::areMatchupTeamsEquivalent($candTeams, $dtoTeams)) {
+                        $existingEvent = $candidate;
+                        break;
+                    }
+
                     // 2. City mismatch guard: If both candidate and dto have known cities and they differ, they are distinct events
                     if (!empty($dto->city) && $candidate->location && !empty($candidate->location->city)) {
                         $candCity = mb_strtolower(trim($candidate->location->city), 'UTF-8');
@@ -390,6 +398,94 @@ class EventIngestionService
                             $dtoMinutes = $dto->startAt->hour * 60 + $dto->startAt->minute;
                             if (abs($candMinutes - $dtoMinutes) >= 45) {
                                 continue;
+                            }
+                        }
+                    }
+
+                    // 0. Sports matchup equivalence & Venue-time league consolidation
+                    $candTeams = self::extractMatchupTeams($candidate->title);
+                    $dtoTeams = self::extractMatchupTeams($dto->title);
+
+                    if ($candTeams && $dtoTeams && self::areMatchupTeamsEquivalent($candTeams, $dtoTeams)) {
+                        $existingEvent = $candidate;
+                        break;
+                    }
+
+                    // Check if one title is a matchup and the other is a generic tournament/league title at the same venue
+                    $candIsLeague = self::isLeagueOrTournamentTitle($candidate->title);
+                    $dtoIsLeague = self::isLeagueOrTournamentTitle($dto->title);
+
+                    if (($candIsLeague || $dtoIsLeague) && ($candTeams || $dtoTeams)) {
+                        $sameLocation = $locationId && $candidate->location_id && $locationId === $candidate->location_id;
+                        $matchupTeams = $dtoTeams ?: $candTeams;
+                        $allTeamsWords = array_merge($matchupTeams[0], $matchupTeams[1]);
+
+                        $leagueText = mb_strtolower(($candIsLeague ? $candidate->title . ' ' . $candidate->description : $dto->title . ' ' . $dto->description) ?? '', 'UTF-8');
+                        $hasTeamMention = false;
+                        foreach ($allTeamsWords as $teamWord) {
+                            if (mb_strlen($teamWord, 'UTF-8') >= 3 && str_contains($leagueText, $teamWord)) {
+                                $hasTeamMention = true;
+                                break;
+                            }
+                        }
+
+                        $sameExactTime = ($candidate->start_at && $dto->startAt && $candidate->start_at->format('H:i') === $dto->startAt->format('H:i') && $candidate->start_at->format('H:i') !== '00:00');
+
+                        if ($sameLocation && ($hasTeamMention || $sameExactTime)) {
+                            $existingEvent = $candidate;
+                            break;
+                        }
+                    }
+
+                    // Check if matchup teams appear in candidate or dto description
+                    if ($dtoTeams && !empty($candidate->description)) {
+                        $candDescLower = mb_strtolower($candidate->description, 'UTF-8');
+                        $hasTeam1 = false;
+                        foreach ($dtoTeams[0] as $w) {
+                            if (mb_strlen($w, 'UTF-8') >= 3 && str_contains($candDescLower, $w)) {
+                                $hasTeam1 = true;
+                                break;
+                            }
+                        }
+                        $hasTeam2 = false;
+                        foreach ($dtoTeams[1] as $w) {
+                            if (mb_strlen($w, 'UTF-8') >= 3 && str_contains($candDescLower, $w)) {
+                                $hasTeam2 = true;
+                                break;
+                            }
+                        }
+                        if ($hasTeam1 && $hasTeam2) {
+                            $sameLocation = $locationId && $candidate->location_id && $locationId === $candidate->location_id;
+                            $sameExactTime = ($candidate->start_at && $dto->startAt && $candidate->start_at->format('H:i') === $dto->startAt->format('H:i') && $candidate->start_at->format('H:i') !== '00:00');
+                            if ($sameLocation || $sameExactTime) {
+                                $existingEvent = $candidate;
+                                break;
+                            }
+                        }
+                    }
+
+                    if ($candTeams && !empty($dto->description)) {
+                        $dtoDescLower = mb_strtolower($dto->description, 'UTF-8');
+                        $hasTeam1 = false;
+                        foreach ($candTeams[0] as $w) {
+                            if (mb_strlen($w, 'UTF-8') >= 3 && str_contains($dtoDescLower, $w)) {
+                                $hasTeam1 = true;
+                                break;
+                            }
+                        }
+                        $hasTeam2 = false;
+                        foreach ($candTeams[1] as $w) {
+                            if (mb_strlen($w, 'UTF-8') >= 3 && str_contains($dtoDescLower, $w)) {
+                                $hasTeam2 = true;
+                                break;
+                            }
+                        }
+                        if ($hasTeam1 && $hasTeam2) {
+                            $sameLocation = $locationId && $candidate->location_id && $locationId === $candidate->location_id;
+                            $sameExactTime = ($candidate->start_at && $dto->startAt && $candidate->start_at->format('H:i') === $dto->startAt->format('H:i') && $candidate->start_at->format('H:i') !== '00:00');
+                            if ($sameLocation || $sameExactTime) {
+                                $existingEvent = $candidate;
+                                break;
                             }
                         }
                     }
@@ -502,17 +598,54 @@ class EventIngestionService
                     }
                 }
 
-                // Image handling: if new scraper provides an image, use it.
-                // If existing event has a known generic placeholder image (like aplis-default-og-img.jpg) and dto doesn't have an image, clear it to null.
-                $finalImageUrl = $dto->imageUrl;
-                if (!$finalImageUrl && $existingEvent->image_url && str_contains($existingEvent->image_url, 'aplis-default-og-img.jpg')) {
-                    $finalImageUrl = null;
-                } elseif (!$finalImageUrl) {
+                // Intelligent field fusion
+                $existingIsGeneric = self::isGenericPlaceholderImage($existingEvent->image_url);
+                $dtoIsGeneric = self::isGenericPlaceholderImage($dto->imageUrl);
+                $dtoIsTicketing = self::isTicketingSource($source->slug, $dto->ticketUrl);
+                $existingIsTicketing = self::isTicketingSource($existingEvent->source_slug, $existingEvent->ticket_url);
+
+                if (!$existingIsGeneric && $dtoIsGeneric) {
                     $finalImageUrl = $existingEvent->image_url;
+                } elseif ($existingIsGeneric && !$dtoIsGeneric) {
+                    $finalImageUrl = $dto->imageUrl;
+                } elseif (!$existingIsGeneric && !$dtoIsGeneric) {
+                    if ($dtoIsTicketing && !$existingIsTicketing) {
+                        $finalImageUrl = $dto->imageUrl;
+                    } else {
+                        $finalImageUrl = $existingEvent->image_url ?: $dto->imageUrl;
+                    }
+                } else {
+                    $finalImageUrl = $dto->imageUrl ?: $existingEvent->image_url;
+                    if (self::isGenericPlaceholderImage($finalImageUrl) && str_contains((string)$finalImageUrl, 'aplis-default-og-img.jpg')) {
+                        $finalImageUrl = null;
+                    }
                 }
 
-                $pMin = $dto->priceMin !== null ? $dto->priceMin : $existingEvent->price_min;
-                $pMax = $dto->priceMax !== null ? $dto->priceMax : $existingEvent->price_max;
+                $finalTicketUrl = $existingEvent->ticket_url;
+                if ($dto->ticketUrl) {
+                    if (empty($finalTicketUrl)) {
+                        $finalTicketUrl = $dto->ticketUrl;
+                    } elseif ($dtoIsTicketing && !$existingIsTicketing) {
+                        $finalTicketUrl = $dto->ticketUrl;
+                    } elseif ($existingEvent->source_id === $source->id) {
+                        $finalTicketUrl = $dto->ticketUrl;
+                    }
+                }
+
+                $pMin = $existingEvent->price_min;
+                $pMax = $existingEvent->price_max;
+                if ($dto->priceMin !== null || $dto->priceMax !== null) {
+                    if ($pMin === null && $pMax === null) {
+                        $pMin = $dto->priceMin;
+                        $pMax = $dto->priceMax;
+                    } elseif ($dtoIsTicketing && !$existingIsTicketing) {
+                        $pMin = $dto->priceMin ?? $pMin;
+                        $pMax = $dto->priceMax ?? $pMax;
+                    } elseif ($existingEvent->source_id === $source->id) {
+                        $pMin = $dto->priceMin !== null ? $dto->priceMin : $pMin;
+                        $pMax = $dto->priceMax !== null ? $dto->priceMax : $pMax;
+                    }
+                }
                 if ($pMax !== null && (float)$pMax <= 0) {
                     $pMax = null;
                 }
@@ -526,20 +659,40 @@ class EventIngestionService
                     [$pMin, $pMax] = [$pMax, $pMin];
                 }
 
+                $candIsLeague = self::isLeagueOrTournamentTitle($existingEvent->title);
+                $dtoIsLeague = self::isLeagueOrTournamentTitle($dto->title);
+
+                $finalTitle = $existingEvent->title;
+                if ($candIsLeague && !$dtoIsLeague && !empty($dto->title)) {
+                    $finalTitle = $dto->title;
+                } elseif (!$candIsLeague && empty($finalTitle) && !empty($dto->title)) {
+                    $finalTitle = $dto->title;
+                } elseif ($existingEvent->source_id === $source->id && !empty($dto->title)) {
+                    $finalTitle = $dto->title;
+                }
+
+                $finalDescription = self::mergeDescriptions($existingEvent->description, $dto->description);
+                $finalShortDesc = $existingEvent->short_description ?: $dto->shortDescription;
+
+                $finalSourceUrl = $existingEvent->source_url;
+                if (empty($finalSourceUrl) || ($dtoIsTicketing && !$existingIsTicketing)) {
+                    $finalSourceUrl = $dto->sourceUrl ?: $finalSourceUrl;
+                }
+
                 // Update existing event details
                 $updateData = [
                     'source_id' => $existingEvent->source_id ?: $source->id,
                     'source_slug' => $existingEvent->source_slug ?: $source->slug,
-                    'source_url' => $dto->sourceUrl ?: $existingEvent->source_url,
+                    'source_url' => $finalSourceUrl,
                     'location_id' => $locationId ?: $existingEvent->location_id,
                     'start_at' => $dto->startAt ?: $existingEvent->start_at,
                     'end_at' => $dto->endAt ?: $existingEvent->end_at,
                     'image_url' => $finalImageUrl,
-                    'ticket_url' => $existingEvent->source_id === $source->id ? $dto->ticketUrl : ($dto->ticketUrl ?: $existingEvent->ticket_url),
-                    'is_free' => $dto->isFree,
+                    'ticket_url' => $finalTicketUrl,
+                    'is_free' => ($pMin !== null && (float)$pMin > 0) ? false : ($dto->isFree && $existingEvent->is_free !== false),
                     'price_min' => $pMin,
                     'price_max' => $pMax,
-                    'entertainment_type' => $dto->entertainmentType ?: (($existingEvent->entertainment_type && !in_array($existingEvent->entertainment_type, ['chill', 'exhibition'], true)) ? $existingEvent->entertainment_type : $this->guessEntertainmentType($dto->title, $dto->categoryNames)),
+                    'entertainment_type' => $dto->entertainmentType ?: (($existingEvent->entertainment_type && !in_array($existingEvent->entertainment_type, ['chill', 'exhibition'], true)) ? $existingEvent->entertainment_type : $this->guessEntertainmentType($finalTitle ?: $dto->title, $dto->categoryNames)),
                     'raw_data' => array_merge($existingEvent->raw_data ?? [], $dto->rawData),
                 ];
 
@@ -548,9 +701,9 @@ class EventIngestionService
                 }
 
                 if ($locale === 'lv' || empty($existingEvent->title)) {
-                    $updateData['title'] = $dto->title ?: $existingEvent->title;
-                    $updateData['description'] = $dto->description ?: $existingEvent->description;
-                    $updateData['short_description'] = $dto->shortDescription ?: $existingEvent->short_description;
+                    $updateData['title'] = $finalTitle ?: $existingEvent->title;
+                    $updateData['description'] = $finalDescription ?: $existingEvent->description;
+                    $updateData['short_description'] = $finalShortDesc ?: $existingEvent->short_description;
                 }
 
                 $existingEvent->update($updateData);
@@ -562,10 +715,10 @@ class EventIngestionService
                         'locale' => $locale,
                     ],
                     [
-                        'title' => $dto->title,
-                        'slug' => Str::slug($dto->title) . '-' . substr(md5($existingEvent->id . $locale), 0, 6),
-                        'description' => $dto->description,
-                        'short_description' => $dto->shortDescription ?: (mb_strlen($dto->description ?? '') <= 220 ? $dto->description : Str::limit(strip_tags($dto->description ?? ''), 160)),
+                        'title' => $finalTitle ?: $dto->title,
+                        'slug' => Str::slug($finalTitle ?: $dto->title) . '-' . substr(md5($existingEvent->id . $locale), 0, 6),
+                        'description' => $finalDescription ?: $dto->description,
+                        'short_description' => $finalShortDesc ?: ($dto->shortDescription ?: (mb_strlen($finalDescription ?? '') <= 220 ? $finalDescription : Str::limit(strip_tags($finalDescription ?? ''), 160))),
                     ]
                 );
 
@@ -1292,6 +1445,125 @@ class EventIngestionService
         }
 
         return 'lv';
+    }
+
+    public static function isGenericPlaceholderImage(?string $url): bool
+    {
+        if (empty($url)) {
+            return true;
+        }
+        $lower = mb_strtolower($url, 'UTF-8');
+        return str_contains($lower, '/leagues/')
+            || str_contains($lower, 'aplis-default-og-img.jpg')
+            || str_contains($lower, 'default-event')
+            || str_contains($lower, 'placeholder')
+            || str_contains($lower, 'no-image');
+    }
+
+    public static function extractMatchupTeams(string $title): ?array
+    {
+        $clean = trim($title);
+        if (preg_match('/^(.*?)\s+(?:vs\.?|pret|[-–—])\s+(.*?)$/iu', $clean, $matches)) {
+            $t1 = trim(preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower($matches[1], 'UTF-8')));
+            $t2 = trim(preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower($matches[2], 'UTF-8')));
+
+            $stopWords = ['bk', 'fk', 'sk', 'hk', 'fc', 'sc', 'kk', 'vs', 'pret', 'spēle', 'spele', 'komanda', 'rīga', 'latvija'];
+            $w1 = array_values(array_filter(explode(' ', $t1), fn($w) => mb_strlen($w, 'UTF-8') > 1 && !in_array($w, $stopWords, true)));
+            $w2 = array_values(array_filter(explode(' ', $t2), fn($w) => mb_strlen($w, 'UTF-8') > 1 && !in_array($w, $stopWords, true)));
+
+            if (!empty($w1) && !empty($w2)) {
+                return [$w1, $w2];
+            }
+        }
+        return null;
+    }
+
+    public static function areMatchupTeamsEquivalent(array $teamsA, array $teamsB): bool
+    {
+        $homeMatch = !empty(array_intersect($teamsA[0], $teamsB[0]));
+        $awayMatch = !empty(array_intersect($teamsA[1], $teamsB[1]));
+        if ($homeMatch && $awayMatch) {
+            return true;
+        }
+
+        $revHomeMatch = !empty(array_intersect($teamsA[0], $teamsB[1]));
+        $revAwayMatch = !empty(array_intersect($teamsA[1], $teamsB[0]));
+        if ($revHomeMatch && $revAwayMatch) {
+            return true;
+        }
+
+        return false;
+    }
+
+    public static function isLeagueOrTournamentTitle(string $title): bool
+    {
+        $clean = mb_strtolower(trim($title), 'UTF-8');
+        if (preg_match('/\b(?:vs|pret)\b/u', $clean)) {
+            return false;
+        }
+        if (preg_match('/\p{L}+\s*[-–—]\s*\p{L}+/u', $clean) && !str_contains($clean, 'līga') && !str_contains($clean, 'liga')) {
+            return false;
+        }
+
+        return str_contains($clean, 'līga') || str_contains($clean, 'liga')
+            || str_contains($clean, 'čempionāt') || str_contains($clean, 'cempionat')
+            || str_contains($clean, 'virslīg') || str_contains($clean, 'virslig')
+            || str_contains($clean, 'kauss') || str_contains($clean, 'turnīr')
+            || str_contains($clean, 'meistarsacīkst') || str_contains($clean, 'meistarsacikst');
+    }
+
+    public static function mergeDescriptions(?string $existingDesc, ?string $newDesc): ?string
+    {
+        $d1 = trim((string) $existingDesc);
+        $d2 = trim((string) $newDesc);
+
+        if (empty($d1)) return $d2 ?: null;
+        if (empty($d2)) return $d1 ?: null;
+        if ($d1 === $d2) return $d1;
+
+        $baseDesc = (mb_strlen($d1, 'UTF-8') >= mb_strlen($d2, 'UTF-8')) ? $d1 : $d2;
+        $addonDesc = ($baseDesc === $d1) ? $d2 : $d1;
+
+        $lines = explode("\n", $addonDesc);
+        $uniqueAddons = [];
+        $lowerBase = mb_strtolower($baseDesc, 'UTF-8');
+
+        foreach ($lines as $line) {
+            $trimmed = trim($line);
+            if (empty($trimmed)) continue;
+            $lowerLine = mb_strtolower($trimmed, 'UTF-8');
+
+            if (preg_match('/(?:tiešraid|tiesraid|broadcast|stream|kanāl|kanāls|tv\d|sportacentrs|youtube)/iu', $trimmed)) {
+                if (!str_contains($lowerBase, $lowerLine)) {
+                    $uniqueAddons[] = $trimmed;
+                }
+            }
+        }
+
+        if (!empty($uniqueAddons)) {
+            return $baseDesc . "\n\n" . implode("\n", array_unique($uniqueAddons));
+        }
+
+        return $baseDesc;
+    }
+
+    public static function isTicketingSource(?string $sourceSlug, ?string $ticketUrl = null): bool
+    {
+        $ticketingSlugs = [
+            'passportix', 'bilesuparadize', 'bilesu-paradize', 'bilesuserviss',
+            'bilesu-serviss', 'bezrindas', 'ticketbest', 'ticketshop', 'aula', 'fienta', 'ekase',
+        ];
+
+        if ($sourceSlug && in_array(mb_strtolower($sourceSlug, 'UTF-8'), $ticketingSlugs, true)) {
+            return true;
+        }
+
+        if (!empty($ticketUrl)) {
+            $lower = mb_strtolower($ticketUrl, 'UTF-8');
+            return (bool) preg_match('/(?:passportix\.eu|bilesuparadize\.lv|bilesuserviss\.lv|bezrindas\.lv|ticketbest\.(?:lv|eu)|ticketshop\.lv|aula\.lv|fienta\.com|ekase\.lv)/u', $lower);
+        }
+
+        return false;
     }
 }
 
