@@ -525,6 +525,17 @@ class EventIngestionService
                     $dtoNumDiff = array_diff($dtoNums[0] ?? [], $candNums[0] ?? []);
                     $candNonYear = array_filter($candNumDiff, fn ($n) => (int)$n < 2000 || (int)$n > 2100);
                     $dtoNonYear = array_filter($dtoNumDiff, fn ($n) => (int)$n < 2000 || (int)$n > 2100);
+
+                    // Ignore day-of-month numbers in titles that match event start or end day (e.g. "līdz 27. decembrim")
+                    $eventDays = array_filter([
+                        $candidate->start_at?->day,
+                        $candidate->end_at?->day,
+                        $dto->startAt?->day,
+                        $dto->endAt?->day,
+                    ]);
+                    $candNonYear = array_filter($candNonYear, fn ($n) => !in_array((int)$n, $eventDays, true));
+                    $dtoNonYear = array_filter($dtoNonYear, fn ($n) => !in_array((int)$n, $eventDays, true));
+
                     if (!empty($candNonYear) || !empty($dtoNonYear)) {
                         continue;
                     }

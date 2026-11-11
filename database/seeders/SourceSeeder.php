@@ -229,6 +229,13 @@ class SourceSeeder extends Seeder
                 'scraper_class' => \App\Services\Scrapers\Sources\OkulturaScraper::class,
                 'is_active' => true,
             ],
+            [
+                'name' => 'Ogres Vēstures un mākslas muzejs (ogresmuzejs.lv)',
+                'slug' => 'ogres-muzejs',
+                'url' => 'https://ogresmuzejs.lv/piedavajums',
+                'scraper_class' => \App\Services\Scrapers\Sources\OgresMuzejsScraper::class,
+                'is_active' => true,
+            ],
         ];
 
         foreach ($sources as $s) {

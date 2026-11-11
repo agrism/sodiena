@@ -344,3 +344,4 @@ HTML;
         $this->assertEquals('exhibition', $workshopDto->entertainmentType);
     }
 }
+
