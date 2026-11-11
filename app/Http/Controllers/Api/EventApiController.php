@@ -408,6 +408,7 @@ class EventApiController extends Controller
             'ticket_url' => ['nullable', 'url', 'max:2000'],
             'source_url' => ['nullable', 'url', 'max:2000'],
             'source_slug' => ['nullable', 'string', 'max:50'],
+            'is_promoted' => ['nullable', 'boolean'],
             'entertainment_type' => ['nullable', 'string', 'max:50'],
             'categories' => ['nullable', 'array'],
             'category_slugs' => ['nullable', 'array'],
@@ -571,6 +572,7 @@ class EventApiController extends Controller
                 'status' => 'published',
                 'published_at' => now(),
                 'source_slug' => $sourceSlug,
+                'is_promoted' => !empty($validated['is_promoted']),
             ]);
 
             // Sync categories
@@ -670,6 +672,7 @@ class EventApiController extends Controller
             'ticket_url' => ['nullable', 'url', 'max:2000'],
             'source_url' => ['nullable', 'url', 'max:2000'],
             'source_slug' => ['nullable', 'string', 'max:50'],
+            'is_promoted' => ['nullable', 'boolean'],
             'entertainment_type' => ['nullable', 'string', 'max:50'],
             'categories' => ['nullable', 'array'],
             'category_slugs' => ['nullable', 'array'],
@@ -817,6 +820,9 @@ class EventApiController extends Controller
             }
             if (!empty($validated['source_slug'])) {
                 $updates['source_slug'] = trim($validated['source_slug']);
+            }
+            if (array_key_exists('is_promoted', $validated)) {
+                $updates['is_promoted'] = filter_var($validated['is_promoted'], FILTER_VALIDATE_BOOLEAN);
             }
 
             $event->update($updates);

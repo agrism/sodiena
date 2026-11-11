@@ -305,4 +305,32 @@ class EventPromotedTest extends TestCase
                 'message' => 'Event not found.',
             ]);
     }
+
+    public function test_api_store_and_update_supports_is_promoted(): void
+    {
+        // 1. Create event with is_promoted = true
+        $resStore = $this->withToken($this->apiToken)->postJson('/api/v1/events', [
+            'title' => 'Promoted API Test Event',
+            'description' => 'Test event created with is_promoted true via API.',
+            'start_at' => now()->addDays(3)->toIso8601String(),
+            'is_promoted' => true,
+        ]);
+
+        $resStore->assertStatus(201)
+            ->assertJsonPath('data.is_promoted', true);
+
+        $eventId = $resStore->json('data.id');
+        $event = Event::findOrFail($eventId);
+        $this->assertTrue($event->is_promoted);
+
+        // 2. Update event with is_promoted = false
+        $resUpdate = $this->withToken($this->apiToken)->putJson("/api/v1/events/{$eventId}", [
+            'is_promoted' => false,
+        ]);
+
+        $resUpdate->assertStatus(200)
+            ->assertJsonPath('data.is_promoted', false);
+
+        $this->assertFalse($event->fresh()->is_promoted);
+    }
 }
