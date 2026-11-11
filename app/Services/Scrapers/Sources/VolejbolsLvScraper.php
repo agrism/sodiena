@@ -252,6 +252,46 @@ class VolejbolsLvScraper extends BaseScraper
             'lat' => 55.87523,
             'lon' => 26.51746,
         ],
+        'RIMI Olimpiskais centrs' => [
+            'venue' => 'Rimi Olimpiskais centrs',
+            'city' => 'Rīga',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Grostonas iela 6B, Rīga',
+            'lat' => 56.96766,
+            'lon' => 24.12464,
+        ],
+        'RVS sporta zāle' => [
+            'venue' => 'Rīgas Volejbola skola',
+            'city' => 'Rīga',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Cieceres iela 9, Rīga',
+            'lat' => 56.93220,
+            'lon' => 24.07505,
+        ],
+        'Riga VS SH' => [
+            'venue' => 'Rīgas Volejbola skola',
+            'city' => 'Rīga',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Cieceres iela 9, Rīga',
+            'lat' => 56.93220,
+            'lon' => 24.07505,
+        ],
+        'Jüri Sports hall' => [
+            'venue' => 'Jüri spordihoone',
+            'city' => 'Jüri',
+            'region' => 'Igaunija',
+            'address' => 'Laste 3, Jüri, Rae vald, Estonia',
+            'lat' => 59.35523,
+            'lon' => 24.90837,
+        ],
+        'Dunalkas sporta nam' => [
+            'venue' => 'Dunalkas sporta nams',
+            'city' => 'Dunalka',
+            'region' => 'Kurzeme',
+            'address' => 'Dunalka, Dunalkas pagasts, Dienvidkurzemes novads',
+            'lat' => 56.80648,
+            'lon' => 21.44658,
+        ],
     ];
 
     /**
@@ -259,31 +299,51 @@ class VolejbolsLvScraper extends BaseScraper
      */
     protected array $teamCities = [
         'Aizpute' => ['city' => 'Aizpute', 'region' => 'Kurzeme'],
+        'VK Aizpute/DKSS' => ['city' => 'Aizpute', 'region' => 'Kurzeme'],
         'Jelgavas novads / Evopipes' => ['city' => 'Jelgava', 'region' => 'Zemgale'],
+        'LBTU Jelgava' => ['city' => 'Jelgava', 'region' => 'Zemgale'],
         'VK Ventspils' => ['city' => 'Ventspils', 'region' => 'Kurzeme'],
+        'VK Zviedrāns Team Ventspils' => ['city' => 'Ventspils', 'region' => 'Kurzeme'],
+        'Ventspils novads' => ['city' => 'Ventspils', 'region' => 'Kurzeme'],
         'RSU' => ['city' => 'Rīga', 'region' => 'Rīga un Pierīga'],
         'RSU 2' => ['city' => 'Rīga', 'region' => 'Rīga un Pierīga'],
         'Robežsardze / RSU' => ['city' => 'Rīga', 'region' => 'Rīga un Pierīga'],
         'Jēkabpils Lūši' => ['city' => 'Jēkabpils', 'region' => 'Latgale'],
         'Jēkabpils juniori / JSS' => ['city' => 'Jēkabpils', 'region' => 'Latgale'],
         'Ezerzeme / DU / Homelike' => ['city' => 'Daugavpils', 'region' => 'Latgale'],
+        'Ezerzeme/DU/Homelike' => ['city' => 'Daugavpils', 'region' => 'Latgale'],
         'Augšdaugava / Ezerzeme' => ['city' => 'Daugavpils', 'region' => 'Latgale'],
         'Daugavpils Sporta skola' => ['city' => 'Daugavpils', 'region' => 'Latgale'],
         'Vecumnieki' => ['city' => 'Vecumnieki', 'region' => 'Zemgale'],
         'Liepājas sporta spēļu skola' => ['city' => 'Liepāja', 'region' => 'Kurzeme'],
         'Liepāja/LSSS' => ['city' => 'Liepāja', 'region' => 'Kurzeme'],
+        'VK Liepāja' => ['city' => 'Liepāja', 'region' => 'Kurzeme'],
+        'Kuldīga/KNSS' => ['city' => 'Kuldīga', 'region' => 'Kurzeme'],
         'RVS/LU' => ['city' => 'Rīga', 'region' => 'Rīga un Pierīga'],
         'Rīgas volejbola skola' => ['city' => 'Rīga', 'region' => 'Rīga un Pierīga'],
+        'Rīgas Volejbola skola/LU' => ['city' => 'Rīga', 'region' => 'Rīga un Pierīga'],
+        'Riga Volleyball School/LU' => ['city' => 'Rīga', 'region' => 'Rīga un Pierīga'],
+        'Team LAT' => ['city' => 'Rīga', 'region' => 'Rīga un Pierīga'],
         'Mārupe' => ['city' => 'Mārupe', 'region' => 'Rīga un Pierīga'],
         'VK Lazdukalns / Balvu novads' => ['city' => 'Balvi', 'region' => 'Latgale'],
         'Murjāņu Sporta ģimnāzija' => ['city' => 'Murjāņi', 'region' => 'Rīga un Pierīga'],
         'Jūrmalas volejbola klubs / Jūrmalas sporta skola' => ['city' => 'Jūrmala', 'region' => 'Rīga un Pierīga'],
         'Cēsu pilsētas Sporta skola' => ['city' => 'Cēsis', 'region' => 'Vidzeme'],
         'Valmieras sporta skola' => ['city' => 'Valmiera', 'region' => 'Vidzeme'],
+        'Valmieras Sporta skola' => ['city' => 'Valmiera', 'region' => 'Vidzeme'],
+        'Valmiera' => ['city' => 'Valmiera', 'region' => 'Vidzeme'],
         'VK Gulbene' => ['city' => 'Gulbene', 'region' => 'Vidzeme'],
         'Ogre' => ['city' => 'Ogre', 'region' => 'Vidzeme'],
+        'VK Ogre' => ['city' => 'Ogre', 'region' => 'Vidzeme'],
+        'Līgatne' => ['city' => 'Līgatne', 'region' => 'Vidzeme'],
+        'Madliena' => ['city' => 'Madliena', 'region' => 'Vidzeme'],
+        'Drusti' => ['city' => 'Drusti', 'region' => 'Vidzeme'],
+        'Mazsalaca / Ramata' => ['city' => 'Mazsalaca', 'region' => 'Vidzeme'],
+        'VK Vecbebri' => ['city' => 'Vecbebri', 'region' => 'Vidzeme'],
         'SK Lauciene' => ['city' => 'Lauciene', 'region' => 'Kurzeme'],
         'VK Dunalka' => ['city' => 'Dunalka', 'region' => 'Kurzeme'],
+        'VK Sēme / RV Forest' => ['city' => 'Sēme', 'region' => 'Kurzeme'],
+        'SK Kuorsova' => ['city' => 'Kārsava', 'region' => 'Latgale'],
         'TÜ/Bigbank' => ['city' => 'Tartu', 'region' => 'Igaunija'],
         'BIGBANK Tartu' => ['city' => 'Tartu', 'region' => 'Igaunija'],
         'Barrus Võru VK' => ['city' => 'Veru', 'region' => 'Igaunija'],
@@ -293,48 +353,258 @@ class VolejbolsLvScraper extends BaseScraper
         'Rae Spordikool/VIASTON' => ['city' => 'Jüri', 'region' => 'Igaunija'],
         'Elga-Grafaite S-Sportas Šiauliai' => ['city' => 'Šauļi', 'region' => 'Lietuva'],
         'VDU Kaunas' => ['city' => 'Kauņa', 'region' => 'Lietuva'],
+        'Kaunas-VDU' => ['city' => 'Kauņa', 'region' => 'Lietuva'],
+    ];
+
+    /**
+     * Official DataProject competition portals powering volejbols.lv
+     */
+    protected const DATAPROJECT_PORTALS = [
+        'bvl' => 'https://bvl-web.dataproject.com',
+        'lvf' => 'https://latvf-web.dataproject.com',
     ];
 
     public function scrape(Source $source): Collection
     {
         $allEvents = collect();
-        $subpageCache = [];
+        $seenExternalIds = [];
 
         $now = Carbon::now('Europe/Riga');
-        $currentYear = (int) $now->format('Y');
-        $currentMonth = (int) $now->format('m');
-        $todayStr = $now->format('Y-m-d');
+        $todayStart = $now->copy()->startOfDay();
+        $seasonStart = $now->month >= 7 ? $now->year : $now->year - 1;
+        $seasonEnd = $seasonStart + 1;
 
-        // Determine months to inspect through the volleyball season
-        $monthsToScrape = [];
-        if ($currentMonth >= 7) {
-            for ($m = $currentMonth; $m <= 12; $m++) {
-                $monthsToScrape[] = [$currentYear, $m];
+        foreach (self::DATAPROJECT_PORTALS as $type => $baseUrl) {
+            try {
+                $portalEvents = $this->scrapeDataProjectPortal($baseUrl, $type, $seasonStart, $seasonEnd, $todayStart);
+                foreach ($portalEvents as $dto) {
+                    if (isset($seenExternalIds[$dto->sourceExternalId])) {
+                        continue;
+                    }
+                    $seenExternalIds[$dto->sourceExternalId] = true;
+                    $allEvents->push($dto);
+                }
+            } catch (\Throwable $e) {
+                Log::error("VolejbolsLvScraper: failed scraping DataProject portal {$baseUrl}: " . $e->getMessage());
             }
-            for ($m = 1; $m <= 6; $m++) {
-                $monthsToScrape[] = [$currentYear + 1, $m];
-            }
-        } else {
-            for ($m = $currentMonth; $m <= 6; $m++) {
-                $monthsToScrape[] = [$currentYear, $m];
-            }
-        }
-
-        foreach ($monthsToScrape as [$year, $month]) {
-            $monthEvents = $this->scrapeMonth($year, $month, $todayStr, $subpageCache);
-            if ($monthEvents === null) {
-                // Endpoint blocked or unreachable (e.g. Cloudflare protection on datacenter IP), break early
-                Log::warning("VolejbolsLvScraper: unable to fetch calendar for {$year}-{$month}, skipping remaining months.");
-                break;
-            }
-            $allEvents = $allEvents->merge($monthEvents);
         }
 
         return $allEvents;
     }
 
     /**
-     * Scrape a specific year and month
+     * Discover and scrape active season competitions from a DataProject portal
+     */
+    public function scrapeDataProjectPortal(
+        string $baseUrl,
+        string $type,
+        int $seasonStart,
+        int $seasonEnd,
+        Carbon $todayStart
+    ): Collection {
+        $events = collect();
+        $mainCrawler = $this->fetchCrawler("{$baseUrl}/MainHome.aspx");
+        if (!$mainCrawler) {
+            return $events;
+        }
+
+        $competitions = $this->parseDataProjectCompetitions($mainCrawler, $type, $seasonStart, $seasonEnd);
+        foreach ($competitions as $comp) {
+            $matchesUrl = "{$baseUrl}/CompetitionMatches.aspx?ID={$comp['id']}";
+            $matchesCrawler = $this->fetchCrawler($matchesUrl);
+            if (!$matchesCrawler) {
+                continue;
+            }
+
+            $compEvents = $this->parseDataProjectMatches(
+                $matchesCrawler,
+                $type,
+                $comp['id'],
+                $comp['title'],
+                $todayStart
+            );
+            $events = $events->merge($compEvents);
+        }
+
+        return $events;
+    }
+
+    /**
+     * Extract matching competitions for the active volleyball season from MainHome.aspx
+     *
+     * @return array<int, array{id: int, title: string, type: string}>
+     */
+    public function parseDataProjectCompetitions(
+        Crawler $crawler,
+        string $type,
+        int $seasonStart,
+        int $seasonEnd
+    ): array {
+        $competitions = [];
+        $seenIds = [];
+        $seasonEndShort = substr((string) $seasonEnd, -2);
+        $seasonRegex = "#{$seasonStart}\s*[/\-]\s*(?:{$seasonEnd}|{$seasonEndShort})#u";
+
+        $crawler->filter('ul.core-menu ul.dropdown1 > li')->each(function (Crawler $seasonLi) use (
+            &$competitions,
+            &$seenIds,
+            $type,
+            $seasonRegex
+        ) {
+            $seasonAnchors = $seasonLi->filter('a');
+            if (!$seasonAnchors->count()) {
+                return;
+            }
+            $seasonName = trim(preg_replace('/\s+/', ' ', $seasonAnchors->first()->text('')));
+            if (!preg_match($seasonRegex, $seasonName)) {
+                return;
+            }
+
+            $seasonLi->filter('ul.dropdown2 a[href*="CompetitionHome.aspx?ID="]')->each(function (Crawler $a) use (
+                &$competitions,
+                &$seenIds,
+                $type
+            ) {
+                $title = trim(preg_replace('/\s+/', ' ', $a->text('')));
+                $href = $a->attr('href') ?? '';
+
+                if (!preg_match('/^(?:Elme Messer|Latvijas čempionāts|LČ Nacionālā līga)/iu', $title)) {
+                    return;
+                }
+                if (!preg_match('/ID=(\d+)/', $href, $m)) {
+                    return;
+                }
+
+                $compId = (int) $m[1];
+                if (isset($seenIds[$compId])) {
+                    return;
+                }
+
+                $seenIds[$compId] = true;
+                $competitions[] = [
+                    'id' => $compId,
+                    'title' => $title,
+                    'type' => $type,
+                ];
+            });
+        });
+
+        return $competitions;
+    }
+
+    /**
+     * Parse upcoming unplayed match rows from DataProject CompetitionMatches.aspx
+     */
+    public function parseDataProjectMatches(
+        Crawler $crawler,
+        string $type,
+        int $compId,
+        string $leagueTitle,
+        ?Carbon $todayStart = null
+    ): Collection {
+        $events = collect();
+        $todayStart = $todayStart ?? Carbon::now('Europe/Riga')->startOfDay();
+        $cleanTitle = trim(preg_replace('/\s+/', ' ', $leagueTitle));
+
+        if (!preg_match('/^(?:Elme Messer|Latvijas čempionāts|LČ Nacionālā līga)/iu', $cleanTitle)) {
+            return $events;
+        }
+
+        $crawler->filter('div.t-row.t-hidden-xs.t-hidden-sm')->each(function (Crawler $row) use (
+            &$events,
+            $type,
+            $cleanTitle,
+            $todayStart
+        ) {
+            $dateEl = $row->filter('span[id$="_LB_DataOra"]');
+            if (!$dateEl->count()) {
+                return;
+            }
+
+            $dtRaw = trim(preg_replace('/\s+/', ' ', $dateEl->first()->text('')));
+            if (!preg_match('/^(\d{2})[.\/](\d{2})[.\/](\d{4})(?:\s*-\s*(\d{1,2}:\d{2}))?$/', $dtRaw, $dm)) {
+                return;
+            }
+
+            $dateStr = "{$dm[3]}-{$dm[2]}-{$dm[1]}";
+            $time = !empty($dm[4]) ? str_pad($dm[4], 5, '0', STR_PAD_LEFT) : '00:00';
+
+            try {
+                $startAt = Carbon::createFromFormat('Y-m-d H:i', "{$dateStr} {$time}", 'Europe/Riga');
+            } catch (\Throwable $e) {
+                return;
+            }
+
+            // Rule: do not ingest past events
+            if ($startAt->lt($todayStart)) {
+                return;
+            }
+
+            // Skip already played games (score digits present in result spans)
+            $isPlayed = false;
+            $row->filter('span.Calendar_Match_Result, span[id$="_Label1"], span[id$="_Label5"], span[id$="_LB_SetCasa"], span[id$="_LB_SetOspiti"]')
+                ->each(function (Crawler $s) use (&$isPlayed) {
+                    if (preg_match('/\d/', $s->text(''))) {
+                        $isPlayed = true;
+                    }
+                });
+            if ($isPlayed) {
+                return;
+            }
+
+            $homeEl = $row->filter('span[id$="_Label2"], span[id$="_LBL_HomeTeamName"]');
+            $awayEl = $row->filter('span[id$="_Label4"], span[id$="_LBL_GuestTeamName"]');
+            if (!$homeEl->count() || !$awayEl->count()) {
+                return;
+            }
+
+            $home = trim(preg_replace('/\s+/', ' ', $homeEl->first()->text('')));
+            $away = trim(preg_replace('/\s+/', ' ', $awayEl->first()->text('')));
+            if ($home === '' || $away === '') {
+                return;
+            }
+
+            $matchId = null;
+            $onclickEls = $row->filter('[onclick*="mID="]');
+            $onclickStr = $onclickEls->count() ? ($onclickEls->first()->attr('onclick') ?? '') : $row->html();
+            if (preg_match('/\bmID=(\d+)/', $onclickStr, $mm)) {
+                $matchId = $mm[1];
+            }
+
+            if ($matchId !== null) {
+                if ($type === 'bvl') {
+                    $sourceExternalId = "lvf_bvl_{$matchId}";
+                    $matchUrl = "https://volejbols.lv/bvl/spele/{$matchId}/";
+                } else {
+                    $sourceExternalId = "lvf_{$matchId}";
+                    $matchUrl = "https://volejbols.lv/spele/{$matchId}/";
+                }
+            } else {
+                $sourceExternalId = 'lvf_' . substr(md5("{$dateStr}_{$time}_{$home}_{$away}"), 0, 10);
+                $matchUrl = 'https://volejbols.lv/kalendars/';
+            }
+
+            $venueEl = $row->filter('span[id$="_LB_Palasport"]');
+            $venueRaw = $venueEl->count() ? trim(preg_replace('/\s+/', ' ', $venueEl->first()->text(''))) : '';
+
+            $events->push($this->buildMatchDto(
+                home: $home,
+                away: $away,
+                cleanTitle: $cleanTitle,
+                startAt: $startAt,
+                dateStr: $dateStr,
+                timeStr: $time,
+                venueRaw: $venueRaw,
+                matchUrl: $matchUrl,
+                sourceExternalId: $sourceExternalId
+            ));
+        });
+
+        return $events;
+    }
+
+    /**
+     * Scrape a specific year and month from volejbols.lv calendar JSON (legacy helper)
      */
     public function scrapeMonth(int $year, int $month, string $todayStr, array &$subpageCache): ?Collection
     {
@@ -403,9 +673,6 @@ class VolejbolsLvScraper extends BaseScraper
             return null;
         }
 
-        // Volleyball match duration ≈ 105 minutes
-        $endAt = (clone $startAt)->addMinutes(105);
-
         $teamsStr = $a->filter('.year-cal-item__teams')->count() ? trim($a->filter('.year-cal-item__teams')->text()) : '';
         $teamParts = preg_split('/\s*[–—-]\s*/u', $teamsStr);
         $home = trim($teamParts[0] ?? '');
@@ -439,7 +706,6 @@ class VolejbolsLvScraper extends BaseScraper
         }
 
         $venueRaw = $subpageDetails['venue'] ?? '';
-        $location = $this->resolveLocation($venueRaw, $home);
 
         // External ID extraction
         if (preg_match('/\/bvl\/spele\/(\d+)/', $matchUrl, $im)) {
@@ -449,6 +715,36 @@ class VolejbolsLvScraper extends BaseScraper
         } else {
             $sourceExternalId = 'lvf_' . substr(md5("{$dateStr}_{$timeStr}_{$home}_{$away}"), 0, 10);
         }
+
+        return $this->buildMatchDto(
+            home: $home,
+            away: $away,
+            cleanTitle: $cleanTitle,
+            startAt: $startAt,
+            dateStr: $dateStr,
+            timeStr: $timeStr,
+            venueRaw: $venueRaw,
+            matchUrl: $matchUrl,
+            sourceExternalId: $sourceExternalId
+        );
+    }
+
+    /**
+     * Build a normalized ScrapedEventDTO for a volleyball match
+     */
+    protected function buildMatchDto(
+        string $home,
+        string $away,
+        string $cleanTitle,
+        Carbon $startAt,
+        string $dateStr,
+        string $timeStr,
+        string $venueRaw,
+        string $matchUrl,
+        string $sourceExternalId
+    ): ScrapedEventDTO {
+        $endAt = (clone $startAt)->addMinutes(105);
+        $location = $this->resolveLocation($venueRaw, $home);
 
         $titleFormatted = "{$home} vs {$away}";
         $shortDescription = "{$cleanTitle}: {$home} pret {$away} ({$location['venue']}).";

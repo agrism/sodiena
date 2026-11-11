@@ -341,5 +341,190 @@ HTML;
         $this->assertEquals(VolejbolsLvScraper::DEFAULT_IMAGE, $saved->image_url);
         $this->assertEquals(VolejbolsLvScraper::DEFAULT_IMAGE, $saved->display_image_url);
     }
+
+    public function test_parse_dataproject_competitions_filters_season_and_leagues(): void
+    {
+        $html = <<<'HTML'
+<ul class="core-menu">
+    <li class="nav-link">
+        <a href="#">Sezonas</a>
+        <ul class="dropdown1">
+            <li>
+                <a href="#">LATVF 2026/27</a>
+                <ul class="dropdown2">
+                    <li><a href="CompetitionHome.aspx?ID=177">Latvijas Čempionāts Nacionālā līga 2026/2027 vīriešiem</a></li>
+                    <li><a href="CompetitionHome.aspx?ID=178">LČ Nacionālā līga sievietēm 2026/2027</a></li>
+                    <li><a href="CompetitionHome.aspx?ID=185">Latvijas Jaunatnes čempionāts U15M 2026/2027</a></li>
+                    <li><a href="CompetitionHome.aspx?ID=179">Latvijas Kauss 2026</a></li>
+                </ul>
+            </li>
+            <li>
+                <a href="#">LATVF 2025/26</a>
+                <ul class="dropdown2">
+                    <li><a href="CompetitionHome.aspx?ID=124">LČ Nacionālā līga sievietēm 2025/2026</a></li>
+                </ul>
+            </li>
+        </ul>
+    </li>
+</ul>
+HTML;
+
+        $crawler = new Crawler($html);
+        $scraper = new VolejbolsLvScraper();
+        $competitions = $scraper->parseDataProjectCompetitions($crawler, 'lvf', 2026, 2027);
+
+        $this->assertCount(2, $competitions);
+        $this->assertSame([177, 178], array_column($competitions, 'id'));
+    }
+
+    public function test_parse_dataproject_matches_handles_future_played_past_and_templates(): void
+    {
+        $future = Carbon::now('Europe/Riga')->addDays(4);
+        $futureDot = $future->format('d.m.Y') . ' - 18:00';
+        $futureSlash = $future->format('d/m/Y') . ' - 19:30';
+        $pastDot = Carbon::now('Europe/Riga')->subDays(2)->format('d.m.Y') . ' - 15:00';
+
+        $lvfHtml = <<<HTML
+<div>
+    <div class="t-row t-hidden-xs t-hidden-sm">
+        <div onclick="javascript:window.location='MatchStatistics.aspx?mID=5534&amp;ID=177';"></div>
+        <span id="ctl00_Content_Main_650_LB_DataOra">{$futureDot}</span>
+        <span id="ctl00_Content_Main_650_LB_Palasport">Pārventas Sporta halle, Tārgales 5a</span>
+        <span id="ctl00_Content_Main_650_LBL_HomeTeamName">VK Ventspils</span>
+        <span id="ctl00_Content_Main_650_LBL_Separ" class="Calendar_Match_Result"><b> - </b></span>
+        <span id="ctl00_Content_Main_650_LBL_GuestTeamName">RSU</span>
+    </div>
+    <div class="t-row t-hidden-xs t-hidden-sm">
+        <div onclick="javascript:window.location='MatchStatistics.aspx?mID=5522&amp;ID=177';"></div>
+        <span id="ctl00_Content_Main_650_LB_DataOra">{$futureDot}</span>
+        <span id="ctl00_Content_Main_650_LB_Palasport">RVS sporta zāle</span>
+        <span id="ctl00_Content_Main_650_Label2"><b>RSU</b></span>
+        <span id="ctl00_Content_Main_650_Label1" class="Calendar_Match_Result"><b>3</b></span>
+        <span id="ctl00_Content_Main_650_Label5" class="Calendar_Match_Result"><b>0</b></span>
+        <span id="ctl00_Content_Main_650_Label4">Aizpute</span>
+    </div>
+    <div class="t-row t-hidden-xs t-hidden-sm">
+        <div onclick="javascript:window.location='MatchStatistics.aspx?mID=5510&amp;ID=177';"></div>
+        <span id="ctl00_Content_Main_650_LB_DataOra">{$pastDot}</span>
+        <span id="ctl00_Content_Main_650_LB_Palasport">RVS sporta zāle</span>
+        <span id="ctl00_Content_Main_650_LBL_HomeTeamName">RSU</span>
+        <span id="ctl00_Content_Main_650_LBL_Separ" class="Calendar_Match_Result"><b> - </b></span>
+        <span id="ctl00_Content_Main_650_LBL_GuestTeamName">Aizpute</span>
+    </div>
+</div>
+HTML;
+
+        $scraper = new VolejbolsLvScraper();
+        $todayStart = Carbon::now('Europe/Riga')->startOfDay();
+
+        $lvfEvents = $scraper->parseDataProjectMatches(
+            new Crawler($lvfHtml),
+            'lvf',
+            177,
+            'Latvijas Čempionāts Nacionālā līga 2026/2027 vīriešiem',
+            $todayStart
+        );
+
+        $this->assertCount(1, $lvfEvents);
+        $dto = $lvfEvents->first();
+        $this->assertEquals('VK Ventspils vs RSU', $dto->title);
+        $this->assertEquals('lvf_5534', $dto->sourceExternalId);
+        $this->assertEquals('https://volejbols.lv/spele/5534/', $dto->sourceUrl);
+        $this->assertEquals('Pārventas Sporta halle', $dto->venueName);
+        $this->assertEquals('Ventspils', $dto->city);
+
+        $bvlHtml = <<<HTML
+<div>
+    <div class="t-row t-hidden-xs t-hidden-sm">
+        <div onclick="javascript:window.location='MatchStatistics.aspx?mID=1652&amp;ID=29';"></div>
+        <span id="ctl00_Content_Main_50_LB_DataOra">{$futureSlash}</span>
+        <span id="ctl00_Content_Main_50_LB_Palasport">Jüri Sports hall</span>
+        <span id="ctl00_Content_Main_50_Label2">Rae Spordikool/VIASTON</span>
+        <span id="ctl00_Content_Main_50_LBL_Separ" class="Calendar_Match_Result"><b> - </b></span>
+        <span id="ctl00_Content_Main_50_Label4">Riga Volleyball School/LU</span>
+    </div>
+</div>
+HTML;
+
+        $bvlEvents = $scraper->parseDataProjectMatches(
+            new Crawler($bvlHtml),
+            'bvl',
+            29,
+            'Elme Messer Women`s Baltic League 2026/2027',
+            $todayStart
+        );
+
+        $this->assertCount(1, $bvlEvents);
+        $bvlDto = $bvlEvents->first();
+        $this->assertEquals('lvf_bvl_1652', $bvlDto->sourceExternalId);
+        $this->assertEquals('https://volejbols.lv/bvl/spele/1652/', $bvlDto->sourceUrl);
+        $this->assertEquals('Jüri spordihoone', $bvlDto->venueName);
+        $this->assertEquals('Jüri', $bvlDto->city);
+        $this->assertEquals('Igaunija', $bvlDto->region);
+    }
+
+    public function test_scrape_discovers_and_parses_dataproject_portals_via_mock_http(): void
+    {
+        $now = Carbon::now('Europe/Riga');
+        $seasonStart = $now->month >= 7 ? $now->year : $now->year - 1;
+        $seasonEnd = $seasonStart + 1;
+        $seasonLabel = "{$seasonStart}/{$seasonEnd}";
+        $futureDateDot = $now->copy()->addDays(3)->format('d.m.Y') . ' - 19:00';
+        $futureDateSlash = $now->copy()->addDays(5)->format('d/m/Y') . ' - 17:00';
+
+        $bvlMain = <<<HTML
+<ul class="core-menu"><li class="nav-link"><ul class="dropdown1"><li>
+    <a href="#">BVL {$seasonLabel}</a>
+    <ul class="dropdown2"><li><a href="CompetitionHome.aspx?ID=29">Elme Messer Men`s Baltic League {$seasonLabel}</a></li></ul>
+</li></ul></li></ul>
+HTML;
+        $bvlMatches = <<<HTML
+<div><div class="t-row t-hidden-xs t-hidden-sm">
+    <div onclick="window.location='MatchStatistics.aspx?mID=1699&amp;ID=29';"></div>
+    <span id="x_LB_DataOra">{$futureDateSlash}</span>
+    <span id="x_LB_Palasport">RIMI Olimpiskais centrs, Grostonas iela 6b</span>
+    <span id="x_LBL_HomeTeamName">Robežsardze / RSU</span>
+    <span id="x_LBL_Separ" class="Calendar_Match_Result"> - </span>
+    <span id="x_LBL_GuestTeamName">Jēkabpils Lūši</span>
+</div></div>
+HTML;
+        $lvfMain = <<<HTML
+<ul class="core-menu"><li class="nav-link"><ul class="dropdown1"><li>
+    <a href="#">LATVF {$seasonLabel}</a>
+    <ul class="dropdown2"><li><a href="CompetitionHome.aspx?ID=182">Latvijas čempionāts Reģionālā līga {$seasonLabel} vīrieši</a></li></ul>
+</li></ul></li></ul>
+HTML;
+        $lvfMatches = <<<HTML
+<div><div class="t-row t-hidden-xs t-hidden-sm">
+    <div onclick="window.location='MatchStatistics.aspx?mID=5785&amp;ID=182';"></div>
+    <span id="x_LB_DataOra">{$futureDateDot}</span>
+    <span id="x_LB_Palasport">Dunalkas sporta nam</span>
+    <span id="x_Label2">VK Dunalka</span>
+    <span id="x_LBL_Separ" class="Calendar_Match_Result"> - </span>
+    <span id="x_Label4">Liepāja/LSSS</span>
+</div></div>
+HTML;
+
+        $mock = new \GuzzleHttp\Handler\MockHandler([
+            new \GuzzleHttp\Psr7\Response(200, [], $bvlMain),
+            new \GuzzleHttp\Psr7\Response(200, [], $bvlMatches),
+            new \GuzzleHttp\Psr7\Response(200, [], $lvfMain),
+            new \GuzzleHttp\Psr7\Response(200, [], $lvfMatches),
+        ]);
+
+        $scraper = new VolejbolsLvScraper();
+        $scraper->setClient(new \GuzzleHttp\Client(['handler' => \GuzzleHttp\HandlerStack::create($mock)]));
+
+        $source = new Source(['slug' => 'volejbols-lv', 'name' => 'Latvijas Volejbola Federācija (volejbols.lv)']);
+        $events = $scraper->scrape($source);
+
+        $this->assertCount(2, $events);
+        $this->assertEquals('lvf_bvl_1699', $events[0]->sourceExternalId);
+        $this->assertEquals('Rimi Olimpiskais centrs', $events[0]->venueName);
+        $this->assertEquals('lvf_5785', $events[1]->sourceExternalId);
+        $this->assertEquals('Dunalkas sporta nams', $events[1]->venueName);
+        $this->assertEquals('Dunalka', $events[1]->city);
+        $this->assertEquals('Kurzeme', $events[1]->region);
+    }
 }
 
