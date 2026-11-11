@@ -13,7 +13,7 @@ class ScrapeEventsCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'events:scrape {source? : Slug or ID of the source to scrape} {--all : Scrape all active sources} {--dry-run : Preview scraped events without saving to database} {--limit= : Limit number of rows in dry-run preview}';
+    protected $signature = 'events:scrape {source? : Slug or ID of the source to scrape} {--all : Scrape all active sources} {--type= : Filter sources by category (ticketing, venue, sports, municipality, thematic, aggregator)} {--dry-run : Preview scraped events without saving to database} {--limit= : Limit number of rows in dry-run preview}';
 
     /**
      * The console command description.
@@ -29,15 +29,22 @@ class ScrapeEventsCommand extends Command
     {
         $sourceIdentifier = $this->argument('source');
         $all = $this->option('all');
+        $type = $this->option('type');
         $isDryRun = (bool) $this->option('dry-run');
         $limit = $this->option('limit') ? (int) $this->option('limit') : 20;
 
         $query = Source::query();
 
         if ($sourceIdentifier) {
-            $query->where('id', $sourceIdentifier)->orWhere('slug', $sourceIdentifier);
+            $query->where(function ($q) use ($sourceIdentifier) {
+                $q->where('id', $sourceIdentifier)->orWhere('slug', $sourceIdentifier);
+            });
         } else {
             $query->where('is_active', true);
+        }
+
+        if ($type) {
+            $query->where('type', $type);
         }
 
         $sources = $query->get();

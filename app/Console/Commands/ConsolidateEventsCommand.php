@@ -36,7 +36,7 @@ class ConsolidateEventsCommand extends Command
         $days = (int) $this->option('days');
         $this->info("Scanning events for duplicates and consolidation (window: past 7 days to +{$days} days)..." . ($dryRun ? ' [DRY RUN]' : ''));
 
-        $events = Event::with(['translations', 'location', 'categories'])
+        $events = Event::with(['translations', 'location', 'categories', 'source'])
             ->whereNull('deleted_at')
             ->where('start_at', '>=', now()->subDays(7)->startOfDay())
             ->where('start_at', '<=', now()->addDays($days)->endOfDay())
@@ -209,9 +209,15 @@ class ConsolidateEventsCommand extends Command
         $scoreA = 0;
         $scoreB = 0;
 
+        // SourceType priority score (e.g. Venue = 90, Sports = 85, Ticketing = 80, Aggregator = 50)
+        $priA = $a->source?->type?->priority() ?? 40;
+        $priB = $b->source?->type?->priority() ?? 40;
+        $scoreA += (int) round($priA / 10);
+        $scoreB += (int) round($priB / 10);
+
         // Ticketing source preference
-        $aIsTicketing = EventIngestionService::isTicketingSource($a->source_slug, $a->ticket_url);
-        $bIsTicketing = EventIngestionService::isTicketingSource($b->source_slug, $b->ticket_url);
+        $aIsTicketing = EventIngestionService::isTicketingSource($a->source_slug, $a->ticket_url, $a->source?->type);
+        $bIsTicketing = EventIngestionService::isTicketingSource($b->source_slug, $b->ticket_url, $b->source?->type);
         if ($aIsTicketing) $scoreA += 10;
         if ($bIsTicketing) $scoreB += 10;
 
@@ -277,10 +283,15 @@ class ConsolidateEventsCommand extends Command
             }
 
             // 2. Ticket URL & Prices
-            $canonIsTicketing = EventIngestionService::isTicketingSource($canonical->source_slug, $canonical->ticket_url);
-            $dupIsTicketing = EventIngestionService::isTicketingSource($duplicate->source_slug, $duplicate->ticket_url);
+            $canonSourceType = $canonical->source?->type;
+            $dupSourceType = $duplicate->source?->type;
+            $canonIsTicketing = EventIngestionService::isTicketingSource($canonical->source_slug, $canonical->ticket_url, $canonSourceType);
+            $dupIsTicketing = EventIngestionService::isTicketingSource($duplicate->source_slug, $duplicate->ticket_url, $dupSourceType);
 
-            if ((empty($canonical->ticket_url) || ($dupIsTicketing && !$canonIsTicketing)) && !empty($duplicate->ticket_url)) {
+            $dupTicketPri = $dupSourceType?->ticketPriority() ?? 20;
+            $canonTicketPri = $canonSourceType?->ticketPriority() ?? 20;
+
+            if ((empty($canonical->ticket_url) || $dupTicketPri > $canonTicketPri || ($dupIsTicketing && !$canonIsTicketing)) && !empty($duplicate->ticket_url)) {
                 $update['ticket_url'] = $duplicate->ticket_url;
                 if ($duplicate->price_min !== null) {
                     $update['price_min'] = $duplicate->price_min;
@@ -288,6 +299,13 @@ class ConsolidateEventsCommand extends Command
                 if ($duplicate->price_max !== null) {
                     $update['price_max'] = $duplicate->price_max;
                 }
+            }
+
+            // Location: prefer source with higher locationPriority()
+            $aLocPri = $canonSourceType?->locationPriority() ?? 20;
+            $bLocPri = $dupSourceType?->locationPriority() ?? 20;
+            if ($bLocPri > $aLocPri && $duplicate->location_id) {
+                $update['location_id'] = $duplicate->location_id;
             }
 
             // 3. Title: if canonical has league title or session metadata, prefer duplicate's cleaner title

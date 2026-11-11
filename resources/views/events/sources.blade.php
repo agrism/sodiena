@@ -22,12 +22,47 @@
         </a>
     </div>
 
-    <!-- Sources Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        @foreach($sources as $source)
-            @include('events.partials.source-card', ['source' => $source])
+    <!-- Category Filter Tabs by Source Type -->
+    <div class="mb-8 flex flex-wrap items-center gap-2 border-b border-slate-200/80 pb-4">
+        <a href="{{ route('events.sources') }}" 
+           class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all {{ empty($selectedType) ? 'bg-slate-900 text-white shadow-xs' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200' }}">
+            <i data-lucide="layers" class="w-3.5 h-3.5"></i>
+            Visi avoti
+            <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] {{ empty($selectedType) ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600' }}">
+                {{ $totalCount }}
+            </span>
+        </a>
+
+        @foreach($types as $t)
+            @php
+                $count = $typeCounts[$t->value] ?? 0;
+                $isActive = ($selectedType === $t->value);
+            @endphp
+            <a href="{{ route('events.sources', ['type' => $t->value]) }}" 
+               class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all {{ $isActive ? 'bg-slate-900 text-white shadow-xs' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200' }}">
+                <i data-lucide="{{ $t->icon() }}" class="w-3.5 h-3.5"></i>
+                {{ $t->label() }}
+                <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] {{ $isActive ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600' }}">
+                    {{ $count }}
+                </span>
+            </a>
         @endforeach
     </div>
+
+    <!-- Sources Grid -->
+    @if($sources->isEmpty())
+        <div class="bg-white border border-slate-200 rounded-3xl p-12 text-center text-slate-500">
+            <i data-lucide="inbox" class="w-10 h-10 mx-auto text-slate-300 mb-3"></i>
+            <p class="font-bold text-slate-700">Šajā kategorijā pagaidām nav reģistrētu avotu.</p>
+            <p class="text-xs text-slate-400 mt-1">Izvēlies citu filtru vai apskati visus avotus.</p>
+        </div>
+    @else
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            @foreach($sources as $source)
+                @include('events.partials.source-card', ['source' => $source])
+            @endforeach
+        </div>
+    @endif
 
     <!-- Scrape Logs Table -->
     <div class="mt-14">

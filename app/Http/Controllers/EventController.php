@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\SourceType;
 use App\Models\Category;
 use App\Models\Event;
 use App\Models\Location;
@@ -147,13 +148,31 @@ class EventController extends Controller
     /**
      * Source Scraper Status Dashboard
      */
-    public function sources(): View
+    public function sources(Request $request): View
     {
-        $sources = Source::with(['scrapeLogs' => function ($q) {
-            $q->take(5);
-        }])->withCount('events')->get();
+        $selectedType = $request->query('type');
+        $validType = SourceType::tryFrom((string) $selectedType);
 
-        return view('events.sources', compact('sources'));
+        $query = Source::with(['scrapeLogs' => function ($q) {
+            $q->take(5);
+        }])->withCount('events');
+
+        if ($validType) {
+            $query->where('type', $validType->value);
+        }
+
+        $sources = $query->orderBy('name')->get();
+
+        $typeCounts = Source::query()
+            ->selectRaw('type, count(*) as count')
+            ->groupBy('type')
+            ->pluck('count', 'type')
+            ->all();
+
+        $totalCount = array_sum($typeCounts);
+        $types = SourceType::cases();
+
+        return view('events.sources', compact('sources', 'selectedType', 'typeCounts', 'totalCount', 'types'));
     }
 
     /**

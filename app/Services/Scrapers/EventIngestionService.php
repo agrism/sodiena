@@ -3,6 +3,7 @@
 namespace App\Services\Scrapers;
 
 use App\Console\Commands\ConsolidateCategoriesCommand;
+use App\Enums\SourceType;
 use App\Models\Category;
 use App\Models\CategoryTranslation;
 use App\Models\Event;
@@ -349,7 +350,7 @@ class EventIngestionService
             }
 
             // Match by unique ticketing URL (e.g. Biļešu Paradīze, Biļešu Serviss, Aula, BezRindas)
-            if (!$existingEvent && !empty($dto->ticketUrl) && self::isTicketingSource($source->slug, $dto->ticketUrl)) {
+            if (!$existingEvent && !empty($dto->ticketUrl) && self::isTicketingSource($source->slug, $dto->ticketUrl, $source->type)) {
                 $cleanTicketUrl = strtok($dto->ticketUrl, '?');
                 $candidateByTicket = Event::withTrashed()
                     ->where(function ($q) use ($dto, $cleanTicketUrl) {
@@ -395,7 +396,7 @@ class EventIngestionService
                               ->where('end_at', '>=', $dto->startAt);
                         });
                 }
-                $sameDayEvents = $candidatesQuery->with('location')->get();
+                $sameDayEvents = $candidatesQuery->with(['location', 'source'])->get();
                 $cleanDto = preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower($dto->title, 'UTF-8'));
                 $dtoStems = $this->getLatvianWordStems($dto->title);
                 $dtoWords = array_values(array_filter(explode(' ', $cleanDto), fn ($w) => mb_strlen($w, 'UTF-8') > 2 && !in_array($w, ['un', 'par', 'ar', 'pie', 'uz', 'no', 'vai'])));
@@ -686,10 +687,16 @@ class EventIngestionService
                 }
 
                 // Intelligent field fusion
+                $dtoSourceType = $source->type instanceof SourceType ? $source->type : SourceType::OTHER;
+                $existingSource = $existingEvent->source;
+                $existingSourceType = ($existingSource && $existingSource->type instanceof SourceType)
+                    ? $existingSource->type
+                    : SourceType::OTHER;
+
                 $existingIsGeneric = self::isGenericPlaceholderImage($existingEvent->image_url);
                 $dtoIsGeneric = self::isGenericPlaceholderImage($dto->imageUrl);
-                $dtoIsTicketing = self::isTicketingSource($source->slug, $dto->ticketUrl);
-                $existingIsTicketing = self::isTicketingSource($existingEvent->source_slug, $existingEvent->ticket_url);
+                $dtoIsTicketing = self::isTicketingSource($source->slug, $dto->ticketUrl, $dtoSourceType);
+                $existingIsTicketing = self::isTicketingSource($existingEvent->source_slug, $existingEvent->ticket_url, $existingSourceType);
 
                 if (!$existingIsGeneric && $dtoIsGeneric) {
                     $finalImageUrl = $existingEvent->image_url;
@@ -697,6 +704,8 @@ class EventIngestionService
                     $finalImageUrl = $dto->imageUrl;
                 } elseif (!$existingIsGeneric && !$dtoIsGeneric) {
                     if ($dtoIsTicketing && !$existingIsTicketing) {
+                        $finalImageUrl = $dto->imageUrl;
+                    } elseif ($dtoSourceType->priority() > $existingSourceType->priority() && !empty($dto->imageUrl)) {
                         $finalImageUrl = $dto->imageUrl;
                     } else {
                         $finalImageUrl = $existingEvent->image_url ?: $dto->imageUrl;
@@ -712,6 +721,8 @@ class EventIngestionService
                 if ($dto->ticketUrl) {
                     if (empty($finalTicketUrl)) {
                         $finalTicketUrl = $dto->ticketUrl;
+                    } elseif ($dtoSourceType->ticketPriority() > $existingSourceType->ticketPriority()) {
+                        $finalTicketUrl = $dto->ticketUrl;
                     } elseif ($dtoIsTicketing && !$existingIsTicketing) {
                         $finalTicketUrl = $dto->ticketUrl;
                     } elseif ($existingEvent->source_id === $source->id) {
@@ -725,6 +736,9 @@ class EventIngestionService
                     if ($pMin === null && $pMax === null) {
                         $pMin = $dto->priceMin;
                         $pMax = $dto->priceMax;
+                    } elseif ($dtoSourceType->ticketPriority() > $existingSourceType->ticketPriority()) {
+                        $pMin = $dto->priceMin ?? $pMin;
+                        $pMax = $dto->priceMax ?? $pMax;
                     } elseif ($dtoIsTicketing && !$existingIsTicketing) {
                         $pMin = $dto->priceMin ?? $pMin;
                         $pMax = $dto->priceMax ?? $pMax;
@@ -746,6 +760,15 @@ class EventIngestionService
                     [$pMin, $pMax] = [$pMax, $pMin];
                 }
 
+                $finalLocationId = $existingEvent->location_id;
+                if ($locationId) {
+                    if (empty($finalLocationId)) {
+                        $finalLocationId = $locationId;
+                    } elseif ($dtoSourceType->locationPriority() > $existingSourceType->locationPriority()) {
+                        $finalLocationId = $locationId;
+                    }
+                }
+
                 $candIsLeague = self::isLeagueOrTournamentTitle($existingEvent->title);
                 $dtoIsLeague = self::isLeagueOrTournamentTitle($dto->title);
 
@@ -753,6 +776,8 @@ class EventIngestionService
                 if ($candIsLeague && !$dtoIsLeague && !empty($dto->title)) {
                     $finalTitle = $dto->title;
                 } elseif (!$candIsLeague && empty($finalTitle) && !empty($dto->title)) {
+                    $finalTitle = $dto->title;
+                } elseif ($dtoSourceType->priority() > $existingSourceType->priority() && !empty($dto->title)) {
                     $finalTitle = $dto->title;
                 } elseif ($existingEvent->source_id === $source->id && !empty($dto->title)) {
                     $finalTitle = $dto->title;
@@ -762,16 +787,18 @@ class EventIngestionService
                 $finalShortDesc = $existingEvent->short_description ?: $dto->shortDescription;
 
                 $finalSourceUrl = $existingEvent->source_url;
-                if (empty($finalSourceUrl) || ($dtoIsTicketing && !$existingIsTicketing)) {
+                if (empty($finalSourceUrl) || ($dtoIsTicketing && !$existingIsTicketing) || ($dtoSourceType->priority() > $existingSourceType->priority() && !empty($dto->sourceUrl))) {
                     $finalSourceUrl = $dto->sourceUrl ?: $finalSourceUrl;
                 }
 
+                $shouldAdoptAuthoritativeSource = ($dtoSourceType->priority() > $existingSourceType->priority());
+
                 // Update existing event details
                 $updateData = [
-                    'source_id' => $existingEvent->source_id ?: $source->id,
-                    'source_slug' => $existingEvent->source_slug ?: $source->slug,
+                    'source_id' => $shouldAdoptAuthoritativeSource ? $source->id : ($existingEvent->source_id ?: $source->id),
+                    'source_slug' => $shouldAdoptAuthoritativeSource ? $source->slug : ($existingEvent->source_slug ?: $source->slug),
                     'source_url' => $finalSourceUrl,
-                    'location_id' => $locationId ?: $existingEvent->location_id,
+                    'location_id' => $finalLocationId,
                     'start_at' => $dto->startAt ?: $existingEvent->start_at,
                     'end_at' => $dto->endAt ?: $existingEvent->end_at,
                     'image_url' => $finalImageUrl,
@@ -1291,6 +1318,11 @@ class EventIngestionService
             $score += 1.0;
         }
 
+        $candSourceType = $cand->source?->type;
+        if ($candSourceType instanceof SourceType) {
+            $score += $candSourceType->priority() / 20.0;
+        }
+
         return $score;
     }
 
@@ -1303,7 +1335,7 @@ class EventIngestionService
 
         // 1. Direct match by shared ticketing platform URL or external identifier
         if ($eventTicketUrl || $eventSourceUrl || $eventExternalId) {
-            $ticketCandidates = Event::with('translations')
+            $ticketCandidates = Event::with(['translations', 'source'])
                 ->whereHas('translations', function ($q) {
                     $q->whereNotNull('description')->where('description', '!=', '');
                 })
@@ -1332,7 +1364,7 @@ class EventIngestionService
         // First try same location, then try cross-location for multi-venue/cinema/theatre events
         $locationCandidate = null;
         if ($event->location_id) {
-            $locationCandidates = Event::with('translations')
+            $locationCandidates = Event::with(['translations', 'source'])
                 ->whereHas('translations', function ($q) {
                     $q->whereNotNull('description')->where('description', '!=', '');
                 })
@@ -1348,7 +1380,7 @@ class EventIngestionService
 
         // If no sibling found at same location or location candidate lacks LV description, search across other locations
         if (!empty($tokens)) {
-            $crossLocationCandidates = Event::with('translations')
+            $crossLocationCandidates = Event::with(['translations', 'source'])
                 ->whereHas('translations', function ($q) {
                     $q->whereNotNull('description')->where('description', '!=', '');
                 })
@@ -1634,8 +1666,12 @@ class EventIngestionService
         return $baseDesc;
     }
 
-    public static function isTicketingSource(?string $sourceSlug, ?string $ticketUrl = null): bool
+    public static function isTicketingSource(?string $sourceSlug, ?string $ticketUrl = null, ?SourceType $sourceType = null): bool
     {
+        if ($sourceType === SourceType::TICKETING) {
+            return true;
+        }
+
         $ticketingSlugs = [
             'passportix', 'bilesuparadize', 'bilesu-paradize', 'bilesuserviss',
             'bilesu-serviss', 'bezrindas', 'ticketbest', 'ticketshop', 'aula', 'fienta', 'ekase',
