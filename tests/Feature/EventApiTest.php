@@ -362,6 +362,7 @@ class EventApiTest extends TestCase
 
         $response->assertStatus(201)
             ->assertJsonPath('success', true)
+            ->assertJsonPath('location_id', $existing->id)
             ->assertJsonPath('data.location.id', $existing->id);
     }
 

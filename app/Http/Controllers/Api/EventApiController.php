@@ -623,6 +623,7 @@ class EventApiController extends Controller
                 'success' => true,
                 'message' => 'Event created successfully.',
                 'event_id' => $event->id,
+                'location_id' => $locationId,
                 'image_url' => $event->display_image_url,
                 'data' => new EventResource($event->fresh()),
             ], 201);
@@ -889,6 +890,7 @@ class EventApiController extends Controller
                 'success' => true,
                 'message' => 'Event updated successfully.',
                 'event_id' => $event->id,
+                'location_id' => $locationId,
                 'image_url' => $event->fresh()->display_image_url,
                 'data' => new EventResource($event->fresh()),
             ]);
