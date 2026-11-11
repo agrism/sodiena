@@ -208,6 +208,13 @@ class SourceSeeder extends Seeder
                 'scraper_class' => \App\Services\Scrapers\Sources\BasketLvScraper::class,
                 'is_active' => true,
             ],
+            [
+                'name' => 'Visit Ogre (visitogre.lv)',
+                'slug' => 'visitogre',
+                'url' => 'https://www.visitogre.lv/lv/pasakumi',
+                'scraper_class' => \App\Services\Scrapers\Sources\VisitOgreScraper::class,
+                'is_active' => true,
+            ],
         ];
 
         foreach ($sources as $s) {
