@@ -373,22 +373,40 @@
                             <!-- Actions: Run Scraper Now (HTMX) -->
                             <td class="py-3.5 px-4 text-right whitespace-nowrap">
                                 @if($log->source_id)
-                                    <form 
-                                        hx-post="{{ route('admin.sources.scrape', $log->source_id) }}" 
-                                        hx-target="#scrape-history-section" 
-                                        hx-swap="outerHTML"
-                                        hx-indicator="#history-loading-indicator"
-                                        hx-vals='{"log_date": "{{ $selectedDate }}", "status": "{{ $selectedStatus }}", "type": "{{ $selectedType }}"}'
-                                        class="inline-block">
-                                        @csrf
+                                    @if($log->isStarted())
                                         <button 
-                                            type="submit" 
-                                            class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-blue-600 hover:text-white text-slate-700 text-[11px] font-bold border border-slate-200 transition-colors shadow-2xs cursor-pointer disabled:opacity-50"
-                                            title="Palaist parsēšanu avotam '{{ $log->source?->name }}'">
-                                            <i data-lucide="refresh-cw" class="w-3 h-3"></i>
-                                            Palaist tagad
+                                            type="button" 
+                                            disabled
+                                            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 text-[11px] font-bold border border-blue-200 cursor-not-allowed opacity-90 shadow-2xs"
+                                            title="Parsēšanas process pašlaik tiek izpildīts">
+                                            <i data-lucide="loader-2" class="w-3 h-3 animate-spin text-blue-600"></i>
+                                            <span>Parsē...</span>
                                         </button>
-                                    </form>
+                                    @else
+                                        <form 
+                                            hx-post="{{ route('admin.sources.scrape', $log->source_id) }}" 
+                                            hx-target="#scrape-history-section" 
+                                            hx-swap="outerHTML"
+                                            hx-indicator="#history-loading-indicator"
+                                            hx-disabled-elt="find button"
+                                            hx-vals='{"log_date": "{{ $selectedDate }}", "status": "{{ $selectedStatus }}", "type": "{{ $selectedType }}"}'
+                                            class="inline-block">
+                                            @csrf
+                                            <button 
+                                                type="submit" 
+                                                class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-blue-600 hover:text-white text-slate-700 text-[11px] font-bold border border-slate-200 transition-colors shadow-2xs cursor-pointer disabled:opacity-80 disabled:cursor-wait disabled:bg-blue-50 disabled:text-blue-700 disabled:border-blue-200"
+                                                title="Palaist parsēšanu avotam '{{ $log->source?->name }}'">
+                                                <span class="htmx-normal inline-flex items-center gap-1">
+                                                    <i data-lucide="refresh-cw" class="w-3 h-3"></i>
+                                                    <span>Palaist tagad</span>
+                                                </span>
+                                                <span class="htmx-loading items-center gap-1 text-blue-700 font-bold">
+                                                    <i data-lucide="loader-2" class="w-3 h-3 animate-spin text-blue-600"></i>
+                                                    <span>Parsē...</span>
+                                                </span>
+                                            </button>
+                                        </form>
+                                    @endif
                                 @endif
                             </td>
                         </tr>

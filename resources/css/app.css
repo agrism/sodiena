@@ -70,6 +70,19 @@ html, body {
     pointer-events: auto;
 }
 
+/* HTMX button state transitions */
+.htmx-loading {
+    display: none !important;
+}
+.htmx-request .htmx-loading,
+.htmx-request.htmx-loading {
+    display: inline-flex !important;
+}
+.htmx-request .htmx-normal,
+.htmx-request.htmx-normal {
+    display: none !important;
+}
+
 /* Smooth fade on swap */
 .htmx-swapping {
     opacity: 0.5;

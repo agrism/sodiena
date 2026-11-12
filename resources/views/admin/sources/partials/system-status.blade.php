@@ -76,10 +76,16 @@
                     @csrf
                     <button type="submit" 
                             {{ $isTransRunning ? 'disabled' : '' }}
-                            class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl {{ $isTransRunning ? 'bg-blue-50 text-blue-600 cursor-not-allowed border border-blue-200' : 'bg-slate-100 hover:bg-blue-600 hover:text-white text-slate-800 border border-slate-200' }} font-bold text-xs transition-colors shadow-2xs cursor-pointer disabled:opacity-50" 
+                            class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl {{ $isTransRunning ? 'bg-blue-50 text-blue-600 cursor-not-allowed border border-blue-200' : 'bg-slate-100 hover:bg-blue-600 hover:text-white text-slate-800 border border-slate-200' }} font-bold text-xs transition-colors shadow-2xs cursor-pointer disabled:opacity-80 disabled:cursor-wait disabled:bg-blue-50 disabled:text-blue-700 disabled:border-blue-200" 
                             title="{{ $isTransRunning ? 'Process pašlaik darbojas' : 'Palaist tulkojumu sinhronizāciju uz EN un RU' }}">
-                        <i data-lucide="languages" class="w-3.5 h-3.5 {{ $isTransRunning ? 'animate-spin' : '' }}"></i>
-                        <span>{{ $isTransRunning ? 'Tulkošana procesā...' : 'Sinhronizēt tulkojumus' }}</span>
+                        <span class="htmx-normal inline-flex items-center gap-1.5">
+                            <i data-lucide="languages" class="w-3.5 h-3.5 {{ $isTransRunning ? 'animate-spin' : '' }}"></i>
+                            <span>{{ $isTransRunning ? 'Tulkošana procesā...' : 'Sinhronizēt tulkojumus' }}</span>
+                        </span>
+                        <span class="htmx-loading items-center gap-1.5 text-blue-700 font-bold">
+                            <i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin text-blue-600"></i>
+                            <span>Palaiž tulkošanu...</span>
+                        </span>
                     </button>
                 </form>
 
@@ -94,14 +100,20 @@
                     @csrf
                     <button type="submit" 
                             {{ $isImgRunning ? 'disabled' : '' }}
-                            class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl {{ $isImgRunning ? 'bg-emerald-50 text-emerald-600 cursor-not-allowed border border-emerald-200' : 'bg-slate-100 hover:bg-emerald-600 hover:text-white text-slate-800 border border-slate-200' }} font-bold text-xs transition-colors shadow-2xs cursor-pointer disabled:opacity-50" 
+                            class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl {{ $isImgRunning ? 'bg-emerald-50 text-emerald-600 cursor-not-allowed border border-emerald-200' : 'bg-slate-100 hover:bg-emerald-600 hover:text-white text-slate-800 border border-slate-200' }} font-bold text-xs transition-colors shadow-2xs cursor-pointer disabled:opacity-80 disabled:cursor-wait disabled:bg-emerald-50 disabled:text-emerald-700 disabled:border-emerald-200" 
                             title="{{ $isImgRunning ? 'Process pašlaik darbojas' : 'Lejupielādēt attēlus un saglabāt Hetzner S3 krātuvē' }}">
-                        <i data-lucide="image" class="w-3.5 h-3.5 {{ $isImgRunning ? 'animate-spin' : '' }}"></i>
-                        <span>
-                            {{ $isImgRunning ? 'Attēli procesā...' : 'Sinhronizēt attēlus' }}
-                            @if(!empty($pendingImagesCount) && $pendingImagesCount > 0)
-                                <span class="font-mono text-[11px] opacity-80">({{ $pendingImagesCount }})</span>
-                            @endif
+                        <span class="htmx-normal inline-flex items-center gap-1.5">
+                            <i data-lucide="image" class="w-3.5 h-3.5 {{ $isImgRunning ? 'animate-spin' : '' }}"></i>
+                            <span>
+                                {{ $isImgRunning ? 'Attēli procesā...' : 'Sinhronizēt attēlus' }}
+                                @if(!empty($pendingImagesCount) && $pendingImagesCount > 0)
+                                    <span class="font-mono text-[11px] opacity-80">({{ $pendingImagesCount }})</span>
+                                @endif
+                            </span>
+                        </span>
+                        <span class="htmx-loading items-center gap-1.5 text-emerald-700 font-bold">
+                            <i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin text-emerald-600"></i>
+                            <span>Palaiž sinhronizāciju...</span>
                         </span>
                     </button>
                 </form>
@@ -115,10 +127,16 @@
                     class="inline-block">
                     @csrf
                     <button type="submit" 
-                            class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-purple-600 hover:text-white text-slate-800 font-bold text-xs border border-slate-200 transition-colors shadow-2xs cursor-pointer disabled:opacity-50" 
+                            class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-purple-600 hover:text-white text-slate-800 font-bold text-xs border border-slate-200 transition-colors shadow-2xs cursor-pointer disabled:opacity-80 disabled:cursor-wait disabled:bg-purple-50 disabled:text-purple-700 disabled:border-purple-200" 
                             title="Pārlasīt visus pasākumus un nekavējoties atjaunot sitemap.xml">
-                        <i data-lucide="globe" class="w-3.5 h-3.5"></i>
-                        <span>Atjaunot sitemap</span>
+                        <span class="htmx-normal inline-flex items-center gap-1.5">
+                            <i data-lucide="globe" class="w-3.5 h-3.5"></i>
+                            <span>Atjaunot sitemap</span>
+                        </span>
+                        <span class="htmx-loading items-center gap-1.5 text-purple-700 font-bold">
+                            <i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin text-purple-600"></i>
+                            <span>Ģenerē sitemap...</span>
+                        </span>
                     </button>
                 </form>
             </div>

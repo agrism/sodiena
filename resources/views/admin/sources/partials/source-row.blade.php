@@ -109,10 +109,16 @@
                     @csrf
                     <button 
                         type="submit" 
-                        class="py-2 px-3 rounded-xl bg-slate-100 hover:bg-emerald-600 hover:text-white text-slate-800 font-bold text-xs flex items-center gap-1.5 border border-slate-200 transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shadow-2xs"
+                        class="py-2 px-3 rounded-xl bg-slate-100 hover:bg-emerald-600 hover:text-white text-slate-800 font-bold text-xs flex items-center gap-1.5 border border-slate-200 transition-all duration-200 cursor-pointer disabled:opacity-80 disabled:cursor-wait disabled:bg-blue-50 disabled:text-blue-700 disabled:border-blue-200 shadow-2xs"
                         title="Palaist parsēšanu avotam '{{ $source->name }}'">
-                        <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
-                        <span>Palaist</span>
+                        <span class="htmx-normal inline-flex items-center gap-1.5">
+                            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                            <span>Palaist</span>
+                        </span>
+                        <span class="htmx-loading items-center gap-1.5 text-blue-700 font-bold">
+                            <i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin text-blue-600"></i>
+                            <span>Parsē...</span>
+                        </span>
                     </button>
                 </form>
             </div>
@@ -196,9 +202,15 @@
                         @csrf
                         <button 
                             type="submit" 
-                            class="w-full py-2 px-3 rounded-xl bg-slate-900 hover:bg-emerald-600 text-white font-bold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-2xs">
-                            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
-                            Palaist parsēšanu tagad
+                            class="w-full py-2 px-3 rounded-xl bg-slate-900 hover:bg-emerald-600 text-white font-bold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer disabled:opacity-80 disabled:cursor-wait disabled:bg-blue-600 shadow-2xs">
+                            <span class="htmx-normal inline-flex items-center gap-2">
+                                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                                <span>Palaist parsēšanu tagad</span>
+                            </span>
+                            <span class="htmx-loading items-center gap-2 text-white font-bold">
+                                <i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i>
+                                <span>Parsēšana procesā...</span>
+                            </span>
                         </button>
                     </form>
                 </div>

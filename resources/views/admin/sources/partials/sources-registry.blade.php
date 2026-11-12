@@ -90,10 +90,16 @@
                     <input type="hidden" name="status" value="{{ $selectedStatus }}">
                 @endif
                 <button type="submit" 
-                        class="py-2 px-3.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs flex items-center gap-2 border border-slate-200 shadow-2xs transition-colors cursor-pointer disabled:opacity-50"
+                        class="py-2 px-3.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs flex items-center gap-2 border border-slate-200 shadow-2xs transition-colors cursor-pointer disabled:opacity-80 disabled:cursor-wait disabled:bg-blue-50 disabled:text-blue-700 disabled:border-blue-200"
                         title="Nolasa visus definētos skreiperus no koda (SourceSeeder) un reģistrē trūkstošos datubāzē">
-                    <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-blue-600"></i>
-                    <span>Sinhronizēt avotus no koda</span>
+                    <span class="htmx-normal inline-flex items-center gap-2">
+                        <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-blue-600"></i>
+                        <span>Sinhronizēt avotus no koda</span>
+                    </span>
+                    <span class="htmx-loading items-center gap-2 text-blue-700 font-bold">
+                        <i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin text-blue-600"></i>
+                        <span>Sinhronizē...</span>
+                    </span>
                 </button>
             </form>
         </div>
