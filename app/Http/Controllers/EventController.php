@@ -6,6 +6,7 @@ use App\Enums\SourceType;
 use App\Models\Category;
 use App\Models\Event;
 use App\Models\Location;
+use App\Models\ScrapeLog;
 use App\Models\Source;
 use App\Services\Scrapers\EventIngestionService;
 use Illuminate\Support\Facades\Cache;
@@ -146,46 +147,18 @@ class EventController extends Controller
     }
 
     /**
-     * Source Scraper Status Dashboard
+     * Source Scraper Status Dashboard & Logs by Day (Delegated to Admin\SourceController)
      */
     public function sources(Request $request): View
     {
-        $selectedType = $request->query('type');
-        $validType = SourceType::tryFrom((string) $selectedType);
-
-        $query = Source::with(['scrapeLogs' => function ($q) {
-            $q->take(5);
-        }])->withCount('events');
-
-        if ($validType) {
-            $query->where('type', $validType->value);
-        }
-
-        $sources = $query->orderBy('name')->get();
-
-        $typeCounts = Source::query()
-            ->selectRaw('type, count(*) as count')
-            ->groupBy('type')
-            ->pluck('count', 'type')
-            ->all();
-
-        $totalCount = array_sum($typeCounts);
-        $types = SourceType::cases();
-
-        return view('events.sources', compact('sources', 'selectedType', 'typeCounts', 'totalCount', 'types'));
+        return app(\App\Http\Controllers\Admin\SourceController::class)->index($request);
     }
 
     /**
-     * Trigger immediate scraper execution via HTMX
+     * Trigger immediate scraper execution via HTMX or standard POST (Delegated to Admin\SourceController)
      */
     public function triggerScrape(Source $source, EventIngestionService $service, Request $request)
     {
-        $log = $service->ingest($source);
-
-        if ($request->header('HX-Request')) {
-            return view('events.partials.source-card', ['source' => $source->fresh(['scrapeLogs'])]);
-        }
-
-        return redirect()->back()->with('status', "Avota {$source->name} parsēšana pabeigta!");
+        return app(\App\Http\Controllers\Admin\SourceController::class)->scrape($source, $service, $request);
     }
 }

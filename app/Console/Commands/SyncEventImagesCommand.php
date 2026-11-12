@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\Event;
 use App\Services\EventImageStorageService;
+use App\Services\SystemProcessService;
 use Illuminate\Console\Command;
 
 class SyncEventImagesCommand extends Command
@@ -30,7 +31,29 @@ class SyncEventImagesCommand extends Command
     /**
      * Execute the console command.
      */
-    public function handle(EventImageStorageService $imageService): int
+    public function handle(EventImageStorageService $imageService, SystemProcessService $processService): int
+    {
+        $specificId = $this->option('id');
+
+        // When running for a specific event ID, execute directly without acquiring global lock
+        if ($specificId) {
+            return $this->executeSync($imageService);
+        }
+
+        // Run batch with global lock to prevent overlapping executions
+        $res = $processService->runWithLock(SystemProcessService::PROCESS_SYNC_IMAGES, function () use ($imageService) {
+            return $this->executeSync($imageService);
+        });
+
+        if (!$res['executed']) {
+            $this->warn($res['message']);
+            return self::SUCCESS;
+        }
+
+        return $res['result'] ?? self::SUCCESS;
+    }
+
+    private function executeSync(EventImageStorageService $imageService): int
     {
         $specificId = $this->option('id');
         $limit = $this->option('limit') ? (int) $this->option('limit') : null;

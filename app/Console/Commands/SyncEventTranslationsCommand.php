@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\Event;
 use App\Models\EventTranslation;
 use App\Services\Scrapers\EventIngestionService;
+use App\Services\SystemProcessService;
 use App\Services\TranslationService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
@@ -17,7 +18,9 @@ class SyncEventTranslationsCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'events:sync-translations {--dry-run : Only display what would be synced without saving}';
+    protected $signature = 'events:sync-translations 
+                            {--dry-run : Only display what would be synced without saving}
+                            {--limit= : Maximum number of events to process}';
 
     /**
      * The console command description.
@@ -29,7 +32,27 @@ class SyncEventTranslationsCommand extends Command
     /**
      * Execute the console command.
      */
-    public function handle(EventIngestionService $ingestionService, TranslationService $translationService): int
+    public function handle(EventIngestionService $ingestionService, TranslationService $translationService, SystemProcessService $processService): int
+    {
+        $dryRun = (bool) $this->option('dry-run');
+
+        if ($dryRun) {
+            return $this->executeTranslations($ingestionService, $translationService);
+        }
+
+        $res = $processService->runWithLock(SystemProcessService::PROCESS_SYNC_TRANSLATIONS, function () use ($ingestionService, $translationService) {
+            return $this->executeTranslations($ingestionService, $translationService);
+        });
+
+        if (!$res['executed']) {
+            $this->warn($res['message']);
+            return self::SUCCESS;
+        }
+
+        return $res['result'] ?? self::SUCCESS;
+    }
+
+    private function executeTranslations(EventIngestionService $ingestionService, TranslationService $translationService): int
     {
         $dryRun = (bool) $this->option('dry-run');
         $this->info('Starting event translations verification and synchronization (active & upcoming events only)...');
@@ -43,6 +66,11 @@ class SyncEventTranslationsCommand extends Command
         })->with('translations', 'location')->get();
 
         $this->info("Found {$events->count()} active/upcoming events to verify.");
+
+        if ($limit = $this->option('limit')) {
+            $events = $events->take((int) $limit);
+            $this->info("Limiting processing to {$events->count()} events as requested.");
+        }
 
         $updatedCount = 0;
         $fixedLangCount = 0;

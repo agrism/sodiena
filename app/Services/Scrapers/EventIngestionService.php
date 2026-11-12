@@ -30,6 +30,30 @@ class EventIngestionService
         $failedCount = 0;
         $errors = [];
 
+        // 1. Immediately create ScrapeLog with status = 'started' so admin sees in-progress status
+        $log = null;
+        try {
+            $log = ScrapeLog::create([
+                'source_id' => $source->id,
+                'status' => 'started',
+                'items_found' => 0,
+                'items_created' => 0,
+                'items_updated' => 0,
+                'duration_seconds' => 0,
+                'errors' => null,
+                'started_at' => $startedAt,
+                'completed_at' => null,
+            ]);
+
+            $source->update([
+                'last_scraped_at' => $startedAt,
+                'last_status' => 'started',
+                'last_error' => null,
+            ]);
+        } catch (\Throwable $initEx) {
+            Log::warning("Could not initialize ScrapeLog with started status for {$source->name}: " . $initEx->getMessage());
+        }
+
         try {
             /** @var EventScraperInterface $scraper */
             $scraper = app()->make($source->scraper_class);
@@ -52,20 +76,10 @@ class EventIngestionService
                     ]);
                 }
             }
-
-            $source->update([
-                'last_scraped_at' => now(),
-                'last_status' => empty($errors) ? 'success' : 'partial',
-            ]);
         } catch (\Throwable $e) {
             $failedCount++;
             $errors[] = "Scraper execution failed: " . $e->getMessage();
             Log::error("Source scrape failed entirely for {$source->name}", ['exception' => $e]);
-
-            $source->update([
-                'last_scraped_at' => now(),
-                'last_status' => 'failed',
-            ]);
         }
 
         $duration = microtime(true) - $startTime;
@@ -77,17 +91,58 @@ class EventIngestionService
             }, array_slice($errors, 0, 15));
         }
 
-        return ScrapeLog::create([
-            'source_id' => $source->id,
-            'items_found' => $scrapedCount,
-            'items_created' => $createdCount,
-            'items_updated' => $updatedCount,
-            'duration_seconds' => round($duration, 2),
-            'status' => empty($errors) ? 'success' : ($createdCount > 0 || $updatedCount > 0 ? 'partial' : 'failed'),
-            'errors' => $cleanErrors,
-            'started_at' => $startedAt,
-            'completed_at' => now(),
-        ]);
+        $finalStatus = empty($errors) ? 'success' : ($createdCount > 0 || $updatedCount > 0 ? 'partial' : 'failed');
+        $primaryError = !empty($cleanErrors) ? Str::limit($cleanErrors[0], 500) : null;
+
+        try {
+            $source->update([
+                'last_scraped_at' => now(),
+                'last_status' => $finalStatus,
+                'last_error' => $primaryError,
+            ]);
+        } catch (\Throwable $updateEx) {
+            Log::warning("Could not update last_status for {$source->name}: " . $updateEx->getMessage());
+        }
+
+        try {
+            if ($log && $log->exists) {
+                $log->update([
+                    'status' => $finalStatus,
+                    'items_found' => $scrapedCount,
+                    'items_created' => $createdCount,
+                    'items_updated' => $updatedCount,
+                    'duration_seconds' => round($duration, 2),
+                    'errors' => $cleanErrors,
+                    'completed_at' => now(),
+                ]);
+                return $log->fresh();
+            }
+
+            return ScrapeLog::create([
+                'source_id' => $source->id,
+                'items_found' => $scrapedCount,
+                'items_created' => $createdCount,
+                'items_updated' => $updatedCount,
+                'duration_seconds' => round($duration, 2),
+                'status' => $finalStatus,
+                'errors' => $cleanErrors,
+                'started_at' => $startedAt,
+                'completed_at' => now(),
+            ]);
+        } catch (\Throwable $logEx) {
+            Log::error("Failed saving ScrapeLog for {$source->name}: " . $logEx->getMessage());
+            return new ScrapeLog([
+                'source_id' => $source->id,
+                'items_found' => $scrapedCount,
+                'items_created' => $createdCount,
+                'items_updated' => $updatedCount,
+                'duration_seconds' => round($duration, 2),
+                'status' => $finalStatus,
+                'errors' => array_merge($cleanErrors ?? [], [$logEx->getMessage()]),
+                'started_at' => $startedAt,
+                'completed_at' => now(),
+            ]);
+        }
     }
 
     public function ingestDTO(ScrapedEventDTO $dto, Source $source): string

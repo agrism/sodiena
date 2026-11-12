@@ -266,13 +266,13 @@ class SourceTypeRegistryTest extends TestCase
         ]);
 
         // Filter by venue
-        $response = $this->actingAs($user)->get(route('events.sources', ['type' => 'venue']));
+        $response = $this->actingAs($user)->get(route('admin.sources.index', ['type' => 'venue']));
         $response->assertStatus(200);
         $response->assertSee('Venue Alpha');
         $response->assertDontSee('Ticketing Beta');
 
         // All sources
-        $allResponse = $this->actingAs($user)->get(route('events.sources'));
+        $allResponse = $this->actingAs($user)->get(route('admin.sources.index'));
         $allResponse->assertStatus(200);
         $allResponse->assertSee('Venue Alpha');
         $allResponse->assertSee('Ticketing Beta');

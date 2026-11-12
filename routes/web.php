@@ -72,10 +72,21 @@ Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->n
 
 // Administrator Routes (Protected by role:admin)
 Route::middleware(['auth', 'role:admin'])->group(function () {
-    // Sources & Scraper management
-    Route::get('/sources', [EventController::class, 'sources'])->name('events.sources');
-    Route::get('/admin/sources', [EventController::class, 'sources']);
-    Route::post('/sources/{source}/scrape', [EventController::class, 'triggerScrape'])->name('events.scrape');
+    // Sources & Scraper management (Admin Sector)
+    Route::get('/admin/sources', [\App\Http\Controllers\Admin\SourceController::class, 'index'])->name('admin.sources.index');
+    Route::post('/admin/sources/{source}/scrape', [\App\Http\Controllers\Admin\SourceController::class, 'scrape'])->name('admin.sources.scrape');
+    Route::post('/admin/sources/sync-registry', [\App\Http\Controllers\Admin\SourceController::class, 'syncRegistry'])->name('admin.sources.sync-registry');
+
+    // System synchronization tools
+    Route::post('/admin/tools/sync-translations', [\App\Http\Controllers\Admin\SourceController::class, 'syncTranslations'])->name('admin.tools.sync-translations');
+    Route::post('/admin/tools/sync-images', [\App\Http\Controllers\Admin\SourceController::class, 'syncImages'])->name('admin.tools.sync-images');
+    Route::post('/admin/tools/refresh-sitemap', [\App\Http\Controllers\Admin\SourceController::class, 'refreshSitemap'])->name('admin.tools.refresh-sitemap');
+
+    // Legacy redirects / aliases to ensure backwards compatibility
+    Route::get('/sources', function (\Illuminate\Http\Request $request) {
+        return redirect()->route('admin.sources.index', $request->query());
+    })->name('events.sources');
+    Route::post('/sources/{source}/scrape', [\App\Http\Controllers\Admin\SourceController::class, 'scrape'])->name('events.scrape');
 
     // Events Data Grid (Excel style review) & Publication Management
     Route::get('/admin/events', [\App\Http\Controllers\Admin\EventController::class, 'index'])->name('admin.events.index');

@@ -92,10 +92,10 @@
 
                 <!-- Sources & Robots -->
                 <li>
-                    <a href="{{ route('events.sources') }}" 
-                       class="eds-menu-link flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all {{ request()->routeIs('events.sources') ? 'bg-[#002855] text-white shadow-sm' : 'text-slate-700 hover:bg-slate-100 hover:text-[#002855]' }}">
+                    <a href="{{ route('admin.sources.index') }}" 
+                       class="eds-menu-link flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all {{ request()->routeIs('admin.sources.*') || request()->routeIs('events.sources') ? 'bg-[#002855] text-white shadow-sm' : 'text-slate-700 hover:bg-slate-100 hover:text-[#002855]' }}">
                         <div class="flex items-center gap-2.5">
-                            <i data-lucide="bot" class="w-4 h-4 {{ request()->routeIs('events.sources') ? 'text-cyan-300' : 'text-slate-500' }}"></i>
+                            <i data-lucide="bot" class="w-4 h-4 {{ request()->routeIs('admin.sources.*') || request()->routeIs('events.sources') ? 'text-cyan-300' : 'text-slate-500' }}"></i>
                             <span>Avoti un roboti</span>
                         </div>
                     </a>
@@ -313,7 +313,7 @@
                 </a>
 
                 <!-- Sources & Scrapers -->
-                <a href="{{ route('events.sources') }}" 
+                <a href="{{ route('admin.sources.index') }}" 
                    onclick="toggleUserSidebar()"
                    class="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-200 hover:border-[#002855] hover:bg-blue-50/50 transition-all group">
                     <div class="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center group-hover:bg-emerald-700 group-hover:text-white transition-colors">
