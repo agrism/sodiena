@@ -134,6 +134,14 @@ class SiguldaNovadsScraperTest extends TestCase
         $loc11 = $scraper->resolveLocationMeta('Kino Lora');
         $this->assertEquals('Kino Lora', $loc11['name']);
         $this->assertEquals('cinema', $loc11['place_type']);
+
+        $loc12 = $scraper->resolveLocationMeta('Bobsleja un kamaniņu trase "Sigulda"');
+        $this->assertEquals('Bobsleja un kamaniņu trase "Sigulda"', $loc12['name']);
+        $this->assertEquals('Šveices iela 13, Sigulda, LV-2150', $loc12['address']);
+
+        $loc13 = $scraper->resolveLocationMeta('KLIKK centrs');
+        $this->assertEquals('KLIKK centrs', $loc13['name']);
+        $this->assertEquals('Lauku iela 9, Sigulda, LV-2150', $loc13['address']);
     }
 
     public function test_resolve_categories_strict_cinema_rules(): void

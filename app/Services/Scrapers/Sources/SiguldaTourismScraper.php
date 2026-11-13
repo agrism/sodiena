@@ -38,11 +38,39 @@ class SiguldaTourismScraper extends BaseScraper
             'place_type' => 'concert_hall',
         ],
         'šveices iela 13' => [
-            'name' => 'Siguldas Valsts ģimnāzija',
+            'name' => 'Bobsleja un kamaniņu trase "Sigulda"',
             'city' => 'Sigulda',
             'region' => 'Vidzeme',
             'address' => 'Šveices iela 13, Sigulda, LV-2150',
+            'place_type' => 'sports_complex',
+        ],
+        'ata kronvalda iela 7' => [
+            'name' => 'Siguldas Valsts ģimnāzija',
+            'city' => 'Sigulda',
+            'region' => 'Vidzeme',
+            'address' => 'Ata Kronvalda iela 7, Sigulda, LV-2150',
             'place_type' => 'school',
+        ],
+        'bobsleja un kamaniņu trase' => [
+            'name' => 'Bobsleja un kamaniņu trase "Sigulda"',
+            'city' => 'Sigulda',
+            'region' => 'Vidzeme',
+            'address' => 'Šveices iela 13, Sigulda, LV-2150',
+            'place_type' => 'sports_complex',
+        ],
+        'kamaniņu trase' => [
+            'name' => 'Bobsleja un kamaniņu trase "Sigulda"',
+            'city' => 'Sigulda',
+            'region' => 'Vidzeme',
+            'address' => 'Šveices iela 13, Sigulda, LV-2150',
+            'place_type' => 'sports_complex',
+        ],
+        'bobsleja trase' => [
+            'name' => 'Bobsleja un kamaniņu trase "Sigulda"',
+            'city' => 'Sigulda',
+            'region' => 'Vidzeme',
+            'address' => 'Šveices iela 13, Sigulda, LV-2150',
+            'place_type' => 'sports_complex',
         ],
         'turaidas iela 10' => [
             'name' => 'Turaidas muzejrezervāts',
@@ -150,11 +178,18 @@ class SiguldaTourismScraper extends BaseScraper
             'place_type' => 'cinema',
         ],
         'lauku iela 9' => [
-            'name' => 'Siguldas Mākslu skola "Baltais Flīģelis"',
+            'name' => 'KLIKK centrs',
             'city' => 'Sigulda',
             'region' => 'Vidzeme',
             'address' => 'Lauku iela 9, Sigulda, LV-2150',
-            'place_type' => 'school',
+            'place_type' => 'sports_complex',
+        ],
+        'klikk' => [
+            'name' => 'KLIKK centrs',
+            'city' => 'Sigulda',
+            'region' => 'Vidzeme',
+            'address' => 'Lauku iela 9, Sigulda, LV-2150',
+            'place_type' => 'sports_complex',
         ],
         'mednieku iela 3' => [
             'name' => 'Siguldas novada Jaunrades centrs',
@@ -287,7 +322,7 @@ class SiguldaTourismScraper extends BaseScraper
         $imageUrl = $details['imageUrl'] ?: $this->normalizeUrl($cardImage);
         $rawAddress = $details['addressText'];
 
-        $locationMeta = $this->resolveLocationMeta($rawAddress, $title, $details['venueFromContent']);
+        $locationMeta = $this->resolveLocationMeta($rawAddress, $title, $details['venueFromContent'], $details['description']);
         if ($details['latitude'] && $details['longitude']) {
             $locationMeta['latitude'] = $details['latitude'];
             $locationMeta['longitude'] = $details['longitude'];
@@ -436,6 +471,19 @@ class SiguldaTourismScraper extends BaseScraper
                 $venueLink = $article->filter('a[href*="/objects/"]');
                 if ($venueLink->count()) {
                     $venueFromContent = $this->cleanText($venueLink->first()->text());
+                }
+
+                $mapsLink = $crawler->filter('section.widget.contacts.address a[href*="maps"]');
+                if ($mapsLink->count() && !$venueFromContent) {
+                    $mapsHref = $mapsLink->first()->attr('href') ?? '';
+                    if (preg_match('/maps\/place\/([^\/@?#]+)/', $mapsHref, $mPlace)) {
+                        $mapsPlace = urldecode(str_replace('+', ' ', $mPlace[1]));
+                        if (stripos($mapsPlace, 'klikk') !== false) {
+                            $venueFromContent = 'KLIKK centrs';
+                        } elseif (stripos($mapsPlace, 'bobsleigh') !== false || stripos($mapsPlace, 'luge') !== false || stripos($mapsPlace, 'kamaniņ') !== false) {
+                            $venueFromContent = 'Bobsleja un kamaniņu trase "Sigulda"';
+                        }
+                    }
                 }
 
                 $description = $this->cleanText($article->html());
@@ -634,7 +682,7 @@ class SiguldaTourismScraper extends BaseScraper
     /**
      * Resolve location, venue name, and city
      */
-    public function resolveLocationMeta(?string $addressRaw, ?string $title = '', ?string $venueFromContent = null): array
+    public function resolveLocationMeta(?string $addressRaw, ?string $title = '', ?string $venueFromContent = null, ?string $description = null): array
     {
         $default = [
             'name' => $venueFromContent ?: 'Sigulda',
@@ -648,6 +696,28 @@ class SiguldaTourismScraper extends BaseScraper
 
         $addrLower = mb_strtolower(trim($addressRaw ?? ''), 'UTF-8');
         $titleLower = mb_strtolower(trim($title ?? ''), 'UTF-8');
+        $descLower = mb_strtolower(trim($description ?? ''), 'UTF-8');
+
+        // Check if venue is directly identified by content / maps / title keywords
+        if (str_contains($titleLower, 'kamaniņ') || str_contains($titleLower, 'bobslej') || str_contains($descLower, 'kamaniņu trase') || str_contains($descLower, 'bobsleja trase') || str_contains($addrLower, 'šveices iela 13')) {
+            return array_merge($default, [
+                'name' => 'Bobsleja un kamaniņu trase "Sigulda"',
+                'city' => 'Sigulda',
+                'region' => 'Vidzeme',
+                'address' => 'Šveices iela 13, Sigulda, LV-2150',
+                'place_type' => 'sports_complex',
+            ]);
+        }
+
+        if (str_contains($titleLower, 'klikk') || str_contains($descLower, 'klikk') || str_contains($addrLower, 'lauku iela 9')) {
+            return array_merge($default, [
+                'name' => 'KLIKK centrs',
+                'city' => 'Sigulda',
+                'region' => 'Vidzeme',
+                'address' => 'Lauku iela 9, Sigulda, LV-2150',
+                'place_type' => 'sports_complex',
+            ]);
+        }
 
         // Check dictionary lookup
         foreach ($this->venueAddressMap as $key => $meta) {

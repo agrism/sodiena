@@ -130,6 +130,17 @@ class SiguldaTourismScraperTest extends TestCase
         $loc5 = $scraper->resolveLocationMeta('Strēlnieku iela 2, Sigulda');
         $this->assertEquals('Kino Lora', $loc5['name']);
         $this->assertEquals('cinema', $loc5['place_type']);
+
+        $loc6 = $scraper->resolveLocationMeta('Šveices iela 13, Sigulda', 'Eberspächer pasaules kauss kamaniņu sportā');
+        $this->assertEquals('Bobsleja un kamaniņu trase "Sigulda"', $loc6['name']);
+        $this->assertEquals('sports_complex', $loc6['place_type']);
+
+        $loc7 = $scraper->resolveLocationMeta('Lauku iela 9, Sigulda', 'Baltic E-Sprint Cup');
+        $this->assertEquals('KLIKK centrs', $loc7['name']);
+        $this->assertEquals('sports_complex', $loc7['place_type']);
+
+        $loc8 = $scraper->resolveLocationMeta('Ata Kronvalda iela 7, Sigulda');
+        $this->assertEquals('Siguldas Valsts ģimnāzija', $loc8['name']);
     }
 
     public function test_resolve_categories_strict_cinema_rules(): void

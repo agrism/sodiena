@@ -925,6 +925,8 @@ class EventIngestionService
                         $finalLocationId = $locationId;
                     } elseif ($dtoSourceType->locationPriority() > $existingSourceType->locationPriority()) {
                         $finalLocationId = $locationId;
+                    } elseif ($existingEvent->source_id === $source->id) {
+                        $finalLocationId = $locationId;
                     }
                 }
 
