@@ -333,3 +333,4 @@ HTML;
         $this->assertTrue($event->categories->pluck('slug')->contains('svētki') || $event->categories->pluck('slug')->contains('svetki'));
     }
 }
+
