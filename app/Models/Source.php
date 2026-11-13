@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\SourceType;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -25,19 +26,17 @@ class Source extends Model
     ];
 
     protected $casts = [
-        'type' => SourceType::class,
         'is_active' => 'boolean',
         'last_scraped_at' => 'datetime',
         'settings' => 'array',
     ];
 
-    public function getTypeAttribute($value): SourceType
+    protected function type(): Attribute
     {
-        if ($value instanceof SourceType) {
-            return $value;
-        }
-
-        return SourceType::tryFrom((string) $value) ?? SourceType::OTHER;
+        return Attribute::make(
+            get: fn ($value) => ($value instanceof SourceType ? $value : SourceType::tryFrom((string) $value)) ?? SourceType::OTHER,
+            set: fn ($value) => $value instanceof SourceType ? $value->value : (is_string($value) ? $value : null),
+        );
     }
 
     public function events(): HasMany
