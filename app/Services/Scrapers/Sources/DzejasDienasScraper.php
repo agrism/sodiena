@@ -20,7 +20,7 @@ class DzejasDienasScraper extends BaseScraper
 
     public function getName(): string
     {
-        return 'Dzejas dienas (Programma)';
+        return 'Dzejas dienas';
     }
 
     public function scrape(Source $source): Collection

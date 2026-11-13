@@ -19,7 +19,7 @@ class BasketLvScraperTest extends TestCase
     {
         $scraper = new BasketLvScraper();
         $this->assertEquals('basket-lv', $scraper->getSlug());
-        $this->assertEquals('Latvijas Basketbola Savienība (basket.lv)', $scraper->getName());
+        $this->assertEquals('Latvijas Basketbola Savienība', $scraper->getName());
         $this->assertEquals('https://sodiena.hel1.your-objectstorage.com/leagues/ramirent-nbl.webp', BasketLvScraper::DEFAULT_IMAGE_NBL);
         $this->assertEquals('https://sodiena.hel1.your-objectstorage.com/leagues/sbbl.webp', BasketLvScraper::DEFAULT_IMAGE_SBBL);
     }

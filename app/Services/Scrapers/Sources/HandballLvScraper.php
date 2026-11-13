@@ -20,7 +20,7 @@ class HandballLvScraper extends BaseScraper
 
     public function getName(): string
     {
-        return 'Latvijas Handbola Federācija (handball.lv)';
+        return 'Latvijas Handbola Federācija';
     }
 
     /**

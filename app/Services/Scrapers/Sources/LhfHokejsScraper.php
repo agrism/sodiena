@@ -23,7 +23,7 @@ class LhfHokejsScraper extends BaseScraper
 
     public function getName(): string
     {
-        return 'Latvijas Hokeja Federācija (lhf.lv)';
+        return 'Latvijas Hokeja Federācija';
     }
 
     /**

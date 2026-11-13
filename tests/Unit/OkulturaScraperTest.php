@@ -21,7 +21,7 @@ class OkulturaScraperTest extends TestCase
     {
         $scraper = new OkulturaScraper();
         $this->assertEquals('okultura', $scraper->getSlug());
-        $this->assertEquals('Ogres novada Kultūras centrs (okultura.lv)', $scraper->getName());
+        $this->assertEquals('Ogres novada Kultūras centrs', $scraper->getName());
         $this->assertEquals('https://www.okultura.lv', OkulturaScraper::BASE_URL);
         $this->assertEquals('/lv/pasakumi', OkulturaScraper::EVENTS_PATH);
     }

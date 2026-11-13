@@ -20,7 +20,7 @@ class EkaseLvScraperTest extends TestCase
     {
         $scraper = new EkaseLvScraper();
         $this->assertEquals('ekase', $scraper->getSlug());
-        $this->assertEquals('eKase (ekase.lv)', $scraper->getName());
+        $this->assertEquals('eKase', $scraper->getName());
         $this->assertEquals('https://ekase.lv/img/ekase-logo.svg', EkaseLvScraper::DEFAULT_IMAGE);
         $this->assertEquals('https://ekase.lv', EkaseLvScraper::BASE_URL);
         $this->assertEquals('https://ekase.lv/lv/events/program', EkaseLvScraper::PROGRAM_URL);

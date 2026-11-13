@@ -20,7 +20,7 @@ class VolejbolsLvScraperTest extends TestCase
     {
         $scraper = new VolejbolsLvScraper();
         $this->assertEquals('volejbols-lv', $scraper->getSlug());
-        $this->assertEquals('Latvijas Volejbola Federācija (volejbols.lv)', $scraper->getName());
+        $this->assertEquals('Latvijas Volejbola Federācija', $scraper->getName());
         $this->assertEquals('https://sodiena.hel1.your-objectstorage.com/leagues/volejbols.webp', VolejbolsLvScraper::DEFAULT_IMAGE);
     }
 

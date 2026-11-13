@@ -178,7 +178,7 @@ class EkaseLvScraper extends BaseScraper
 
     public function getName(): string
     {
-        return 'eKase (ekase.lv)';
+        return 'eKase';
     }
 
     public function scrape(Source $source): Collection

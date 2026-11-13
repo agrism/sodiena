@@ -19,7 +19,7 @@ class BezRindasScraperTest extends TestCase
     {
         $scraper = new BezRindasScraper();
         $this->assertEquals('bezrindas', $scraper->getSlug());
-        $this->assertEquals('BezRindas.lv (Visi pasākumi)', $scraper->getName());
+        $this->assertEquals('BezRindas.lv', $scraper->getName());
     }
 
     public function test_bezrindas_parse_event_page(): void

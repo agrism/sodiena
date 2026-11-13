@@ -575,11 +575,8 @@
         ? $event->end_at->toIso8601String() 
         : ($event->start_at ? ($event->all_day ? $event->start_at->copy()->endOfDay()->toIso8601String() : $event->start_at->copy()->addHours(2)->toIso8601String()) : null);
 
-    $sourceName = $event->source?->name ?? '';
-    $isAggregatorSource = preg_match('/(api|scraper|bezrindas|paradize|serviss|afiro)/i', $sourceName);
-    $organizerName = (!$isAggregatorSource && !empty($sourceName)) 
-        ? $sourceName 
-        : ($event->location?->name ?: 'Šodiena');
+    $organizerName = $event->organizer_display_name 
+        ?: ($event->location?->name ?: config('app.name', 'Šodiena'));
 
     $schemaData = [
         '@context' => 'https://schema.org',

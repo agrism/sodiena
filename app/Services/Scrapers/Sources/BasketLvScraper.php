@@ -38,7 +38,7 @@ class BasketLvScraper extends BaseScraper
 
     public function getName(): string
     {
-        return 'Latvijas Basketbola Savienība (basket.lv)';
+        return 'Latvijas Basketbola Savienība';
     }
 
     /**

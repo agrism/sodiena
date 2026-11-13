@@ -43,7 +43,7 @@ class SourceSeeder extends Seeder
     {
         $sources = [
             [
-                'name' => 'BezRindas.lv (Visi pasākumi)',
+                'name' => 'BezRindas.lv',
                 'slug' => 'bezrindas',
                 'url' => 'https://www.bezrindas.lv/lv/visi-pasakumi',
                 'scraper_class' => BezRindasScraper::class,
@@ -51,7 +51,7 @@ class SourceSeeder extends Seeder
                 'is_active' => true,
             ],
             [
-                'name' => 'Afiro Pasākumu API (Latvija & Rīga)',
+                'name' => 'Afiro Pasākumu API',
                 'slug' => 'afiro-api',
                 'url' => 'https://api.afiro.lv/events',
                 'scraper_class' => AfiroApiScraper::class,
@@ -59,7 +59,7 @@ class SourceSeeder extends Seeder
                 'is_active' => true,
             ],
             [
-                'name' => 'Kultūras Dati (Valsts Notikumu Reģistrs)',
+                'name' => 'Kultūras Dati',
                 'slug' => 'kulturas-dati',
                 'url' => 'https://www.kulturadati.lv/notikumi',
                 'scraper_class' => KulturasDatiScraper::class,
@@ -83,7 +83,7 @@ class SourceSeeder extends Seeder
                 'is_active' => true,
             ],
             [
-                'name' => 'Live Riga & Pasākumi',
+                'name' => 'Live Riga',
                 'slug' => 'live-riga',
                 'url' => 'https://www.liveriga.com/lv/apmekle/pasakumi',
                 'scraper_class' => LiveRigaScraper::class,
@@ -131,7 +131,7 @@ class SourceSeeder extends Seeder
                 'is_active' => true,
             ],
             [
-                'name' => 'Daugavpils valstspilsēta (Afiša)',
+                'name' => 'Daugavpils valstspilsēta',
                 'slug' => 'daugavpils-dome',
                 'url' => 'https://www.daugavpils.lv/afisa/',
                 'scraper_class' => DaugavpilsScraper::class,
@@ -147,7 +147,7 @@ class SourceSeeder extends Seeder
                 'is_active' => true,
             ],
             [
-                'name' => 'TicketBest (ticketbest.lv)',
+                'name' => 'TicketBest',
                 'slug' => 'ticketbest',
                 'url' => 'https://ticketbest.lv/',
                 'scraper_class' => TicketBestLvScraper::class,
@@ -155,7 +155,7 @@ class SourceSeeder extends Seeder
                 'is_active' => true,
             ],
             [
-                'name' => 'eKase (ekase.lv)',
+                'name' => 'eKase',
                 'slug' => 'ekase',
                 'url' => 'https://ekase.lv/lv/events/program',
                 'scraper_class' => EkaseLvScraper::class,
@@ -163,7 +163,7 @@ class SourceSeeder extends Seeder
                 'is_active' => true,
             ],
             [
-                'name' => 'Fienta (fienta.com)',
+                'name' => 'Fienta',
                 'slug' => 'fienta',
                 'url' => 'https://fienta.com/lv',
                 'scraper_class' => FientaScraper::class,
@@ -171,7 +171,7 @@ class SourceSeeder extends Seeder
                 'is_active' => true,
             ],
             [
-                'name' => 'Aula (aula.lv)',
+                'name' => 'Aula',
                 'slug' => 'aula',
                 'url' => 'https://www.aula.lv/visi',
                 'scraper_class' => AulaLvScraper::class,
@@ -203,7 +203,7 @@ class SourceSeeder extends Seeder
                 'is_active' => true,
             ],
             [
-                'name' => 'Tonybet Virslīga (LFF)',
+                'name' => 'Tonybet Virslīga',
                 'slug' => 'lff-virsliga',
                 'url' => 'https://lff.lv/sacensibas/viriesi/virsliga/?tab=content_1_1',
                 'scraper_class' => LffVirsligaScraper::class,
@@ -211,7 +211,7 @@ class SourceSeeder extends Seeder
                 'is_active' => true,
             ],
             [
-                'name' => 'Optibet Telpu futbola Virslīga (LFF)',
+                'name' => 'Optibet Telpu futbola Virslīga',
                 'slug' => 'lff-telpu-futbols',
                 'url' => 'https://lff.lv/sacensibas/telpu-futbols/virsliga/?tab=content_1_2',
                 'scraper_class' => LffTelpuFutbolsScraper::class,
@@ -219,7 +219,7 @@ class SourceSeeder extends Seeder
                 'is_active' => true,
             ],
             [
-                'name' => 'Latvijas Handbola Federācija (handball.lv)',
+                'name' => 'Latvijas Handbola Federācija',
                 'slug' => 'handball-lv',
                 'url' => 'https://handball.lv/league/1278/calendar',
                 'scraper_class' => HandballLvScraper::class,
@@ -227,7 +227,7 @@ class SourceSeeder extends Seeder
                 'is_active' => true,
             ],
             [
-                'name' => 'Latvijas Florbola Savienība (floorball.lv)',
+                'name' => 'Latvijas Florbola Savienība',
                 'slug' => 'floorball-lv',
                 'url' => 'https://www.floorball.lv/lv/2026/chempionats/vv/kalendars',
                 'scraper_class' => FloorballLvScraper::class,
@@ -235,7 +235,7 @@ class SourceSeeder extends Seeder
                 'is_active' => true,
             ],
             [
-                'name' => 'Latvijas Hokeja Federācija (LHF)',
+                'name' => 'Latvijas Hokeja Federācija',
                 'slug' => 'lhf-hokejs',
                 'url' => 'https://www.lhf.lv/lv/turniri/optibet-hokeja-liga/speles',
                 'scraper_class' => LhfHokejsScraper::class,
@@ -243,7 +243,7 @@ class SourceSeeder extends Seeder
                 'is_active' => true,
             ],
             [
-                'name' => 'Latvijas Volejbola Federācija (volejbols.lv)',
+                'name' => 'Latvijas Volejbola Federācija',
                 'slug' => 'volejbols-lv',
                 'url' => 'https://volejbols.lv/kalendars/',
                 'scraper_class' => VolejbolsLvScraper::class,
@@ -251,7 +251,7 @@ class SourceSeeder extends Seeder
                 'is_active' => true,
             ],
             [
-                'name' => 'Latvijas Basketbola Savienība (basket.lv)',
+                'name' => 'Latvijas Basketbola Savienība',
                 'slug' => 'basket-lv',
                 'url' => 'https://nbl.basket.lv/kalendars/',
                 'scraper_class' => BasketLvScraper::class,
@@ -259,7 +259,7 @@ class SourceSeeder extends Seeder
                 'is_active' => true,
             ],
             [
-                'name' => 'Visit Ogre (visitogre.lv)',
+                'name' => 'Visit Ogre',
                 'slug' => 'visitogre',
                 'url' => 'https://www.visitogre.lv/lv/pasakumi',
                 'scraper_class' => VisitOgreScraper::class,
@@ -267,7 +267,7 @@ class SourceSeeder extends Seeder
                 'is_active' => true,
             ],
             [
-                'name' => 'Ogres novada pašvaldība (ogresnovads.lv)',
+                'name' => 'Ogres novada pašvaldība',
                 'slug' => 'ogres-novads',
                 'url' => 'https://www.ogresnovads.lv/lv/notikumu-kalendars',
                 'scraper_class' => OgresNovadsScraper::class,
@@ -275,7 +275,7 @@ class SourceSeeder extends Seeder
                 'is_active' => true,
             ],
             [
-                'name' => 'Ogres novada Kultūras centrs (okultura.lv)',
+                'name' => 'Ogres novada Kultūras centrs',
                 'slug' => 'okultura',
                 'url' => 'https://www.okultura.lv/lv/pasakumi',
                 'scraper_class' => OkulturaScraper::class,
@@ -283,7 +283,7 @@ class SourceSeeder extends Seeder
                 'is_active' => true,
             ],
             [
-                'name' => 'Ogres Vēstures un mākslas muzejs (ogresmuzejs.lv)',
+                'name' => 'Ogres Vēstures un mākslas muzejs',
                 'slug' => 'ogres-muzejs',
                 'url' => 'https://ogresmuzejs.lv/piedavajums',
                 'scraper_class' => OgresMuzejsScraper::class,

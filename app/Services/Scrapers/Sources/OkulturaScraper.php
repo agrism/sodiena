@@ -109,7 +109,7 @@ class OkulturaScraper extends BaseScraper
 
     public function getName(): string
     {
-        return 'Ogres novada Kultūras centrs (okultura.lv)';
+        return 'Ogres novada Kultūras centrs';
     }
 
     public function fetchHtml(string $url): string

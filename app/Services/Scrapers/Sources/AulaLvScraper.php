@@ -276,7 +276,7 @@ class AulaLvScraper extends BaseScraper
 
     public function getName(): string
     {
-        return 'Aula (aula.lv)';
+        return 'Aula';
     }
 
     public function scrape(Source $source): Collection

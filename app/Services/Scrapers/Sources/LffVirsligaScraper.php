@@ -20,7 +20,7 @@ class LffVirsligaScraper extends BaseScraper
 
     public function getName(): string
     {
-        return 'Tonybet Virslīga (LFF)';
+        return 'Tonybet Virslīga';
     }
 
     /**

@@ -67,7 +67,7 @@ class BezRindasScraper extends BaseScraper
 
     public function getName(): string
     {
-        return 'BezRindas.lv (Visi pasākumi)';
+        return 'BezRindas.lv';
     }
 
     public function scrape(Source $source): Collection

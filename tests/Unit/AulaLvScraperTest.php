@@ -24,7 +24,7 @@ class AulaLvScraperTest extends TestCase
     {
         $scraper = new AulaLvScraper();
         $this->assertEquals('aula', $scraper->getSlug());
-        $this->assertEquals('Aula (aula.lv)', $scraper->getName());
+        $this->assertEquals('Aula', $scraper->getName());
         $this->assertEquals(AulaLvScraper::BASE_URL, 'https://www.aula.lv');
         $this->assertEquals(AulaLvScraper::DEFAULT_URL, 'https://www.aula.lv/visi');
         $this->assertEquals(AulaLvScraper::DEFAULT_IMAGE, 'https://www.aula.lv/assets/images/aula-graph-placeholder-white.png');

@@ -21,7 +21,7 @@ class VolejbolsLvScraper extends BaseScraper
 
     public function getName(): string
     {
-        return 'Latvijas Volejbola Federācija (volejbols.lv)';
+        return 'Latvijas Volejbola Federācija';
     }
 
     /**

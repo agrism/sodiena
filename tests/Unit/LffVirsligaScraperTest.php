@@ -20,7 +20,7 @@ class LffVirsligaScraperTest extends TestCase
     {
         $scraper = new LffVirsligaScraper();
         $this->assertEquals('lff-virsliga', $scraper->getSlug());
-        $this->assertEquals('Tonybet Virslīga (LFF)', $scraper->getName());
+        $this->assertEquals('Tonybet Virslīga', $scraper->getName());
         $this->assertEquals('https://sodiena.hel1.your-objectstorage.com/leagues/virsliga.webp', LffVirsligaScraper::DEFAULT_IMAGE);
     }
 

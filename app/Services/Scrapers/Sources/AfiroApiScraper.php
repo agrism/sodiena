@@ -20,7 +20,7 @@ class AfiroApiScraper extends BaseScraper
 
     public function getName(): string
     {
-        return 'Afiro Pasākumu API (Latvija & Rīga)';
+        return 'Afiro Pasākumu API';
     }
 
     public function scrape(Source $source): Collection

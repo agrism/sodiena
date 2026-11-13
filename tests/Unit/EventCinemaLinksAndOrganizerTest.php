@@ -107,6 +107,52 @@ class EventCinemaLinksAndOrganizerTest extends TestCase
 
         $this->assertNull($eventWithAfiroOrg->organizer_display_name);
         $this->assertNull($eventWithAfiroOrg->organizer_url);
+
+        // Domain suffixes in organizer names are stripped
+        $eventWithDomainOrg = new Event([
+            'title' => 'Florbola Kausa Spēle',
+            'slug' => 'florbola-kauss',
+            'raw_data' => [
+                'organizer' => 'Klubu Apvienība (floorball.lv)',
+            ],
+        ]);
+        $this->assertEquals('Klubu Apvienība', $eventWithDomainOrg->organizer_display_name);
+
+        // Sports federations & Municipalities are NOT assumed as organizers when not in raw_data
+        $sportsSource = Source::create([
+            'name' => 'Latvijas Florbola Savienība',
+            'slug' => 'floorball-lv-test',
+            'url' => 'https://www.floorball.lv',
+            'scraper_class' => 'App\\Services\\Scrapers\\Sources\\FloorballLvScraper',
+            'is_active' => true,
+            'type' => \App\Enums\SourceType::SPORTS,
+        ]);
+        $matchEvent = new Event([
+            'title' => 'FK Valka vs Aizkraukle',
+            'slug' => 'valka-vs-aizkraukle',
+            'source_id' => $sportsSource->id,
+            'raw_data' => [],
+        ]);
+        $matchEvent->setRelation('source', $sportsSource);
+        $this->assertNull($matchEvent->organizer_display_name);
+
+        // Thematic festival sources ARE accepted as organizers
+        $thematicSource = Source::create([
+            'name' => 'Dzejas dienas',
+            'slug' => 'dzejas-dienas-test',
+            'url' => 'https://www.dzejasdienas.com',
+            'scraper_class' => 'App\\Services\\Scrapers\\Sources\\DzejasDienasScraper',
+            'is_active' => true,
+            'type' => \App\Enums\SourceType::THEMATIC,
+        ]);
+        $festivalEvent = new Event([
+            'title' => 'Dzejas Lasījums',
+            'slug' => 'dzejas-lasijums',
+            'source_id' => $thematicSource->id,
+            'raw_data' => [],
+        ]);
+        $festivalEvent->setRelation('source', $thematicSource);
+        $this->assertEquals('Dzejas dienas', $festivalEvent->organizer_display_name);
     }
 
     public function test_ticket_links_ignores_duplicate_source_url_when_not_ticket_platform(): void

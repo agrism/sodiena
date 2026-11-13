@@ -20,7 +20,7 @@ class LffTelpuFutbolsScraper extends BaseScraper
 
     public function getName(): string
     {
-        return 'Optibet Telpu futbola Virslīga (LFF)';
+        return 'Optibet Telpu futbola Virslīga';
     }
 
     /**

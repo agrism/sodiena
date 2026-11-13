@@ -18,7 +18,7 @@ class KulturasDatiScraper extends BaseScraper
 
     public function getName(): string
     {
-        return 'Kultūras Dati (Latvijas Pasākumu Reģistrs)';
+        return 'Kultūras Dati';
     }
 
     public function scrape(Source $source): Collection

@@ -20,7 +20,7 @@ class TicketBestLvScraperTest extends TestCase
     {
         $scraper = new TicketBestLvScraper();
         $this->assertEquals('ticketbest', $scraper->getSlug());
-        $this->assertEquals('TicketBest (ticketbest.lv)', $scraper->getName());
+        $this->assertEquals('TicketBest', $scraper->getName());
         $this->assertEquals(TicketBestLvScraper::DEFAULT_IMAGE, 'https://ticketbest.lv/assets/logo-8dcde2e695af5ebd20fb44d14867e24891738bcaea1fe20996407175067c171b.png');
     }
 

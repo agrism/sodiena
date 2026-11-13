@@ -234,7 +234,7 @@ class FientaScraper extends BaseScraper
 
     public function getName(): string
     {
-        return 'Fienta (fienta.com)';
+        return 'Fienta';
     }
 
     public function scrape(Source $source): Collection

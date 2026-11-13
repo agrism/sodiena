@@ -20,7 +20,7 @@ class DaugavpilsScraper extends BaseScraper
 
     public function getName(): string
     {
-        return 'Daugavpils valstspilsēta (Afiša)';
+        return 'Daugavpils valstspilsēta';
     }
 
     public function scrape(Source $source): Collection

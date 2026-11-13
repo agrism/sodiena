@@ -20,7 +20,7 @@ class LffTelpuFutbolsScraperTest extends TestCase
     {
         $scraper = new LffTelpuFutbolsScraper();
         $this->assertEquals('lff-telpu-futbols', $scraper->getSlug());
-        $this->assertEquals('Optibet Telpu futbola Virslīga (LFF)', $scraper->getName());
+        $this->assertEquals('Optibet Telpu futbola Virslīga', $scraper->getName());
         $this->assertEquals('https://lff.lv/files/images/_resized/0000004721_1050_624_cut.jpg', LffTelpuFutbolsScraper::DEFAULT_IMAGE);
     }
 

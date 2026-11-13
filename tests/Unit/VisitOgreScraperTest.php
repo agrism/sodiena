@@ -20,7 +20,7 @@ class VisitOgreScraperTest extends TestCase
     {
         $scraper = new VisitOgreScraper();
         $this->assertEquals('visitogre', $scraper->getSlug());
-        $this->assertEquals('VisitOgre (Ogres novads)', $scraper->getName());
+        $this->assertEquals('Visit Ogre', $scraper->getName());
         $this->assertEquals('https://www.visitogre.lv', VisitOgreScraper::BASE_URL);
         $this->assertEquals('/lv/pasakumi', VisitOgreScraper::EVENTS_PATH);
     }

@@ -24,7 +24,7 @@ class FloorballLvScraper extends BaseScraper
 
     public function getName(): string
     {
-        return 'Latvijas Florbola Savienība (floorball.lv)';
+        return 'Latvijas Florbola Savienība';
     }
 
     /**

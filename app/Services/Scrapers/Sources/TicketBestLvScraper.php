@@ -39,7 +39,7 @@ class TicketBestLvScraper extends BaseScraper
 
     public function getName(): string
     {
-        return 'TicketBest (ticketbest.lv)';
+        return 'TicketBest';
     }
 
     /**

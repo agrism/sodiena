@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\SourceType;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -421,26 +422,35 @@ class Event extends Model
 
     public function getOrganizerDisplayNameAttribute(): ?string
     {
+        $rawOrg = null;
+
         if (!empty($this->raw_data['organizer'])) {
             $org = $this->raw_data['organizer'];
             if (is_string($org) && !empty(trim($org)) && !str_contains(strtolower($org), 'afiro')) {
-                return trim($org);
-            }
-            if (is_array($org) && !empty($org['name']) && !str_contains(strtolower($org['name']), 'afiro')) {
-                return trim($org['name']);
+                $rawOrg = trim($org);
+            } elseif (is_array($org) && !empty($org['name']) && !str_contains(strtolower($org['name']), 'afiro')) {
+                $rawOrg = trim($org['name']);
             }
         }
 
-        if (!empty($this->raw_data['contacts']['organizer'])) {
+        if (!$rawOrg && !empty($this->raw_data['contacts']['organizer'])) {
             $org = $this->raw_data['contacts']['organizer'];
             if (is_string($org) && !empty(trim($org)) && !str_contains(strtolower($org), 'afiro')) {
-                return trim($org);
+                $rawOrg = trim($org);
             }
         }
 
-        // If source is a direct promoter/venue (not an aggregator), use source name
-        if ($this->source && !preg_match('/(api|scraper|bezrindas|paradize|serviss|afiro)/i', $this->source->name)) {
-            return $this->source->name;
+        // If explicitly provided in event data, clean up any URL/domain in parentheses and return
+        if ($rawOrg) {
+            $clean = preg_replace('/\s*\([^)]*\.[a-z]{2,}[^)]*\)/ui', '', $rawOrg);
+            return trim($clean) ?: null;
+        }
+
+        // Only fall back to source name if source is explicitly a THEMATIC festival organizer
+        // Never assume Sports leagues, Municipal agendas, Ticketing brokers, or Aggregators are the organizer
+        if ($this->source && $this->source->type === SourceType::THEMATIC) {
+            $clean = preg_replace('/\s*\([^)]*\.[a-z]{2,}[^)]*\)/ui', '', $this->source->name);
+            return trim($clean) ?: null;
         }
 
         return null;
@@ -460,6 +470,10 @@ class Event extends Model
             if (is_string($url) && !str_contains($url, 'afiro.lv')) {
                 return $url;
             }
+        }
+
+        if ($this->source && $this->source->type === SourceType::THEMATIC && !empty($this->source->url)) {
+            return $this->source->url;
         }
 
         return null;

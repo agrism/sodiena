@@ -19,7 +19,7 @@ class FloorballLvScraperTest extends TestCase
     {
         $scraper = new FloorballLvScraper();
         $this->assertEquals('floorball-lv', $scraper->getSlug());
-        $this->assertEquals('Latvijas Florbola Savienība (floorball.lv)', $scraper->getName());
+        $this->assertEquals('Latvijas Florbola Savienība', $scraper->getName());
         $this->assertEquals('https://sodiena.hel1.your-objectstorage.com/leagues/floorball_elvi.webp', FloorballLvScraper::DEFAULT_IMAGE);
         $this->assertEquals('https://sodiena.hel1.your-objectstorage.com/leagues/floorball_elvi.webp', FloorballLvScraper::DEFAULT_IMAGE_ELVI);
         $this->assertEquals('https://sodiena.hel1.your-objectstorage.com/leagues/floorball_latest.webp', FloorballLvScraper::DEFAULT_IMAGE_LATEST);

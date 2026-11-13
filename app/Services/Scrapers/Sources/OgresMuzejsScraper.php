@@ -24,7 +24,7 @@ class OgresMuzejsScraper extends BaseScraper
 
     public function getName(): string
     {
-        return 'Ogres Vēstures un mākslas muzejs (ogresmuzejs.lv)';
+        return 'Ogres Vēstures un mākslas muzejs';
     }
 
     /**

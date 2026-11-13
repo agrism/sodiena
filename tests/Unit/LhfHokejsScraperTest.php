@@ -20,7 +20,7 @@ class LhfHokejsScraperTest extends TestCase
     {
         $scraper = new LhfHokejsScraper();
         $this->assertEquals('lhf-hokejs', $scraper->getSlug());
-        $this->assertEquals('Latvijas Hokeja Federācija (lhf.lv)', $scraper->getName());
+        $this->assertEquals('Latvijas Hokeja Federācija', $scraper->getName());
         $this->assertEquals('https://sodiena.hel1.your-objectstorage.com/leagues/hokejs_ohl.webp', LhfHokejsScraper::DEFAULT_IMAGE);
         $this->assertEquals('https://sodiena.hel1.your-objectstorage.com/leagues/hokejs_ohl.webp', LhfHokejsScraper::DEFAULT_IMAGE_OHL);
         $this->assertEquals('https://sodiena.hel1.your-objectstorage.com/leagues/hokejs_sievietes.webp', LhfHokejsScraper::DEFAULT_IMAGE_SIEVĪTES);

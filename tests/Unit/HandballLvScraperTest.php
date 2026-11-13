@@ -20,7 +20,7 @@ class HandballLvScraperTest extends TestCase
     {
         $scraper = new HandballLvScraper();
         $this->assertEquals('handball-lv', $scraper->getSlug());
-        $this->assertEquals('Latvijas Handbola Federācija (handball.lv)', $scraper->getName());
+        $this->assertEquals('Latvijas Handbola Federācija', $scraper->getName());
         $this->assertEquals('https://sodiena.hel1.your-objectstorage.com/leagues/handball.webp', HandballLvScraper::DEFAULT_IMAGE);
     }
 

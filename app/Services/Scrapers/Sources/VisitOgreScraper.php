@@ -221,7 +221,7 @@ class VisitOgreScraper extends BaseScraper
 
     public function getName(): string
     {
-        return 'VisitOgre (Ogres novads)';
+        return 'Visit Ogre';
     }
 
     public function scrape(Source $source): Collection

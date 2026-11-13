@@ -21,7 +21,7 @@ class OgresMuzejsScraperTest extends TestCase
     {
         $scraper = new OgresMuzejsScraper();
         $this->assertEquals('ogres-muzejs', $scraper->getSlug());
-        $this->assertEquals('Ogres Vēstures un mākslas muzejs (ogresmuzejs.lv)', $scraper->getName());
+        $this->assertEquals('Ogres Vēstures un mākslas muzejs', $scraper->getName());
         $this->assertEquals('https://ogresmuzejs.lv', OgresMuzejsScraper::BASE_URL);
         $this->assertEquals('/piedavajums', OgresMuzejsScraper::OFFERS_PATH);
     }

@@ -24,7 +24,7 @@ class FientaScraperTest extends TestCase
     {
         $scraper = new FientaScraper();
         $this->assertEquals('fienta', $scraper->getSlug());
-        $this->assertEquals('Fienta (fienta.com)', $scraper->getName());
+        $this->assertEquals('Fienta', $scraper->getName());
         $this->assertEquals(FientaScraper::BASE_URL, 'https://fienta.com');
         $this->assertEquals(FientaScraper::DEFAULT_URL, 'https://fienta.com/lv');
         $this->assertEquals(FientaScraper::DEFAULT_IMAGE, 'https://fienta.com/assets_statamic/statamic/opengraph/fienta-og-en.png');

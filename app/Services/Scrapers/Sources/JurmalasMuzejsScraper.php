@@ -20,7 +20,7 @@ class JurmalasMuzejsScraper extends BaseScraper
 
     public function getName(): string
     {
-        return 'Jūrmalas muzejs (Notikumu kalendārs)';
+        return 'Jūrmalas muzejs';
     }
 
     public function scrape(Source $source): Collection
