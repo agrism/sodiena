@@ -31,6 +31,7 @@ use App\Services\Scrapers\Sources\OgresMuzejsScraper;
 use App\Services\Scrapers\Sources\OgresNovadsScraper;
 use App\Services\Scrapers\Sources\OkulturaScraper;
 use App\Services\Scrapers\Sources\PassportixScraper;
+use App\Services\Scrapers\Sources\SiguldaNovadsScraper;
 use App\Services\Scrapers\Sources\SiguldaTourismScraper;
 use App\Services\Scrapers\Sources\TicketBestLvScraper;
 use App\Services\Scrapers\Sources\VisitOgreScraper;
@@ -183,6 +184,14 @@ class SourceSeeder extends Seeder
                 'slug' => 'sigulda-tourism',
                 'url' => 'https://tourism.sigulda.lv/events/',
                 'scraper_class' => SiguldaTourismScraper::class,
+                'type' => SourceType::MUNICIPALITY->value,
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Siguldas novada pašvaldība',
+                'slug' => 'sigulda-novads',
+                'url' => 'https://sigulda.lv/pasakumi/',
+                'scraper_class' => SiguldaNovadsScraper::class,
                 'type' => SourceType::MUNICIPALITY->value,
                 'is_active' => true,
             ],
