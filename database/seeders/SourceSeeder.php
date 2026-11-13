@@ -22,6 +22,7 @@ use App\Services\Scrapers\Sources\HandballLvScraper;
 use App\Services\Scrapers\Sources\JurmalasMuzejsScraper;
 use App\Services\Scrapers\Sources\KulturasDatiScraper;
 use App\Services\Scrapers\Sources\LatgalesGorsScraper;
+use App\Services\Scrapers\Sources\LiepajaKalendarsScraper;
 use App\Services\Scrapers\Sources\LffTelpuFutbolsScraper;
 use App\Services\Scrapers\Sources\LffVirsligaScraper;
 use App\Services\Scrapers\Sources\LhfHokejsScraper;
@@ -192,6 +193,14 @@ class SourceSeeder extends Seeder
                 'slug' => 'sigulda-novads',
                 'url' => 'https://sigulda.lv/pasakumi/',
                 'scraper_class' => SiguldaNovadsScraper::class,
+                'type' => SourceType::MUNICIPALITY->value,
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Liepājas pasākumu kalendārs',
+                'slug' => 'liepaja-kalendars',
+                'url' => 'https://kalendars.liepaja.lv/lv/',
+                'scraper_class' => LiepajaKalendarsScraper::class,
                 'type' => SourceType::MUNICIPALITY->value,
                 'is_active' => true,
             ],
