@@ -404,17 +404,36 @@ class EventIngestionService
                 $existingEvent = Event::withTrashed()->where('fingerprint', $fingerprint)->first();
             }
 
-            // Match by unique ticketing URL (e.g. Biļešu Paradīze, Biļešu Serviss, Aula, BezRindas)
+            // Match by unique ticketing URL or platform event ID (e.g. Biļešu Paradīze, Biļešu Serviss, Aula, BezRindas)
             if (!$existingEvent && !empty($dto->ticketUrl) && self::isTicketingSource($source->slug, $dto->ticketUrl, $source->type)) {
-                $cleanTicketUrl = strtok($dto->ticketUrl, '?');
-                $candidateByTicket = Event::withTrashed()
-                    ->where(function ($q) use ($dto, $cleanTicketUrl) {
-                        $q->where('ticket_url', $dto->ticketUrl)
-                          ->orWhere('ticket_url', $cleanTicketUrl);
-                    })
-                    ->first();
+                $cleanTicketUrl = self::canonicalizeTicketUrl($dto->ticketUrl);
+                $dtoTicketMeta = self::extractTicketingPlatformMeta($dto->ticketUrl);
 
-                if ($candidateByTicket) {
+                $ticketCandidates = Event::withTrashed()
+                    ->where(function ($q) use ($dto, $cleanTicketUrl, $dtoTicketMeta) {
+                        $q->where('ticket_url', $dto->ticketUrl)
+                          ->orWhere('ticket_url', $cleanTicketUrl)
+                          ->orWhere('ticket_url', $cleanTicketUrl . '/')
+                          ->orWhere('ticket_url', 'like', $cleanTicketUrl . '?%');
+
+                        if ($dtoTicketMeta && !empty($dtoTicketMeta['event_id'])) {
+                            if ($dtoTicketMeta['platform'] === 'bilesuparadize') {
+                                $q->orWhere('ticket_url', 'like', '%/event/' . $dtoTicketMeta['event_id'] . '%')
+                                  ->orWhere('source_url', 'like', '%/event/' . $dtoTicketMeta['event_id'] . '%');
+                            } elseif ($dtoTicketMeta['platform'] === 'bezrindas') {
+                                $q->orWhere('ticket_url', 'like', '%/' . $dtoTicketMeta['event_id'] . '/%')
+                                  ->orWhere('ticket_url', 'like', '%/' . $dtoTicketMeta['event_id'])
+                                  ->orWhere('source_url', 'like', '%/' . $dtoTicketMeta['event_id'] . '/%');
+                            } elseif ($dtoTicketMeta['platform'] === 'ekase') {
+                                $q->orWhere('ticket_url', 'like', '%/' . $dtoTicketMeta['event_id'] . '%');
+                            }
+                        } elseif ($dtoTicketMeta && $dtoTicketMeta['platform'] === 'bilesuserviss' && !empty($dtoTicketMeta['slug'])) {
+                            $q->orWhere('ticket_url', 'like', '%/' . $dtoTicketMeta['slug'] . '%');
+                        }
+                    })
+                    ->get();
+
+                foreach ($ticketCandidates as $candidateByTicket) {
                     $isDifferentSessionSameDay = false;
                     if ($candidateByTicket->start_at && $dto->startAt) {
                         if ($candidateByTicket->start_at->toDateString() === $dto->startAt->toDateString()) {
@@ -437,6 +456,7 @@ class EventIngestionService
 
                     if (!$isDifferentSessionSameDay) {
                         $existingEvent = $candidateByTicket;
+                        break;
                     }
                 }
             }
@@ -451,7 +471,7 @@ class EventIngestionService
                               ->where('end_at', '>=', $dto->startAt);
                         });
                 }
-                $sameDayEvents = $candidatesQuery->with(['location', 'source'])->get();
+                $sameDayEvents = $candidatesQuery->with(['location', 'source', 'translations', 'categories'])->get();
                 $cleanDto = preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower($dto->title, 'UTF-8'));
                 $dtoStems = $this->getLatvianWordStems($dto->title);
                 $dtoWords = array_values(array_filter(explode(' ', $cleanDto), fn ($w) => mb_strlen($w, 'UTF-8') > 2 && !in_array($w, ['un', 'par', 'ar', 'pie', 'uz', 'no', 'vai'])));
@@ -659,6 +679,89 @@ class EventIngestionService
                         continue;
                     }
 
+                    // 2.5. Cinema session equivalence: same cinema venue on same date & time (within 15 min)
+                    $candIsCinema = self::isCinemaEvent($candidate->title, $candidate->location?->name, $candidate->categories->pluck('name')->all());
+                    $dtoIsCinema = self::isCinemaEvent($dto->title, $dto->venueName, $dto->categoryNames);
+                    $sameCinemaVenue = false;
+                    if ($candIsCinema && $dtoIsCinema) {
+                        $candVenue = mb_strtolower(trim($candidate->location?->name ?? ''), 'UTF-8');
+                        $dtoVenue = mb_strtolower(trim($dto->venueName ?? ''), 'UTF-8');
+                        if (!empty($candVenue) && !empty($dtoVenue)) {
+                            $sameCinemaVenue = ($candVenue === $dtoVenue || str_contains($candVenue, $dtoVenue) || str_contains($dtoVenue, $candVenue) || (!empty($locationId) && $candidate->location_id && $locationId === $candidate->location_id));
+                        }
+                    }
+                    if ($sameCinemaVenue && $candidate->start_at && $dto->startAt) {
+                        $candMin = $candidate->start_at->hour * 60 + $candidate->start_at->minute;
+                        $dtoMin = $dto->startAt->hour * 60 + $dto->startAt->minute;
+                        if (abs($candMin - $dtoMin) <= 15) {
+                            if (self::areTicketingUrlsEquivalent($candidate->ticket_url, $dto->ticketUrl) || self::doCinemaTitlesMatch($candidate, $dto)) {
+                                $existingEvent = $candidate;
+                                break;
+                            }
+                        }
+                    }
+
+                    // 2.6. Cross-language / Translations title similarity (e.g. 'The Dark Border' vs 'Tumšā robeža', 'Кот в шляпе' vs 'Glaunais runcis')
+                    $allCandidateTitles = array_filter(array_merge(
+                        [$candidate->title],
+                        $candidate->translations ? $candidate->translations->pluck('title')->all() : []
+                    ));
+                    $isTransMatch = false;
+                    foreach ($allCandidateTitles as $cTitle) {
+                        $cleanCTitle = preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower($cTitle, 'UTF-8'));
+                        similar_text($cleanCTitle, $cleanDto, $tPct);
+                        if ($tPct >= 75) {
+                            $isTransMatch = true;
+                            break;
+                        }
+                        if (mb_strlen($cleanDto, 'UTF-8') > 10 && (str_contains($cleanCTitle, $cleanDto) || str_contains($cleanDto, $cleanCTitle))) {
+                            $isTransMatch = true;
+                            break;
+                        }
+                    }
+                    if ($isTransMatch) {
+                        $existingEvent = $candidate;
+                        break;
+                    }
+
+                    // 2.7. Delimited sub-title / Quoted artwork title equivalence (e.g. "Jūtu impērija")
+                    $candSegments = self::extractTitleSegments($candidate->title);
+                    $dtoSegments = self::extractTitleSegments($dto->title);
+                    $hasSegmentMatch = false;
+                    foreach ($dtoSegments as $dSeg) {
+                        if (mb_strlen($dSeg, 'UTF-8') < 5) continue;
+                        foreach ($candSegments as $cSeg) {
+                            if ($dSeg === $cSeg) {
+                                $hasSegmentMatch = true;
+                                break 2;
+                            }
+                            similar_text($dSeg, $cSeg, $segSim);
+                            if ($segSim >= 85) {
+                                $hasSegmentMatch = true;
+                                break 2;
+                            }
+                            $dWords = count(explode(' ', trim($dSeg)));
+                            $cWords = count(explode(' ', trim($cSeg)));
+                            if ($dWords >= 2 && $cWords >= 2 && (mb_strlen($dSeg, 'UTF-8') >= 8 || mb_strlen($cSeg, 'UTF-8') >= 8)) {
+                                if (str_contains($cSeg, $dSeg) || str_contains($dSeg, $cSeg)) {
+                                    $hasSegmentMatch = true;
+                                    break 2;
+                                }
+                            }
+                        }
+                    }
+                    if ($hasSegmentMatch) {
+                        $sameLoc = (!empty($locationId) && $candidate->location_id && $locationId === $candidate->location_id);
+                        $candVenue = trim($candidate->location?->name ?? '');
+                        $dtoVenue = trim($dto->venueName ?? '');
+                        $venuesMatch = empty($candVenue) || empty($dtoVenue) || self::areVenuesEquivalent($candVenue, $dtoVenue);
+
+                        if ($sameLoc || $venuesMatch) {
+                            $existingEvent = $candidate;
+                            break;
+                        }
+                    }
+
                     // 3. Direct string similarity
                     similar_text($cleanCand, $cleanDto, $percent);
                     if ($percent >= 75) {
@@ -686,11 +789,12 @@ class EventIngestionService
                     }
 
                     // 6. Stemmed word overlap (Latvian declension-aware)
-                    $candStems = $this->getLatvianWordStems($candidate->title);
+                    $candStems = self::getLatvianWordStems($candidate->title);
                     $commonStems = array_intersect($dtoStems, $candStems);
                     if (count($commonStems) >= 2) {
                         $stemOverlap = (count($commonStems) / min(count($dtoStems), count($candStems))) * 100;
-                        if ($stemOverlap >= 65) {
+                        $minThreshold = (count($commonStems) >= 3) ? 50 : 65;
+                        if ($stemOverlap >= $minThreshold) {
                             $existingEvent = $candidate;
                             break;
                         }
@@ -857,7 +961,7 @@ class EventIngestionService
                     'start_at' => $dto->startAt ?: $existingEvent->start_at,
                     'end_at' => $dto->endAt ?: $existingEvent->end_at,
                     'image_url' => $finalImageUrl,
-                    'ticket_url' => $finalTicketUrl,
+                    'ticket_url' => self::canonicalizeTicketUrl($finalTicketUrl) ?: $finalTicketUrl,
                     'is_free' => ($pMin !== null && (float)$pMin > 0) ? false : ($dto->isFree && $existingEvent->is_free !== false),
                     'price_min' => $pMin,
                     'price_max' => $pMax,
@@ -869,10 +973,27 @@ class EventIngestionService
                     $updateData['internal_image_url'] = null;
                 }
 
-                if ($locale === 'lv' || empty($existingEvent->title)) {
+                if ($locale === 'lv' || empty($existingEvent->title) || preg_match('/\p{Cyrillic}/u', $existingEvent->title)) {
                     $updateData['title'] = $finalTitle ?: $existingEvent->title;
                     $updateData['description'] = $finalDescription ?: $existingEvent->description;
                     $updateData['short_description'] = $finalShortDesc ?: $existingEvent->short_description;
+
+                    $effectiveLatvianTitle = $finalTitle ?: $existingEvent->title;
+                    if (!empty($effectiveLatvianTitle)) {
+                        $normTitle = mb_strtolower(preg_replace('/[^\p{L}\p{N}]+/u', '', $effectiveLatvianTitle));
+                        $date = ($existingEvent->start_at && $existingEvent->start_at->format('H:i') !== '00:00')
+                            ? $existingEvent->start_at->format('Y-m-d H:i')
+                            : ($existingEvent->start_at ? $existingEvent->start_at->format('Y-m-d') : '');
+                        $city = mb_strtolower(trim($existingEvent->location?->city ?? $dto->city ?? ''));
+                        $updateData['fingerprint'] = hash('sha256', "{$normTitle}|{$date}|{$city}");
+
+                        $currentSlug = $existingEvent->slug ?? '';
+                        $expectedSlugPrefix = Str::slug($effectiveLatvianTitle);
+                        if (empty($currentSlug) || preg_match('/\p{Cyrillic}/u', $currentSlug) || preg_match('/^(the|a|an)-/i', $currentSlug) || !str_starts_with($currentSlug, $expectedSlugPrefix)) {
+                            $suffix = preg_match('/-([a-zA-Z0-9]{6})$/', $currentSlug, $m) ? $m[1] : Str::random(6);
+                            $updateData['slug'] = $expectedSlugPrefix . '-' . $suffix;
+                        }
+                    }
                 }
 
                 $existingEvent->update($updateData);
@@ -935,7 +1056,7 @@ class EventIngestionService
                 'price_min' => $newPMin,
                 'price_max' => $newPMax,
                 'currency' => $dto->currency ?: 'EUR',
-                'ticket_url' => $dto->ticketUrl,
+                'ticket_url' => self::canonicalizeTicketUrl($dto->ticketUrl) ?: $dto->ticketUrl,
                 'image_url' => $dto->imageUrl,
                 'source_url' => $dto->sourceUrl,
                 'source_external_id' => $dto->sourceExternalId,
@@ -1050,7 +1171,7 @@ class EventIngestionService
         return 'chill';
     }
 
-    private function getLatvianWordStems(string $text): array
+    public static function getLatvianWordStems(string $text): array
     {
         $clean = preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower($text, 'UTF-8'));
         $words = array_values(array_filter(explode(' ', $clean), fn ($w) => mb_strlen($w, 'UTF-8') > 2 && !in_array($w, ['un', 'par', 'ar', 'pie', 'uz', 'no', 'vai', 'kas', 'tas', 'būs', 'kā'])));
@@ -1060,8 +1181,6 @@ class EventIngestionService
             'ajiem', 'ajām', 'ajam', 'ajai', 'ajās', 'ajos',
             'iem', 'ām', 'am', 'os', 'ēs', 'as', 'es', 'is', 'us',
             'ās', 'ēs', 'īs', 'os', 'ei', 'im', 'um', 'om', 'ai',
-            'ju', 'ja', 'ļa', 'ņa', 'ra', 'sa', 'ta', 'da', 'ba', 'ka', 'ga', 'ma', 'va', 'za', 'ža', 'ša', 'ča',
-            'dā', 'tā', 'mā', 'kā', 'sā', 'vā', 'rā', 'lā', 'bā', 'zā', 'žā', 'šā', 'čā',
             'a', 'e', 'i', 'u', 'o', 's', 'š', 'ā', 'ē', 'ī', 'ū',
         ];
 
@@ -1742,6 +1861,283 @@ class EventIngestionService
         }
 
         return false;
+    }
+
+    /**
+     * Canonicalize ticket URL: strip tracking query parameters (utm_*, ref, etc.) and trailing slash.
+     */
+    public static function canonicalizeTicketUrl(?string $url): ?string
+    {
+        if (empty($url)) {
+            return null;
+        }
+
+        $url = trim($url);
+        // Strip tracking parameters
+        $clean = preg_replace('/(\?|\&)(?:utm_[a-zA-Z0-9_]+|ref|source|afiro|fbclid|gclid)=[^&]*/i', '', $url);
+        $clean = rtrim($clean, '?&');
+        $clean = rtrim($clean, '/');
+
+        return !empty($clean) ? $clean : null;
+    }
+
+    /**
+     * Extract canonical platform identification from ticketing URL.
+     */
+    public static function extractTicketingPlatformMeta(?string $url): ?array
+    {
+        if (empty($url)) {
+            return null;
+        }
+
+        $clean = self::canonicalizeTicketUrl($url);
+        if (!$clean) {
+            return null;
+        }
+
+        // Biļešu Paradīze (e.g. bilesuparadize.lv/lv/event/178375 or /en/event/178375)
+        if (preg_match('/bilesuparadize\.lv\/(?:[a-z]{2}\/)?event\/(\d+)/i', $clean, $m)) {
+            return [
+                'platform' => 'bilesuparadize',
+                'event_id' => $m[1],
+            ];
+        }
+
+        // BezRindas (e.g. bezrindas.lv/lv/slug/15786 or bezrindas.lv/lv/slug/15786/97356)
+        if (preg_match('/bezrindas\.lv\/(?:[a-z]{2}\/)?[^\/]+\/(\d+)(?:\/(\d+))?/i', $clean, $m)) {
+            return [
+                'platform' => 'bezrindas',
+                'event_id' => $m[1],
+                'session_id' => $m[2] ?? null,
+            ];
+        }
+
+        // Biļešu Serviss (e.g. bilesuserviss.lv/lat/biletes/kino/filma/tumsa-robeza-487667/ or bilesuserviss.lv/biletes/S4FS25O7ZZ/tumsa-robeza)
+        if (preg_match('/bilesuserviss\.lv\/(?:[a-z]{3}\/)?biletes\/(.+)$/i', $clean, $m)) {
+            $path = trim($m[1], '/');
+            $parts = explode('/', $path);
+            $last = end($parts);
+            // Check if last part is slug with numeric ID (e.g. tumsa-robeza-487667)
+            if (preg_match('/^(.+)-(\d+)$/', $last, $sm)) {
+                return [
+                    'platform' => 'bilesuserviss',
+                    'code' => $sm[2],
+                    'slug' => $sm[1],
+                ];
+            }
+            // Check if second-to-last is an alphanumeric session code (e.g. biletes/S4FS25O7ZZ/tumsa-robeza)
+            if (count($parts) >= 2) {
+                $prev = $parts[count($parts) - 2];
+                if (preg_match('/^[A-Z0-9]{8,14}$/i', $prev)) {
+                    return [
+                        'platform' => 'bilesuserviss',
+                        'code' => $prev,
+                        'slug' => $last,
+                    ];
+                }
+            }
+
+            return [
+                'platform' => 'bilesuserviss',
+                'code' => $last,
+                'slug' => $last,
+            ];
+        }
+
+        // Aula (e.g. aula.lv/pasakumi/slug or aula.lv/visi/slug)
+        if (preg_match('/aula\.lv\/(?:[a-z]{2}\/)?(?:pasakumi|visi)\/([a-z0-9-]+)/i', $clean, $m)) {
+            return [
+                'platform' => 'aula',
+                'slug' => $m[1],
+            ];
+        }
+
+        // Passportix (e.g. passportix.eu/lv/events/slug)
+        if (preg_match('/passportix\.eu\/(?:[a-z]{2}\/)?events\/([a-z0-9-]+)/i', $clean, $m)) {
+            return [
+                'platform' => 'passportix',
+                'slug' => $m[1],
+            ];
+        }
+
+        // TicketBest (e.g. ticketbest.lv/performances/slug)
+        if (preg_match('/ticketbest\.(?:lv|eu)\/performances\/([a-z0-9-]+)/i', $clean, $m)) {
+            return [
+                'platform' => 'ticketbest',
+                'slug' => $m[1],
+            ];
+        }
+
+        // Fienta (e.g. fienta.com/lv/slug)
+        if (preg_match('/fienta\.com\/(?:[a-z]{2}\/)?([a-z0-9-]+)/i', $clean, $m)) {
+            return [
+                'platform' => 'fienta',
+                'slug' => $m[1],
+            ];
+        }
+
+        // eKase (e.g. ekase.lv/lv/events/view/321)
+        if (preg_match('/ekase\.lv\/(?:[a-z]{2}\/)?(?:events\/view|pasakumi)\/(\d+)/i', $clean, $m)) {
+            return [
+                'platform' => 'ekase',
+                'event_id' => $m[1],
+            ];
+        }
+
+        return null;
+    }
+
+    /**
+     * Check if two ticketing URLs refer to the same event or production.
+     */
+    public static function areTicketingUrlsEquivalent(?string $urlA, ?string $urlB): bool
+    {
+        if (empty($urlA) || empty($urlB)) {
+            return false;
+        }
+
+        $cleanA = self::canonicalizeTicketUrl($urlA);
+        $cleanB = self::canonicalizeTicketUrl($urlB);
+
+        if ($cleanA === $cleanB) {
+            return true;
+        }
+
+        $metaA = self::extractTicketingPlatformMeta($urlA);
+        $metaB = self::extractTicketingPlatformMeta($urlB);
+
+        if (!$metaA || !$metaB || $metaA['platform'] !== $metaB['platform']) {
+            return false;
+        }
+
+        return match ($metaA['platform']) {
+            'bilesuparadize', 'ekase' => $metaA['event_id'] === $metaB['event_id'],
+            'bezrindas' => $metaA['event_id'] === $metaB['event_id'] && (
+                empty($metaA['session_id']) || empty($metaB['session_id']) || $metaA['session_id'] === $metaB['session_id']
+            ),
+            'bilesuserviss' => ($metaA['code'] === $metaB['code']) || (!empty($metaA['slug']) && $metaA['slug'] === $metaB['slug']),
+            'aula', 'passportix', 'ticketbest', 'fienta' => !empty($metaA['slug']) && $metaA['slug'] === $metaB['slug'],
+            default => false,
+        };
+    }
+
+    /**
+     * Extract quoted text and delimited title segments (split by |, —, –, :, -).
+     */
+    public static function extractTitleSegments(string $text): array
+    {
+        $segments = [];
+
+        // 1. Quoted text inside “...”, "...", '...', «...»
+        if (preg_match_all('/[“\"«]([^”\"»]{3,})[”\"»]/u', $text, $qm)) {
+            foreach ($qm[1] as $q) {
+                $qTrim = trim($q);
+                if (mb_strlen($qTrim, 'UTF-8') >= 3) {
+                    $segments[] = mb_strtolower($qTrim, 'UTF-8');
+                }
+            }
+        }
+
+        // 2. Delimited segments split by |, —, –, :, /, or space-hyphen-space
+        $parts = preg_split('/(?:\s*[|—–:\/]+\s*|\s+-\s+)/u', $text);
+        foreach ($parts as $p) {
+            $pTrim = trim(preg_replace('/[^\p{L}\p{N}\s]+/u', ' ', $p));
+            if (mb_strlen($pTrim, 'UTF-8') >= 5) {
+                $segments[] = mb_strtolower($pTrim, 'UTF-8');
+            }
+        }
+
+        return array_values(array_unique($segments));
+    }
+
+    /**
+     * Check if an event is a Cinema / Kino screening per AGENTS.md rules.
+     */
+    public static function isCinemaEvent(string $title, ?string $venueName = null, array $categories = []): bool
+    {
+        $titleLower = mb_strtolower($title, 'UTF-8');
+        $venueLower = mb_strtolower($venueName ?? '', 'UTF-8');
+        $fullText = $titleLower . ' ' . $venueLower;
+
+        foreach ($categories as $cat) {
+            $catLower = mb_strtolower(is_string($cat) ? $cat : ($cat->name ?? ''), 'UTF-8');
+            if ($catLower === 'kino' || $catLower === 'cinema') {
+                return true;
+            }
+        }
+
+        return (
+            str_contains($venueLower, 'kino lora') ||
+            str_contains($venueLower, 'k.suns') || str_contains($venueLower, 'k suns') ||
+            str_contains($venueLower, 'forum cinema') || str_contains($venueLower, 'forumcinemas') ||
+            str_contains($venueLower, 'apollo kino') || str_contains($venueLower, 'cinamon') ||
+            str_contains($venueLower, 'splendid palace') || str_contains($venueLower, 'kino bize') ||
+            str_contains($venueLower, 'kino rio') || str_contains($venueLower, 'kino gaisma') ||
+            str_contains($fullText, 'filma') || str_contains($fullText, 'filmas') ||
+            str_contains($fullText, 'filmu') || str_contains($fullText, 'filmā') ||
+            str_contains($fullText, 'kinoseans') || str_contains($fullText, 'filmas seans') ||
+            str_contains($fullText, 'spēlfilma') || str_contains($fullText, 'dokumentālā filma') ||
+            str_contains($fullText, 'animācijas filma') || str_contains($fullText, 'kinofestivāl')
+        );
+    }
+
+    /**
+     * Check if cinema titles match across languages or ticket slugs.
+     */
+    public static function doCinemaTitlesMatch(mixed $a, mixed $b): bool
+    {
+        $titleA = is_string($a) ? $a : ($a->title ?? '');
+        $titleB = is_string($b) ? $b : ($b->title ?? '');
+
+        $urlA = is_string($a) ? null : ($a->ticket_url ?? $a->ticketUrl ?? null);
+        $urlB = is_string($b) ? null : ($b->ticket_url ?? $b->ticketUrl ?? null);
+
+        // Check if ticket slugs match
+        if ($urlA && $urlB && self::areTicketingUrlsEquivalent($urlA, $urlB)) {
+            return true;
+        }
+
+        // Compare titles directly
+        $cleanA = preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower($titleA, 'UTF-8'));
+        $cleanB = preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower($titleB, 'UTF-8'));
+        similar_text($cleanA, $cleanB, $sim);
+        if ($sim >= 70) {
+            return true;
+        }
+
+        // Check quoted segments
+        $segA = self::extractTitleSegments($titleA);
+        $segB = self::extractTitleSegments($titleB);
+        foreach ($segA as $sA) {
+            if (mb_strlen($sA, 'UTF-8') < 4) continue;
+            foreach ($segB as $sB) {
+                if ($sA === $sB || str_contains($sA, $sB) || str_contains($sB, $sA)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if two venue names represent the same venue.
+     */
+    public static function areVenuesEquivalent(?string $venueA, ?string $venueB): bool
+    {
+        if (empty($venueA) || empty($venueB)) {
+            return true; // Neutral if one is unknown
+        }
+
+        $cleanA = preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower(trim($venueA), 'UTF-8'));
+        $cleanB = preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower(trim($venueB), 'UTF-8'));
+
+        if ($cleanA === $cleanB || str_contains($cleanA, $cleanB) || str_contains($cleanB, $cleanA)) {
+            return true;
+        }
+
+        similar_text($cleanA, $cleanB, $sim);
+        return $sim >= 70;
     }
 }
 

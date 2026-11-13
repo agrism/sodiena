@@ -34,11 +34,17 @@ class ConsolidateEventsCommand extends Command
     {
         $dryRun = $this->option('dry-run');
         $days = (int) $this->option('days');
-        $this->info("Scanning events for duplicates and consolidation (window: past 7 days to +{$days} days)..." . ($dryRun ? ' [DRY RUN]' : ''));
+        $today = now()->startOfDay();
+        $this->info("Scanning events for duplicates and consolidation (window: today to +{$days} days)..." . ($dryRun ? ' [DRY RUN]' : ''));
 
         $events = Event::with(['translations', 'location', 'categories', 'source'])
             ->whereNull('deleted_at')
-            ->where('start_at', '>=', now()->subDays(7)->startOfDay())
+            ->where(function ($q) use ($today) {
+                $q->where('start_at', '>=', $today)
+                  ->orWhere(function ($sub) use ($today) {
+                      $sub->whereNotNull('end_at')->where('end_at', '>=', $today);
+                  });
+            })
             ->where('start_at', '<=', now()->addDays($days)->endOfDay())
             ->orderBy('start_at')
             ->get();
@@ -104,40 +110,90 @@ class ConsolidateEventsCommand extends Command
             return false;
         }
 
-        // 2. Start time check: if both have specific non-00:00 times, difference must be <= 45 minutes
+        // 1.5 Package modifier guard (e.g. VIP lounge vs general admission)
+        $cleanTitleA = preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower($a->title, 'UTF-8'));
+        $cleanTitleB = preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower($b->title, 'UTF-8'));
+        $distinguishingModifiers = ['vip', 'premium', 'biznesa', 'enbl', 'standart'];
+        foreach ($distinguishingModifiers as $mod) {
+            if (str_contains($cleanTitleA, $mod) !== str_contains($cleanTitleB, $mod)) {
+                return false;
+            }
+        }
+
+        // 2. City mismatch guard: If both candidate and dto have known cities and they differ, they are distinct events
+        $cityA = mb_strtolower(trim($a->location?->city ?? ''), 'UTF-8');
+        $cityB = mb_strtolower(trim($b->location?->city ?? ''), 'UTF-8');
+        if (!empty($cityA) && !empty($cityB) && $cityA !== $cityB && !str_contains($cityA, $cityB) && !str_contains($cityB, $cityA)) {
+            return false;
+        }
+
+        $sameLocation = $a->location_id && $b->location_id && $a->location_id === $b->location_id;
+        $venueA = trim($a->location?->name ?? '');
+        $venueB = trim($b->location?->name ?? '');
+        $venuesEquivalent = empty($venueA) || empty($venueB) || $sameLocation || EventIngestionService::areVenuesEquivalent($venueA, $venueB);
+
+        $ticketingEquivalent = (!empty($a->ticket_url) && !empty($b->ticket_url) && EventIngestionService::areTicketingUrlsEquivalent($a->ticket_url, $b->ticket_url));
+
+        if (!$sameLocation && !$venuesEquivalent && !$ticketingEquivalent) {
+            return false;
+        }
+
+        // 3. Start time check: if both have specific non-00:00 times, difference must be <= 45 minutes (allow 75m for same location with >= 90% title similarity)
         if ($a->start_at && $b->start_at) {
             $tA = $a->start_at->format('H:i');
             $tB = $b->start_at->format('H:i');
             if ($tA !== '00:00' && $tB !== '00:00' && $tA !== $tB) {
                 $minA = $a->start_at->hour * 60 + $a->start_at->minute;
                 $minB = $b->start_at->hour * 60 + $b->start_at->minute;
-                if (abs($minA - $minB) > 45) {
-                    return false;
+                $diff = abs($minA - $minB);
+                if ($diff > 45) {
+                    if ($diff > 75 || !$sameLocation) {
+                        return false;
+                    }
+                    similar_text(mb_strtolower($a->title), mb_strtolower($b->title), $timeSim);
+                    if ($timeSim < 90) {
+                        return false;
+                    }
                 }
             }
         }
 
-        $sameLocation = $a->location_id && $b->location_id && $a->location_id === $b->location_id;
-
-        // 3. Matchup teams equivalence check
-        $teamsA = EventIngestionService::extractMatchupTeams($a->title);
-        $teamsB = EventIngestionService::extractMatchupTeams($b->title);
-
-        if ($teamsA && $teamsB && EventIngestionService::areMatchupTeamsEquivalent($teamsA, $teamsB)) {
-            if ($sameLocation) {
-                return true;
-            }
-            $cityA = mb_strtolower(trim($a->location?->city ?? ''));
-            $cityB = mb_strtolower(trim($b->location?->city ?? ''));
-            if (!empty($cityA) && !empty($cityB) && ($cityA === $cityB || str_contains($cityA, $cityB) || str_contains($cityB, $cityA))) {
-                return true;
-            }
-            if (empty($cityA) || empty($cityB)) {
+        // 4. Ticketing URL / Platform equivalence check
+        if (!empty($a->ticket_url) && !empty($b->ticket_url)) {
+            if (EventIngestionService::areTicketingUrlsEquivalent($a->ticket_url, $b->ticket_url)) {
                 return true;
             }
         }
 
-        // 4. One is generic league title and the other is a matchup title at same location
+        // 5. Cinema session equivalence check (same cinema venue within 15 min)
+        $aIsCinema = EventIngestionService::isCinemaEvent($a->title, $a->location?->name, $a->categories->pluck('name')->all());
+        $bIsCinema = EventIngestionService::isCinemaEvent($b->title, $b->location?->name, $b->categories->pluck('name')->all());
+        if ($aIsCinema && $bIsCinema) {
+            $aVenue = mb_strtolower(trim($a->location?->name ?? ''), 'UTF-8');
+            $bVenue = mb_strtolower(trim($b->location?->name ?? ''), 'UTF-8');
+            $sameVenue = ($sameLocation || (!empty($aVenue) && !empty($bVenue) && ($aVenue === $bVenue || str_contains($aVenue, $bVenue) || str_contains($bVenue, $aVenue))));
+            if ($sameVenue && $a->start_at && $b->start_at) {
+                $minA = $a->start_at->hour * 60 + $a->start_at->minute;
+                $minB = $b->start_at->hour * 60 + $b->start_at->minute;
+                if (abs($minA - $minB) <= 15) {
+                    if (EventIngestionService::areTicketingUrlsEquivalent($a->ticket_url, $b->ticket_url) || EventIngestionService::doCinemaTitlesMatch($a, $b)) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        // 6. Matchup teams equivalence check
+        $teamsA = EventIngestionService::extractMatchupTeams($a->title);
+        $teamsB = EventIngestionService::extractMatchupTeams($b->title);
+
+        if ($teamsA && $teamsB && EventIngestionService::areMatchupTeamsEquivalent($teamsA, $teamsB)) {
+            if ($sameLocation || empty($cityA) || empty($cityB) || $cityA === $cityB) {
+                return true;
+            }
+        }
+
+        // 7. One is generic league title and the other is a matchup title at same location
         $aIsLeague = EventIngestionService::isLeagueOrTournamentTitle($a->title);
         $bIsLeague = EventIngestionService::isLeagueOrTournamentTitle($b->title);
 
@@ -157,7 +213,7 @@ class ConsolidateEventsCommand extends Command
             }
         }
 
-        // 5. Matchup teams in description check
+        // 8. Matchup teams in description check
         if ($teamsA && !empty($b->description) && $sameLocation) {
             $bDesc = mb_strtolower($b->description, 'UTF-8');
             $has1 = false;
@@ -188,12 +244,65 @@ class ConsolidateEventsCommand extends Command
             }
         }
 
-        // 6. Direct high title similarity at same location
-        if ($sameLocation) {
-            $cleanA = preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower($a->title, 'UTF-8'));
-            $cleanB = preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower($b->title, 'UTF-8'));
-            similar_text($cleanA, $cleanB, $pct);
-            if ($pct >= 80) {
+        // 9. Cross-language / Translations title similarity
+        $allTitlesA = array_filter(array_merge([$a->title], $a->translations ? $a->translations->pluck('title')->all() : []));
+        $allTitlesB = array_filter(array_merge([$b->title], $b->translations ? $b->translations->pluck('title')->all() : []));
+        foreach ($allTitlesA as $tA) {
+            $cleanA = preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower($tA, 'UTF-8'));
+            foreach ($allTitlesB as $tB) {
+                $cleanB = preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower($tB, 'UTF-8'));
+                similar_text($cleanA, $cleanB, $simPct);
+                if ($simPct >= 75 && ($sameLocation || $venuesEquivalent)) {
+                    return true;
+                }
+            }
+        }
+
+        // 10. Delimited sub-title / Quoted artwork title equivalence (e.g. "Jūtu impērija")
+        $segA = EventIngestionService::extractTitleSegments($a->title);
+        $segB = EventIngestionService::extractTitleSegments($b->title);
+        foreach ($segA as $sA) {
+            if (mb_strlen($sA, 'UTF-8') < 5) continue;
+            foreach ($segB as $sB) {
+                $matched = false;
+                if ($sA === $sB) {
+                    $matched = true;
+                } else {
+                    similar_text($sA, $sB, $segSim);
+                    if ($segSim >= 85) {
+                        $matched = true;
+                    } else {
+                        $wordsA = count(explode(' ', trim($sA)));
+                        $wordsB = count(explode(' ', trim($sB)));
+                        if ($wordsA >= 2 && $wordsB >= 2 && (mb_strlen($sA, 'UTF-8') >= 8 || mb_strlen($sB, 'UTF-8') >= 8)) {
+                            if (str_contains($sA, $sB) || str_contains($sB, $sA)) {
+                                $matched = true;
+                            }
+                        }
+                    }
+                }
+                if ($matched && ($sameLocation || $venuesEquivalent)) {
+                    return true;
+                }
+            }
+        }
+
+        // 11. Direct high title similarity
+        $cleanA = preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower($a->title, 'UTF-8'));
+        $cleanB = preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower($b->title, 'UTF-8'));
+        similar_text($cleanA, $cleanB, $pct);
+        if ($pct >= 75 && ($sameLocation || $venuesEquivalent)) {
+            return true;
+        }
+
+        // 12. Stemmed word overlap (Latvian declension-aware)
+        $stemsA = EventIngestionService::getLatvianWordStems($a->title);
+        $stemsB = EventIngestionService::getLatvianWordStems($b->title);
+        $commonStems = array_intersect($stemsA, $stemsB);
+        if (count($commonStems) >= 2 && ($sameLocation || $venuesEquivalent)) {
+            $overlap = (count($commonStems) / min(count($stemsA), count($stemsB))) * 100;
+            $minThreshold = (count($commonStems) >= 3) ? 50 : 65;
+            if ($overlap >= $minThreshold) {
                 return true;
             }
         }
@@ -247,6 +356,17 @@ class ConsolidateEventsCommand extends Command
         if ($a->price_min !== null || $a->price_max !== null) $scoreA += 3;
         if ($b->price_min !== null || $b->price_max !== null) $scoreB += 3;
 
+        // Cyrillic & English title/slug penalties: strongly prefer Latvian title and slug
+        $aHasCyrillic = (bool) preg_match('/\p{Cyrillic}/u', $a->title);
+        $bHasCyrillic = (bool) preg_match('/\p{Cyrillic}/u', $b->title);
+        if ($aHasCyrillic && !$bHasCyrillic) $scoreB += 25;
+        if (!$aHasCyrillic && $bHasCyrillic) $scoreA += 25;
+
+        $aHasEnglish = (bool) preg_match('/^(the|a|an)\s+/i', $a->title) || (bool) preg_match('/^(the|a|an)-/i', $a->slug ?? '');
+        $bHasEnglish = (bool) preg_match('/^(the|a|an)\s+/i', $b->title) || (bool) preg_match('/^(the|a|an)-/i', $b->slug ?? '');
+        if ($aHasEnglish && !$bHasEnglish) $scoreB += 15;
+        if (!$aHasEnglish && $bHasEnglish) $scoreA += 15;
+
         // Description length
         if (mb_strlen($a->description ?? '') > mb_strlen($b->description ?? '')) {
             $scoreA += 1;
@@ -292,12 +412,17 @@ class ConsolidateEventsCommand extends Command
             $canonTicketPri = $canonSourceType?->ticketPriority() ?? 20;
 
             if ((empty($canonical->ticket_url) || $dupTicketPri > $canonTicketPri || ($dupIsTicketing && !$canonIsTicketing)) && !empty($duplicate->ticket_url)) {
-                $update['ticket_url'] = $duplicate->ticket_url;
+                $update['ticket_url'] = EventIngestionService::canonicalizeTicketUrl($duplicate->ticket_url) ?: $duplicate->ticket_url;
                 if ($duplicate->price_min !== null) {
                     $update['price_min'] = $duplicate->price_min;
                 }
                 if ($duplicate->price_max !== null) {
                     $update['price_max'] = $duplicate->price_max;
+                }
+            } elseif (!empty($canonical->ticket_url)) {
+                $cleanCanon = EventIngestionService::canonicalizeTicketUrl($canonical->ticket_url);
+                if ($cleanCanon && $cleanCanon !== $canonical->ticket_url) {
+                    $update['ticket_url'] = $cleanCanon;
                 }
             }
 
@@ -308,13 +433,19 @@ class ConsolidateEventsCommand extends Command
                 $update['location_id'] = $duplicate->location_id;
             }
 
-            // 3. Title: if canonical has league title or session metadata, prefer duplicate's cleaner title
+            // 3. Title: if canonical has league title or session metadata, or duplicate is Latvian while canonical is foreign, prefer duplicate's cleaner title
             $canonIsLeague = EventIngestionService::isLeagueOrTournamentTitle($canonical->title);
             $dupIsLeague = EventIngestionService::isLeagueOrTournamentTitle($duplicate->title);
             $canonHasMeta = self::hasScrapedMetadata($canonical->title);
             $dupHasMeta = self::hasScrapedMetadata($duplicate->title);
+            $canonHasCyrillic = (bool) preg_match('/\p{Cyrillic}/u', $canonical->title);
+            $dupHadCyrillic = (bool) preg_match('/\p{Cyrillic}/u', $duplicate->title);
+            $canonHasEnglish = (bool) preg_match('/^(the|a|an)\s+/i', $canonical->title);
+            $dupHasEnglish = (bool) preg_match('/^(the|a|an)\s+/i', $duplicate->title);
 
-            if ((($canonIsLeague && !$dupIsLeague) || ($canonHasMeta && !$dupHasMeta)) && !empty($duplicate->title)) {
+            if (($canonHasCyrillic && !$dupHadCyrillic) || ($canonHasEnglish && !$dupHasEnglish)) {
+                $update['title'] = trim($duplicate->title, '"\' ');
+            } elseif ((($canonIsLeague && !$dupIsLeague) || ($canonHasMeta && !$dupHasMeta)) && !empty($duplicate->title)) {
                 $update['title'] = trim($duplicate->title, '"\' ');
             }
 
@@ -341,6 +472,23 @@ class ConsolidateEventsCommand extends Command
 
             // 8. Raw data
             $update['raw_data'] = array_merge($duplicate->raw_data ?? [], $canonical->raw_data ?? []);
+
+            // 9. Slug & Fingerprint updates
+            $effectiveTitle = $update['title'] ?? $canonical->title;
+            $canonSlug = $canonical->slug ?? '';
+            $expectedSlugPrefix = Str::slug($effectiveTitle);
+
+            if (empty($canonSlug) || preg_match('/\p{Cyrillic}/u', $canonSlug) || preg_match('/^(the|a|an)-/i', $canonSlug) || !str_starts_with($canonSlug, $expectedSlugPrefix)) {
+                $suffix = preg_match('/-([a-zA-Z0-9]{6})$/', $canonSlug, $m) ? $m[1] : Str::random(6);
+                $update['slug'] = $expectedSlugPrefix . '-' . $suffix;
+            }
+
+            $normTitle = mb_strtolower(preg_replace('/[^\p{L}\p{N}]+/u', '', $effectiveTitle));
+            $date = ($canonical->start_at && $canonical->start_at->format('H:i') !== '00:00')
+                ? $canonical->start_at->format('Y-m-d H:i')
+                : ($canonical->start_at ? $canonical->start_at->format('Y-m-d') : '');
+            $city = mb_strtolower(trim($canonical->location?->city ?? $duplicate->location?->city ?? ''));
+            $update['fingerprint'] = hash('sha256', "{$normTitle}|{$date}|{$city}");
 
             if (!empty($update)) {
                 $canonical->update($update);

@@ -185,8 +185,7 @@ class AfiroApiScraper extends BaseScraper
         $foundOfficial = null;
 
         foreach ($matches[0] as $rawUrl) {
-            $cleanUrl = preg_replace('/(\?|\&)utm_[a-zA-Z0-9_]+=[^&]*/', '', $rawUrl);
-            $cleanUrl = rtrim($cleanUrl, '?&.,;:\'\"');
+            $cleanUrl = EventIngestionService::canonicalizeTicketUrl($rawUrl) ?? rtrim($rawUrl, '?&.,;:\'\"');
 
             if (str_contains($cleanUrl, 'afiro.lv') || str_contains($cleanUrl, 'imagekit.io')) {
                 continue;
@@ -194,7 +193,7 @@ class AfiroApiScraper extends BaseScraper
 
             foreach ($ticketPlatforms as $platform) {
                 if (str_contains($cleanUrl, $platform)) {
-                    $foundTicket = $cleanUrl;
+                    $foundTicket = EventIngestionService::canonicalizeTicketUrl($cleanUrl) ?: $cleanUrl;
                     break;
                 }
             }
