@@ -145,6 +145,28 @@ HTML;
         $this->assertEquals('Tīnūžu Tautas nams', $loc['name']);
         $this->assertEquals('Tīnūži', $loc['city']);
         $this->assertEquals('Vidzeme', $loc['region']);
+
+        // 4. Cemetery detection for Ikšķile, Ogresgals, and Smiltāji
+        $locIkskile = $scraper->resolveLocation('Ikšķile', 'Svecīšu vakars Ikšķiles kapos');
+        $this->assertEquals('Ikšķiles kapi', $locIkskile['name']);
+        $this->assertEquals('Ikšķile', $locIkskile['city']);
+        $this->assertEquals('landmark', $locIkskile['place_type']);
+
+        $locOgresgals = $scraper->resolveLocation('Ogresgala pagasts', 'Svecīšu vakars Ogresgala kapos');
+        $this->assertEquals('Ogresgala kapi', $locOgresgals['name']);
+        $this->assertEquals('Ogresgals', $locOgresgals['city']);
+        $this->assertEquals('landmark', $locOgresgals['place_type']);
+
+        $locSmiltaji = $scraper->resolveLocation('Ogres novads', 'Svecīšu vakars Smiltāju kapos');
+        $this->assertEquals('Smiltāju kapi', $locSmiltaji['name']);
+        $this->assertEquals('Ogre', $locSmiltaji['city']);
+        $this->assertEquals('landmark', $locSmiltaji['place_type']);
+
+        // 5. Fallback to Ogre when location cannot be determined
+        $locUnknown = $scraper->resolveLocation('', 'Nezināms pasākums novadā');
+        $this->assertEquals('Ogre', $locUnknown['name']);
+        $this->assertEquals('Ogre', $locUnknown['city']);
+        $this->assertEquals('city', $locUnknown['place_type']);
     }
 
     public function test_standard_event_concert_and_free_price(): void

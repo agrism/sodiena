@@ -553,6 +553,69 @@ class OgresNovadsScraper extends BaseScraper
     {
         $text = mb_strtolower($locationRaw . ' ' . $title . ' ' . $description, 'UTF-8');
 
+        // 1. Cemetery detection (strict priority before general fallbacks)
+        $cemeteryCandidate = trim($locationRaw . ' ' . $title);
+        if (preg_match('/\b(?:kapos|kapiem|kapu|kapi|kapsētā|kapsēta)\b/ui', $cemeteryCandidate)) {
+            $cemeteryName = null;
+            $excludedWords = ['vakars', 'svētki', 'svetki', 'dievkalpojums', 'brīdis', 'bridis', 'diena', 'pasākums', 'pasakums'];
+
+            if (preg_match('/\b([A-ZĀČĒĢĪĶĻŅŠŪŽ][a-zāčēģīķļņšūž]+(?:\s+[A-ZĀČĒĢĪĶĻŅŠŪŽa-zāčēģīķļņšūž]+)?)\s+(?:kapos|kapiem|kapu|kapi|kapsētā|kapsēta)\b/u', $cemeteryCandidate, $cm)) {
+                $matched = trim($cm[1]);
+                $lastWord = mb_strtolower((string) preg_replace('/.*\s+/', '', $matched), 'UTF-8');
+                if (!in_array($lastWord, $excludedWords, true)) {
+                    $cemeteryName = $matched . ' kapi';
+                }
+            }
+
+            // Determine parish/city for cemetery
+            $parishMapForCemetery = [
+                'ikšķil' => 'Ikšķile',
+                'lielvārd' => 'Lielvārde',
+                'ķegum' => 'Ķegums',
+                'suntaž' => 'Suntaži',
+                'meņģel' => 'Meņģele',
+                'ciemup' => 'Ciemupe',
+                'jumprav' => 'Jumprava',
+                'lauber' => 'Laubere',
+                'tīnūž' => 'Tīnūži',
+                'tomē' => 'Tome',
+                'tome' => 'Tome',
+                'madlien' => 'Madliena',
+                'rembat' => 'Rembate',
+                'birzgal' => 'Birzgale',
+                'taurup' => 'Taurupe',
+                'krap' => 'Krape',
+                'mazozol' => 'Mazozoli',
+                'lēdman' => 'Lēdmane',
+                'ledman' => 'Lēdmane',
+                'ogresgal' => 'Ogresgals',
+                'smiltāj' => 'Ogre',
+                'ogrē' => 'Ogre',
+                'ogre' => 'Ogre',
+            ];
+
+            $cemeteryCity = 'Ogre';
+            $cemeterySearch = mb_strtolower($cemeteryCandidate, 'UTF-8');
+            foreach ($parishMapForCemetery as $needle => $cName) {
+                if (str_contains($cemeterySearch, $needle)) {
+                    $cemeteryCity = $cName;
+                    break;
+                }
+            }
+
+            if (!$cemeteryName) {
+                $cemeteryName = $cemeteryCity !== 'Ogre' ? "{$cemeteryCity} kapi" : 'Smiltāju kapi';
+            }
+
+            return [
+                'name' => $cemeteryName,
+                'city' => $cemeteryCity,
+                'region' => 'Vidzeme',
+                'address' => "{$cemeteryCity}, Ogres novads",
+                'place_type' => 'landmark',
+            ];
+        }
+
         // Stem matching for known Ogres novada venues
         $stemVenueMap = [
             'lielajā zāl' => 'ogres novada kultūras centrs, lielā zāle',
@@ -672,15 +735,18 @@ class OgresNovadsScraper extends BaseScraper
             'Krape' => 'Krapes Tautas nams',
             'Mazozoli' => 'Mazozolu pagasta Kultūras nams',
             'Lēdmane' => 'Lēdmanes Tautas nams',
-            default => 'Ogres novada Kultūras centrs',
+            'Ogresgals' => 'Ogresgals',
+            default => 'Ogre',
         };
+
+        $placeType = ($venue === 'Ogre' || $venue === 'Ogresgals') ? 'city' : 'cultural_center';
 
         return [
             'name' => $venue,
             'city' => $city,
             'region' => 'Vidzeme',
             'address' => "{$city}, Ogres novads",
-            'place_type' => 'cultural_center',
+            'place_type' => $placeType,
         ];
     }
 
