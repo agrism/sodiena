@@ -15,6 +15,7 @@ use App\Services\Scrapers\Sources\BilesuServissScraper;
 use App\Services\Scrapers\Sources\CesisScraper;
 use App\Services\Scrapers\Sources\DaugavpilsScraper;
 use App\Services\Scrapers\Sources\DienvidkurzemeScraper;
+use App\Services\Scrapers\Sources\KekavaScraper;
 use App\Services\Scrapers\Sources\DzejasDienasScraper;
 use App\Services\Scrapers\Sources\EkaseLvScraper;
 use App\Services\Scrapers\Sources\EstLatblScraper;
@@ -422,6 +423,14 @@ class SourceSeeder extends Seeder
                 'slug' => 'dienvidkurzeme',
                 'url' => 'https://www.dienvidkurzeme.travel/pasakumi-dienvidkurzeme/',
                 'scraper_class' => DienvidkurzemeScraper::class,
+                'type' => SourceType::MUNICIPALITY->value,
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Ķekavas novads',
+                'slug' => 'kekava',
+                'url' => 'https://kekava.lv/notikumi/',
+                'scraper_class' => KekavaScraper::class,
                 'type' => SourceType::MUNICIPALITY->value,
                 'is_active' => true,
             ],
