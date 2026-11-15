@@ -41,6 +41,7 @@ use App\Services\Scrapers\Sources\SiguldaTourismScraper;
 use App\Services\Scrapers\Sources\TicketBestLvScraper;
 use App\Services\Scrapers\Sources\ValmierasNovadsScraper;
 use App\Services\Scrapers\Sources\VisitDaugavpilsScraper;
+use App\Services\Scrapers\Sources\VisitJekabpilsScraper;
 use App\Services\Scrapers\Sources\VisitJurmalaScraper;
 use App\Services\Scrapers\Sources\VisitOgreScraper;
 use App\Services\Scrapers\Sources\VisitTukumsScraper;
@@ -377,6 +378,14 @@ class SourceSeeder extends Seeder
                 'slug' => 'jkp',
                 'url' => 'https://www.jkp.lv/sakums/kalendars/',
                 'scraper_class' => JkpScraper::class,
+                'type' => SourceType::MUNICIPALITY->value,
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Visit Jēkabpils',
+                'slug' => 'visitjekabpils',
+                'url' => 'https://visit.jekabpils.lv/lv/visi-pasakumi/',
+                'scraper_class' => VisitJekabpilsScraper::class,
                 'type' => SourceType::MUNICIPALITY->value,
                 'is_active' => true,
             ],
