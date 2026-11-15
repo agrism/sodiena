@@ -447,3 +447,4 @@ HTML;
         $this->assertEquals('Vidzeme', $event->location->region);
     }
 }
+

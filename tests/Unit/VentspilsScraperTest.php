@@ -379,3 +379,4 @@ HTML;
         $this->assertEquals('theatre', $event->entertainment_type);
     }
 }
+

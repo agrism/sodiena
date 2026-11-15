@@ -452,3 +452,4 @@ HTML;
         $this->assertEquals('Rīga un Pierīga', $event->location->region);
     }
 }
+
