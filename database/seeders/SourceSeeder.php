@@ -46,6 +46,7 @@ use App\Services\Scrapers\Sources\VisitJekabpilsScraper;
 use App\Services\Scrapers\Sources\VisitJurmalaScraper;
 use App\Services\Scrapers\Sources\VisitOgreScraper;
 use App\Services\Scrapers\Sources\VisitTukumsScraper;
+use App\Services\Scrapers\Sources\VisitVentspilsScraper;
 use App\Services\Scrapers\Sources\VolejbolsLvScraper;
 use Illuminate\Database\Seeder;
 
@@ -395,6 +396,14 @@ class SourceSeeder extends Seeder
                 'slug' => 'jurmala',
                 'url' => 'https://www.jurmala.lv/lv/notikumu-kalendars',
                 'scraper_class' => JurmalaScraper::class,
+                'type' => SourceType::MUNICIPALITY->value,
+                'is_active' => true,
+            ],
+            [
+                'name' => 'VisitVentspils',
+                'slug' => 'visitventspils',
+                'url' => 'https://www.visitventspils.com/pasakumi/',
+                'scraper_class' => VisitVentspilsScraper::class,
                 'type' => SourceType::MUNICIPALITY->value,
                 'is_active' => true,
             ],
