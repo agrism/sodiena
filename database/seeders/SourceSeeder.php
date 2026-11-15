@@ -35,6 +35,7 @@ use App\Services\Scrapers\Sources\PassportixScraper;
 use App\Services\Scrapers\Sources\SiguldaNovadsScraper;
 use App\Services\Scrapers\Sources\SiguldaTourismScraper;
 use App\Services\Scrapers\Sources\TicketBestLvScraper;
+use App\Services\Scrapers\Sources\VisitDaugavpilsScraper;
 use App\Services\Scrapers\Sources\VisitOgreScraper;
 use App\Services\Scrapers\Sources\VolejbolsLvScraper;
 use Illuminate\Database\Seeder;
@@ -281,6 +282,14 @@ class SourceSeeder extends Seeder
                 'slug' => 'visitogre',
                 'url' => 'https://www.visitogre.lv/lv/pasakumi',
                 'scraper_class' => VisitOgreScraper::class,
+                'type' => SourceType::MUNICIPALITY->value,
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Visit Daugavpils',
+                'slug' => 'visitdaugavpils',
+                'url' => 'https://www.visitdaugavpils.lv/pasakumi/',
+                'scraper_class' => VisitDaugavpilsScraper::class,
                 'type' => SourceType::MUNICIPALITY->value,
                 'is_active' => true,
             ],
