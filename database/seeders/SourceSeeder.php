@@ -20,6 +20,7 @@ use App\Services\Scrapers\Sources\FientaScraper;
 use App\Services\Scrapers\Sources\FloorballLvScraper;
 use App\Services\Scrapers\Sources\HandballLvScraper;
 use App\Services\Scrapers\Sources\JurmalasMuzejsScraper;
+use App\Services\Scrapers\Sources\KulturaJelgavaScraper;
 use App\Services\Scrapers\Sources\KulturasDatiScraper;
 use App\Services\Scrapers\Sources\LatgalesGorsScraper;
 use App\Services\Scrapers\Sources\LiepajaKalendarsScraper;
@@ -315,6 +316,14 @@ class SourceSeeder extends Seeder
                 'url' => 'https://ogresmuzejs.lv/piedavajums',
                 'scraper_class' => OgresMuzejsScraper::class,
                 'type' => SourceType::VENUE->value,
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Jelgavas kultūras nams',
+                'slug' => 'kultura-jelgava',
+                'url' => 'https://kultura.jelgava.lv/pasakumi/',
+                'scraper_class' => KulturaJelgavaScraper::class,
+                'type' => SourceType::MUNICIPALITY->value,
                 'is_active' => true,
             ],
         ];
