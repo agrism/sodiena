@@ -41,6 +41,7 @@ use App\Services\Scrapers\Sources\ValmierasNovadsScraper;
 use App\Services\Scrapers\Sources\VisitDaugavpilsScraper;
 use App\Services\Scrapers\Sources\VisitJurmalaScraper;
 use App\Services\Scrapers\Sources\VisitOgreScraper;
+use App\Services\Scrapers\Sources\VisitTukumsScraper;
 use App\Services\Scrapers\Sources\VolejbolsLvScraper;
 use Illuminate\Database\Seeder;
 
@@ -350,6 +351,14 @@ class SourceSeeder extends Seeder
                 'slug' => 'valmieras-novads',
                 'url' => 'https://www.valmierasnovads.lv/aktualitates/norisu-kalendars/',
                 'scraper_class' => ValmierasNovadsScraper::class,
+                'type' => SourceType::MUNICIPALITY->value,
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Visit Tukums',
+                'slug' => 'visittukums',
+                'url' => 'https://visittukums.lv/lv/Pasakumi',
+                'scraper_class' => VisitTukumsScraper::class,
                 'type' => SourceType::MUNICIPALITY->value,
                 'is_active' => true,
             ],
