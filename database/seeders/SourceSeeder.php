@@ -14,6 +14,7 @@ use App\Services\Scrapers\Sources\BilesuParadizeScraper;
 use App\Services\Scrapers\Sources\BilesuServissScraper;
 use App\Services\Scrapers\Sources\CesisScraper;
 use App\Services\Scrapers\Sources\DaugavpilsScraper;
+use App\Services\Scrapers\Sources\DienvidkurzemeScraper;
 use App\Services\Scrapers\Sources\DzejasDienasScraper;
 use App\Services\Scrapers\Sources\EkaseLvScraper;
 use App\Services\Scrapers\Sources\EstLatblScraper;
@@ -413,6 +414,14 @@ class SourceSeeder extends Seeder
                 'slug' => 'ventspils',
                 'url' => 'https://www.ventspils.lv/notikumi/?view=all',
                 'scraper_class' => VentspilsScraper::class,
+                'type' => SourceType::MUNICIPALITY->value,
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Dienvidkurzeme Travel',
+                'slug' => 'dienvidkurzeme',
+                'url' => 'https://www.dienvidkurzeme.travel/pasakumi-dienvidkurzeme/',
+                'scraper_class' => DienvidkurzemeScraper::class,
                 'type' => SourceType::MUNICIPALITY->value,
                 'is_active' => true,
             ],
