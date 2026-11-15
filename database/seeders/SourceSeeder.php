@@ -38,6 +38,7 @@ use App\Services\Scrapers\Sources\SiguldaNovadsScraper;
 use App\Services\Scrapers\Sources\SiguldaTourismScraper;
 use App\Services\Scrapers\Sources\TicketBestLvScraper;
 use App\Services\Scrapers\Sources\VisitDaugavpilsScraper;
+use App\Services\Scrapers\Sources\VisitJurmalaScraper;
 use App\Services\Scrapers\Sources\VisitOgreScraper;
 use App\Services\Scrapers\Sources\VolejbolsLvScraper;
 use Illuminate\Database\Seeder;
@@ -332,6 +333,14 @@ class SourceSeeder extends Seeder
                 'slug' => 'jelgavas-novads',
                 'url' => 'https://www.jelgavasnovads.lv/lv/notikumu-kalendars',
                 'scraper_class' => JelgavasNovadsScraper::class,
+                'type' => SourceType::MUNICIPALITY->value,
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Visit Jūrmala',
+                'slug' => 'visitjurmala',
+                'url' => 'https://visitjurmala.lv/lv/pasakumi/',
+                'scraper_class' => VisitJurmalaScraper::class,
                 'type' => SourceType::MUNICIPALITY->value,
                 'is_active' => true,
             ],

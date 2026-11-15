@@ -5,6 +5,7 @@ namespace App\Services\Scrapers\Sources;
 use App\Models\Source;
 use App\Services\Scrapers\BaseScraper;
 use App\Services\Scrapers\DTO\ScrapedEventDTO;
+use App\Services\Scrapers\EventIngestionService;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
