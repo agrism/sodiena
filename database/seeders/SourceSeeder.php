@@ -22,6 +22,7 @@ use App\Services\Scrapers\Sources\FloorballLvScraper;
 use App\Services\Scrapers\Sources\HandballLvScraper;
 use App\Services\Scrapers\Sources\JurmalasMuzejsScraper;
 use App\Services\Scrapers\Sources\JelgavasNovadsScraper;
+use App\Services\Scrapers\Sources\JkpScraper;
 use App\Services\Scrapers\Sources\KulturaJelgavaScraper;
 use App\Services\Scrapers\Sources\KulturasDatiScraper;
 use App\Services\Scrapers\Sources\LatgalesGorsScraper;
@@ -368,6 +369,14 @@ class SourceSeeder extends Seeder
                 'slug' => 'cesis',
                 'url' => 'https://pasakumi.cesis.lv/',
                 'scraper_class' => CesisScraper::class,
+                'type' => SourceType::MUNICIPALITY->value,
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Jēkabpils Kultūras pārvalde',
+                'slug' => 'jkp',
+                'url' => 'https://www.jkp.lv/sakums/kalendars/',
+                'scraper_class' => JkpScraper::class,
                 'type' => SourceType::MUNICIPALITY->value,
                 'is_active' => true,
             ],
