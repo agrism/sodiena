@@ -41,6 +41,7 @@ use App\Services\Scrapers\Sources\SiguldaNovadsScraper;
 use App\Services\Scrapers\Sources\SiguldaTourismScraper;
 use App\Services\Scrapers\Sources\TicketBestLvScraper;
 use App\Services\Scrapers\Sources\ValmierasNovadsScraper;
+use App\Services\Scrapers\Sources\VentspilsScraper;
 use App\Services\Scrapers\Sources\VisitDaugavpilsScraper;
 use App\Services\Scrapers\Sources\VisitJekabpilsScraper;
 use App\Services\Scrapers\Sources\VisitJurmalaScraper;
@@ -404,6 +405,14 @@ class SourceSeeder extends Seeder
                 'slug' => 'visitventspils',
                 'url' => 'https://www.visitventspils.com/pasakumi/',
                 'scraper_class' => VisitVentspilsScraper::class,
+                'type' => SourceType::MUNICIPALITY->value,
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Ventspils valstspilsēta',
+                'slug' => 'ventspils',
+                'url' => 'https://www.ventspils.lv/notikumi/?view=all',
+                'scraper_class' => VentspilsScraper::class,
                 'type' => SourceType::MUNICIPALITY->value,
                 'is_active' => true,
             ],
