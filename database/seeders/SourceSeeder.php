@@ -37,6 +37,7 @@ use App\Services\Scrapers\Sources\PassportixScraper;
 use App\Services\Scrapers\Sources\SiguldaNovadsScraper;
 use App\Services\Scrapers\Sources\SiguldaTourismScraper;
 use App\Services\Scrapers\Sources\TicketBestLvScraper;
+use App\Services\Scrapers\Sources\ValmierasNovadsScraper;
 use App\Services\Scrapers\Sources\VisitDaugavpilsScraper;
 use App\Services\Scrapers\Sources\VisitJurmalaScraper;
 use App\Services\Scrapers\Sources\VisitOgreScraper;
@@ -341,6 +342,14 @@ class SourceSeeder extends Seeder
                 'slug' => 'visitjurmala',
                 'url' => 'https://visitjurmala.lv/lv/pasakumi/',
                 'scraper_class' => VisitJurmalaScraper::class,
+                'type' => SourceType::MUNICIPALITY->value,
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Valmieras novada pašvaldība',
+                'slug' => 'valmieras-novads',
+                'url' => 'https://www.valmierasnovads.lv/aktualitates/norisu-kalendars/',
+                'scraper_class' => ValmierasNovadsScraper::class,
                 'type' => SourceType::MUNICIPALITY->value,
                 'is_active' => true,
             ],
