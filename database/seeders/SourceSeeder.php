@@ -20,9 +20,10 @@ use App\Services\Scrapers\Sources\EstLatblScraper;
 use App\Services\Scrapers\Sources\FientaScraper;
 use App\Services\Scrapers\Sources\FloorballLvScraper;
 use App\Services\Scrapers\Sources\HandballLvScraper;
-use App\Services\Scrapers\Sources\JurmalasMuzejsScraper;
 use App\Services\Scrapers\Sources\JelgavasNovadsScraper;
 use App\Services\Scrapers\Sources\JkpScraper;
+use App\Services\Scrapers\Sources\JurmalaScraper;
+use App\Services\Scrapers\Sources\JurmalasMuzejsScraper;
 use App\Services\Scrapers\Sources\KulturaJelgavaScraper;
 use App\Services\Scrapers\Sources\KulturasDatiScraper;
 use App\Services\Scrapers\Sources\LatgalesGorsScraper;
@@ -386,6 +387,14 @@ class SourceSeeder extends Seeder
                 'slug' => 'visitjekabpils',
                 'url' => 'https://visit.jekabpils.lv/lv/visi-pasakumi/',
                 'scraper_class' => VisitJekabpilsScraper::class,
+                'type' => SourceType::MUNICIPALITY->value,
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Jūrmalas valstspilsēta',
+                'slug' => 'jurmala',
+                'url' => 'https://www.jurmala.lv/lv/notikumu-kalendars',
+                'scraper_class' => JurmalaScraper::class,
                 'type' => SourceType::MUNICIPALITY->value,
                 'is_active' => true,
             ],
