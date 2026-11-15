@@ -436,12 +436,16 @@ class VisitJekabpilsScraper extends BaseScraper
                 // Parse price if any is mentioned in title
                 $priceData = $this->parsePrice($title);
 
+                // Fetch full description from detail page
+                $detailDescription = $this->fetchDetailDescription($sourceUrl);
+                $description = !empty($detailDescription) ? $detailDescription : $title;
+
                 $dto = new ScrapedEventDTO(
                     title: $title,
                     startAt: $startAt,
                     endAt: $endAt,
-                    description: $title,
-                    shortDescription: $title,
+                    description: $description,
+                    shortDescription: \Illuminate\Support\Str::limit(strip_tags($description), 200),
                     venueName: $locationData['name'],
                     city: $locationData['city'],
                     region: $locationData['region'],
@@ -782,5 +786,48 @@ class VisitJekabpilsScraper extends BaseScraper
             'price_min' => $priceMin,
             'price_max' => $priceMax,
         ];
+    }
+
+    protected array $detailDescriptionCache = [];
+
+    /**
+     * Fetch full description from event detail page
+     */
+    public function fetchDetailDescription(?string $url): ?string
+    {
+        if (empty($url) || !str_starts_with($url, 'http')) {
+            return null;
+        }
+
+        if (isset($this->detailDescriptionCache[$url])) {
+            return $this->detailDescriptionCache[$url];
+        }
+
+        $crawler = $this->fetchCrawler($url);
+        if (!$crawler) {
+            return null;
+        }
+
+        $paragraphs = [];
+        $crawler->filter('.about-event .main-html-content p')->each(function (Crawler $p) use (&$paragraphs) {
+            $t = $this->cleanText($p->text());
+            if (!empty($t) && !in_array($t, $paragraphs, true)) {
+                $paragraphs[] = $t;
+            }
+        });
+
+        if (empty($paragraphs)) {
+            $crawler->filter('.about-event .main-html-content, .about-event')->each(function (Crawler $p) use (&$paragraphs) {
+                $t = $this->cleanText($p->text());
+                if (!empty($t) && !in_array($t, $paragraphs, true)) {
+                    $paragraphs[] = $t;
+                }
+            });
+        }
+
+        $description = !empty($paragraphs) ? implode("\n\n", $paragraphs) : null;
+        $this->detailDescriptionCache[$url] = $description;
+
+        return $description;
     }
 }

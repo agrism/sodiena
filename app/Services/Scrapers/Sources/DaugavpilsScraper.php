@@ -240,13 +240,18 @@ class DaugavpilsScraper extends BaseScraper
                 $slugPart = basename(parse_url($cleanUrl, PHP_URL_PATH));
                 $externalId = 'daugavpils-' . $slugPart;
 
-                // Description (synthesized without crawling sub-pages)
-                $description = $title;
-                if (!empty($locationInfo['name']) && $locationInfo['name'] !== 'Daugavpils') {
-                    $description .= "\nNorises vieta: " . $locationInfo['name'];
-                }
-                if (!empty($locationInfo['address']) && $locationInfo['address'] !== 'Daugavpils') {
-                    $description .= "\nAdrese: " . $locationInfo['address'];
+                // Description from detail page with fallback
+                $detailDescription = $this->fetchDetailDescription($cleanUrl);
+                if (!empty($detailDescription)) {
+                    $description = $detailDescription;
+                } else {
+                    $description = $title;
+                    if (!empty($locationInfo['name']) && $locationInfo['name'] !== 'Daugavpils') {
+                        $description .= "\nNorises vieta: " . $locationInfo['name'];
+                    }
+                    if (!empty($locationInfo['address']) && $locationInfo['address'] !== 'Daugavpils') {
+                        $description .= "\nAdrese: " . $locationInfo['address'];
+                    }
                 }
 
                 $dto = new ScrapedEventDTO(
@@ -617,5 +622,51 @@ class DaugavpilsScraper extends BaseScraper
         }
 
         return false;
+    }
+
+    protected array $detailDescriptionCache = [];
+
+    /**
+     * Fetch full description from event detail page
+     */
+    public function fetchDetailDescription(?string $url): ?string
+    {
+        if (empty($url) || !str_starts_with($url, 'http')) {
+            return null;
+        }
+
+        if (isset($this->detailDescriptionCache[$url])) {
+            return $this->detailDescriptionCache[$url];
+        }
+
+        $crawler = $this->fetchCrawler($url);
+        if (!$crawler) {
+            return null;
+        }
+
+        $paragraphs = [];
+        $crawler->filter('article > p, .article-content p, .news-content p')->each(function (Crawler $p) use (&$paragraphs) {
+            $t = $this->cleanText($p->text());
+            if (empty($t) || str_starts_with($t, 'Foto:') || str_starts_with($t, 'Informāciju sagatavoja:')) {
+                return;
+            }
+            if (!in_array($t, $paragraphs, true)) {
+                $paragraphs[] = $t;
+            }
+        });
+
+        if (empty($paragraphs)) {
+            $crawler->filter('article')->each(function (Crawler $p) use (&$paragraphs) {
+                $t = $this->cleanText($p->text());
+                if (!empty($t) && !in_array($t, $paragraphs, true)) {
+                    $paragraphs[] = $t;
+                }
+            });
+        }
+
+        $description = !empty($paragraphs) ? implode("\n\n", $paragraphs) : null;
+        $this->detailDescriptionCache[$url] = $description;
+
+        return $description;
     }
 }

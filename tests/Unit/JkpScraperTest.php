@@ -334,17 +334,32 @@ HTML;
 </div>
 HTML;
 
-        // Mock 6 responses (monthsAhead = 6)
+        // Mock responses for calendar months and detail pages
         $emptyHtml = '<div class="em-calendar"></div>';
-        $mock = new MockHandler([
-            new Response(200, ['Content-Type' => 'text/html'], $month1Html),
-            new Response(200, ['Content-Type' => 'text/html'], $month2Html),
-            new Response(200, ['Content-Type' => 'text/html'], $emptyHtml),
-            new Response(200, ['Content-Type' => 'text/html'], $emptyHtml),
-            new Response(200, ['Content-Type' => 'text/html'], $emptyHtml),
-            new Response(200, ['Content-Type' => 'text/html'], $emptyHtml),
+        $currentMonth = (int) now('Europe/Riga')->format('n');
+        $nextMonth = (int) now('Europe/Riga')->addMonth()->format('n');
+
+        $client = new Client([
+            'handler' => function ($request) use ($month1Html, $month2Html, $emptyHtml, $currentMonth, $nextMonth) {
+                $uri = (string) $request->getUri();
+                if (str_contains($uri, 'ajaxCalendar=1')) {
+                    if (str_contains($uri, 'mo=' . $currentMonth . '&')) {
+                        return new \GuzzleHttp\Promise\FulfilledPromise(new Response(200, ['Content-Type' => 'text/html'], $month1Html));
+                    }
+                    if (str_contains($uri, 'mo=' . $nextMonth . '&')) {
+                        return new \GuzzleHttp\Promise\FulfilledPromise(new Response(200, ['Content-Type' => 'text/html'], $month2Html));
+                    }
+                    return new \GuzzleHttp\Promise\FulfilledPromise(new Response(200, ['Content-Type' => 'text/html'], $emptyHtml));
+                }
+
+                // Detail pages
+                if (str_contains($uri, 'osokina-koncerts')) {
+                    return new \GuzzleHttp\Promise\FulfilledPromise(new Response(200, ['Content-Type' => 'text/html'], '<div class="entry_content"><p>Pilns koncerta apraksts ar vairākiem teikumiem.</p></div>'));
+                }
+
+                return new \GuzzleHttp\Promise\FulfilledPromise(new Response(200, ['Content-Type' => 'text/html'], '<div class="entry_content"><p>Pasākuma detaļas.</p></div>'));
+            }
         ]);
-        $client = new Client(['handler' => HandlerStack::create($mock)]);
 
         $scraper = new JkpScraper();
         $scraper->setClient($client);

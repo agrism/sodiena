@@ -405,11 +405,14 @@ class JkpScraper extends BaseScraper
                     $seenIds[$eventId] = true;
 
                     // Extract description
-                    $description = null;
+                    $modalDesc = null;
                     if ($node->filter('.em-item-desc')->count() > 0) {
-                        $description = $this->cleanText($node->filter('.em-item-desc')->text());
+                        $modalDesc = $this->cleanText($node->filter('.em-item-desc')->text());
                     }
-                    $shortDescription = $description ? mb_substr($description, 0, 250) : null;
+
+                    $detailDesc = $this->fetchDetailDescription($url);
+                    $description = !empty($detailDesc) ? $detailDesc : $modalDesc;
+                    $shortDescription = $description ? mb_substr(strip_tags($description), 0, 250) : null;
 
                     // Extract image
                     $imageUrl = null;
@@ -430,14 +433,13 @@ class JkpScraper extends BaseScraper
                     $entertainmentType = $this->resolveEntertainmentType($categories, $title, $locationData['name']);
 
                     // Parse price
-                    $priceData = $this->parsePrice($description ?? '');
+                    $priceData = $this->parsePrice(($description ?? '') . ' ' . ($modalDesc ?? ''));
 
                     // Check for external ticketing links in description
                     $ticketUrl = null;
-                    if ($description) {
-                        if (preg_match('/(https?:\/\/(?:www\.)?(?:bilesuparadize\.lv|bilesuserviss\.lv|bezrindas\.lv|passportix\.eu|fienta\.com)[^\s"\'<>]+)/i', $description, $ticketMatch)) {
-                            $ticketUrl = $ticketMatch[1];
-                        }
+                    $combinedDescForTickets = ($description ?? '') . ' ' . ($modalDesc ?? '');
+                    if (preg_match('/(https?:\/\/(?:www\.)?(?:bilesuparadize\.lv|bilesuserviss\.lv|bezrindas\.lv|passportix\.eu|fienta\.com)[^\s"\'<>]+)/i', $combinedDescForTickets, $ticketMatch)) {
+                        $ticketUrl = $ticketMatch[1];
                     }
 
                     $dto = new ScrapedEventDTO(
@@ -824,5 +826,48 @@ class JkpScraper extends BaseScraper
             'price_min' => $priceMin,
             'price_max' => $priceMax,
         ];
+    }
+
+    protected array $detailDescriptionCache = [];
+
+    /**
+     * Fetch full description from event detail page
+     */
+    public function fetchDetailDescription(?string $url): ?string
+    {
+        if (empty($url) || !str_starts_with($url, 'http') || !str_contains($url, '/notikumi/')) {
+            return null;
+        }
+
+        if (isset($this->detailDescriptionCache[$url])) {
+            return $this->detailDescriptionCache[$url];
+        }
+
+        $crawler = $this->fetchCrawler($url);
+        if (!$crawler) {
+            return null;
+        }
+
+        $paragraphs = [];
+        $crawler->filter('.event_description .entry_content p, .event-description .entry_content p, .entry_content p, .em-item-desc p')->each(function (Crawler $p) use (&$paragraphs) {
+            $t = $this->cleanText($p->text());
+            if (!empty($t) && !in_array($t, $paragraphs, true)) {
+                $paragraphs[] = $t;
+            }
+        });
+
+        if (empty($paragraphs)) {
+            $crawler->filter('.event_description .entry_content, .event-description, .entry_content')->each(function (Crawler $p) use (&$paragraphs) {
+                $t = $this->cleanText($p->text());
+                if (!empty($t) && !in_array($t, $paragraphs, true)) {
+                    $paragraphs[] = $t;
+                }
+            });
+        }
+
+        $description = !empty($paragraphs) ? implode("\n\n", $paragraphs) : null;
+        $this->detailDescriptionCache[$url] = $description;
+
+        return $description;
     }
 }

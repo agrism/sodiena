@@ -351,11 +351,10 @@ class JurmalaScraper extends BaseScraper
 
                 $allPageEventsPast = false;
 
-                // Description directly from card (strictly NO crawling into detail pages)
-                $description = $node->filter('div.event-content')->count() ? $this->cleanText($node->filter('div.event-content')->text()) : $title;
-                if (empty($description)) {
-                    $description = $title;
-                }
+                // Description from card with detail page fallback
+                $cardDesc = $node->filter('div.event-content')->count() ? $this->cleanText($node->filter('div.event-content')->text()) : $title;
+                $detailDesc = $this->fetchDetailDescription($cleanUrl);
+                $description = !empty($detailDesc) ? $detailDesc : (!empty($cardDesc) ? $cardDesc : $title);
 
                 // Location
                 $locationRaw = $node->filter('span.describing-field-value')->count() ? $this->cleanText($node->filter('span.describing-field-value')->text()) : '';
@@ -861,6 +860,54 @@ class JurmalaScraper extends BaseScraper
         }
         $cleaned = parent::cleanText($text);
         return trim($cleaned ?? '');
+    }
+
+    protected array $detailDescriptionCache = [];
+
+    /**
+     * Fetch full description from event detail page
+     */
+    public function fetchDetailDescription(?string $url): ?string
+    {
+        if (empty($url) || !str_starts_with($url, 'http') || !str_contains($url, '/notikums/')) {
+            return null;
+        }
+
+        if (isset($this->detailDescriptionCache[$url])) {
+            return $this->detailDescriptionCache[$url];
+        }
+
+        try {
+            $crawler = $this->fetchCrawler($url);
+            if (!$crawler) {
+                return null;
+            }
+
+            $paragraphs = [];
+            $crawler->filter('.field--name-body p, .node__content p, .event-content p')->each(function (Crawler $p) use (&$paragraphs) {
+                $t = $this->cleanText($p->text());
+                if (!empty($t) && !in_array($t, $paragraphs, true)) {
+                    $paragraphs[] = $t;
+                }
+            });
+
+            if (empty($paragraphs)) {
+                $crawler->filter('.field--name-body, .node__content, .event-content')->each(function (Crawler $p) use (&$paragraphs) {
+                    $t = $this->cleanText($p->text());
+                    if (!empty($t) && !in_array($t, $paragraphs, true)) {
+                        $paragraphs[] = $t;
+                    }
+                });
+            }
+
+            $description = !empty($paragraphs) ? implode("\n\n", $paragraphs) : null;
+            $this->detailDescriptionCache[$url] = $description;
+
+            return $description;
+        } catch (\Throwable $e) {
+            Log::warning("JurmalaScraper: detail fetch failed for {$url}: " . $e->getMessage());
+            return null;
+        }
     }
 
     protected function normalizeUrl(?string $relUrl): ?string

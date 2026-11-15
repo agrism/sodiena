@@ -535,13 +535,13 @@ class CesisScraper extends BaseScraper
                 $categories = $this->resolveCategories($rawTitle, $location['name']);
                 $entertainmentType = $this->resolveEntertainmentType($categories, $rawTitle, $location['name']);
 
-                // Image and description from carousel map if available
+                // Image and description
                 $carouselData = $carouselMap[$sourceUrl] ?? null;
                 $imageUrl = $carouselData['image'] ?? null;
-                $description = $carouselData['description'] ?? null;
-                if (empty($description)) {
-                    $description = $rawTitle . ' norisināsies vietā ' . $location['name'] . ', ' . $location['city'] . '.';
-                }
+                $detailDesc = $this->fetchDetailDescription($sourceUrl);
+                $description = !empty($detailDesc)
+                    ? $detailDesc
+                    : (($carouselData['description'] ?? null) ?: ($rawTitle . ' norisināsies vietā ' . $location['name'] . ', ' . $location['city'] . '.'));
 
                 $dto = new ScrapedEventDTO(
                     title: $rawTitle,
@@ -861,5 +861,48 @@ class CesisScraper extends BaseScraper
             'price_min' => $priceMin,
             'price_max' => $priceMax,
         ];
+    }
+
+    protected array $detailDescriptionCache = [];
+
+    /**
+     * Fetch full description from event detail page
+     */
+    public function fetchDetailDescription(?string $url): ?string
+    {
+        if (empty($url) || !str_starts_with($url, 'http')) {
+            return null;
+        }
+
+        if (isset($this->detailDescriptionCache[$url])) {
+            return $this->detailDescriptionCache[$url];
+        }
+
+        $crawler = $this->fetchCrawler($url);
+        if (!$crawler) {
+            return null;
+        }
+
+        $paragraphs = [];
+        $crawler->filter('.event-description-text p')->each(function (Crawler $p) use (&$paragraphs) {
+            $t = trim($p->text());
+            if ($t !== '' && !in_array($t, $paragraphs, true)) {
+                $paragraphs[] = $t;
+            }
+        });
+
+        if (empty($paragraphs)) {
+            $crawler->filter('.event-description-text')->each(function (Crawler $p) use (&$paragraphs) {
+                $t = trim($p->text());
+                if ($t !== '' && !in_array($t, $paragraphs, true)) {
+                    $paragraphs[] = $t;
+                }
+            });
+        }
+
+        $description = !empty($paragraphs) ? implode("\n\n", $paragraphs) : null;
+        $this->detailDescriptionCache[$url] = $description;
+
+        return $description;
     }
 }

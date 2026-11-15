@@ -306,8 +306,11 @@ class KekavaScraper extends BaseScraper
 
                 // 7. Descriptions
                 $cleanTitle = $this->cleanText($title) ?? $title;
-                $description = "{$cleanTitle} norisināsies {$locationInfo['name']} ({$locationInfo['city']}).";
-                $shortDescription = Str::limit($description, 250, '...');
+                $detailDesc = $this->fetchDetailDescription($eventUrl);
+                $description = !empty($detailDesc)
+                    ? $detailDesc
+                    : "{$cleanTitle} norisināsies {$locationInfo['name']} ({$locationInfo['city']}).";
+                $shortDescription = Str::limit(strip_tags($description), 250, '...');
 
                 $dto = new ScrapedEventDTO(
                     title: $cleanTitle,
@@ -636,6 +639,49 @@ class KekavaScraper extends BaseScraper
         }
 
         return ['Cits'];
+    }
+
+    protected array $detailDescriptionCache = [];
+
+    /**
+     * Fetch full description from event detail page
+     */
+    public function fetchDetailDescription(?string $url): ?string
+    {
+        if (empty($url) || !str_starts_with($url, 'http')) {
+            return null;
+        }
+
+        if (isset($this->detailDescriptionCache[$url])) {
+            return $this->detailDescriptionCache[$url];
+        }
+
+        $crawler = $this->fetchCrawler($url);
+        if (!$crawler) {
+            return null;
+        }
+
+        $paragraphs = [];
+        $crawler->filter('.entry-content p, .single-event-content p, .gme-event-description p, article p')->each(function (Crawler $p) use (&$paragraphs) {
+            $t = $this->cleanText($p->text());
+            if (!empty($t) && !in_array($t, $paragraphs, true)) {
+                $paragraphs[] = $t;
+            }
+        });
+
+        if (empty($paragraphs)) {
+            $crawler->filter('.entry-content, .single-event-content, .gme-event-description')->each(function (Crawler $p) use (&$paragraphs) {
+                $t = $this->cleanText($p->text());
+                if (!empty($t) && !in_array($t, $paragraphs, true)) {
+                    $paragraphs[] = $t;
+                }
+            });
+        }
+
+        $description = !empty($paragraphs) ? implode("\n\n", $paragraphs) : null;
+        $this->detailDescriptionCache[$url] = $description;
+
+        return $description;
     }
 }
 

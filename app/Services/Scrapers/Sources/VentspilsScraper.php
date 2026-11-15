@@ -334,7 +334,9 @@ class VentspilsScraper extends BaseScraper
                 // Price
                 $priceData = $this->parsePrice($title);
 
-                $description = $title;
+                // Fetch full description from detail page
+                $detailDescription = $this->fetchDetailDescription($cleanUrl);
+                $description = !empty($detailDescription) ? $detailDescription : $title;
                 $seenExternalIds[$externalId] = true;
 
                 $dto = new ScrapedEventDTO(
@@ -832,6 +834,50 @@ class VentspilsScraper extends BaseScraper
         }
         $cleaned = parent::cleanText($text);
         return trim($cleaned ?? '');
+    }
+
+    protected array $detailDescriptionCache = [];
+
+    /**
+     * Fetch full description from event detail page
+     */
+    public function fetchDetailDescription(?string $url): ?string
+    {
+        if (empty($url) || !str_starts_with($url, 'http')) {
+            return null;
+        }
+
+        if (isset($this->detailDescriptionCache[$url])) {
+            return $this->detailDescriptionCache[$url];
+        }
+
+        $crawler = $this->fetchCrawler($url);
+        if (!$crawler) {
+            return null;
+        }
+
+        $paragraphs = [];
+        $crawler->filter('.entry-content p, .entry-content > div:not([class])')->each(function (Crawler $node) use (&$paragraphs) {
+            $text = $this->cleanText($node->text());
+            if (!empty($text) && !in_array($text, $paragraphs, true)) {
+                $paragraphs[] = $text;
+            }
+        });
+
+        if (empty($paragraphs)) {
+            $entryNode = $crawler->filter('.entry-content');
+            if ($entryNode->count()) {
+                $text = $this->cleanText($entryNode->first()->text());
+                if (!empty($text)) {
+                    $paragraphs[] = $text;
+                }
+            }
+        }
+
+        $description = !empty($paragraphs) ? implode("\n\n", $paragraphs) : null;
+        $this->detailDescriptionCache[$url] = $description;
+
+        return $description;
     }
 
     protected function normalizeUrl(?string $relUrl): ?string
