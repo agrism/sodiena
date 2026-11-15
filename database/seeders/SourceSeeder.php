@@ -20,6 +20,7 @@ use App\Services\Scrapers\Sources\FientaScraper;
 use App\Services\Scrapers\Sources\FloorballLvScraper;
 use App\Services\Scrapers\Sources\HandballLvScraper;
 use App\Services\Scrapers\Sources\JurmalasMuzejsScraper;
+use App\Services\Scrapers\Sources\JelgavasNovadsScraper;
 use App\Services\Scrapers\Sources\KulturaJelgavaScraper;
 use App\Services\Scrapers\Sources\KulturasDatiScraper;
 use App\Services\Scrapers\Sources\LatgalesGorsScraper;
@@ -323,6 +324,14 @@ class SourceSeeder extends Seeder
                 'slug' => 'kultura-jelgava',
                 'url' => 'https://kultura.jelgava.lv/pasakumi/',
                 'scraper_class' => KulturaJelgavaScraper::class,
+                'type' => SourceType::MUNICIPALITY->value,
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Jelgavas novada pašvaldība',
+                'slug' => 'jelgavas-novads',
+                'url' => 'https://www.jelgavasnovads.lv/lv/notikumu-kalendars',
+                'scraper_class' => JelgavasNovadsScraper::class,
                 'type' => SourceType::MUNICIPALITY->value,
                 'is_active' => true,
             ],
