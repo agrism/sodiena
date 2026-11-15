@@ -12,6 +12,7 @@ use App\Services\Scrapers\Sources\BasketLvScraper;
 use App\Services\Scrapers\Sources\BezRindasScraper;
 use App\Services\Scrapers\Sources\BilesuParadizeScraper;
 use App\Services\Scrapers\Sources\BilesuServissScraper;
+use App\Services\Scrapers\Sources\CesisScraper;
 use App\Services\Scrapers\Sources\DaugavpilsScraper;
 use App\Services\Scrapers\Sources\DzejasDienasScraper;
 use App\Services\Scrapers\Sources\EkaseLvScraper;
@@ -359,6 +360,14 @@ class SourceSeeder extends Seeder
                 'slug' => 'visittukums',
                 'url' => 'https://visittukums.lv/lv/Pasakumi',
                 'scraper_class' => VisitTukumsScraper::class,
+                'type' => SourceType::MUNICIPALITY->value,
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Pasākumi Cēsīs',
+                'slug' => 'cesis',
+                'url' => 'https://pasakumi.cesis.lv/',
+                'scraper_class' => CesisScraper::class,
                 'type' => SourceType::MUNICIPALITY->value,
                 'is_active' => true,
             ],
