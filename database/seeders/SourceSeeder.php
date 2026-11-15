@@ -34,6 +34,7 @@ use App\Services\Scrapers\Sources\LffTelpuFutbolsScraper;
 use App\Services\Scrapers\Sources\LffVirsligaScraper;
 use App\Services\Scrapers\Sources\LhfHokejsScraper;
 use App\Services\Scrapers\Sources\LiveRigaScraper;
+use App\Services\Scrapers\Sources\MadonaScraper;
 use App\Services\Scrapers\Sources\MadonasMuzejsScraper;
 use App\Services\Scrapers\Sources\OgresMuzejsScraper;
 use App\Services\Scrapers\Sources\OgresNovadsScraper;
@@ -431,6 +432,14 @@ class SourceSeeder extends Seeder
                 'slug' => 'kekava',
                 'url' => 'https://kekava.lv/notikumi/',
                 'scraper_class' => KekavaScraper::class,
+                'type' => SourceType::MUNICIPALITY->value,
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Madonas novads',
+                'slug' => 'madona',
+                'url' => 'https://madona.lv/lat/pasakumi',
+                'scraper_class' => MadonaScraper::class,
                 'type' => SourceType::MUNICIPALITY->value,
                 'is_active' => true,
             ],
