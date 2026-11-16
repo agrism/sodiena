@@ -391,12 +391,16 @@ class EventIngestionService
             $fingerprint = $dto->getFingerprint();
 
             // 3. Deduplication search:
-            // Check by external source ID first
+            // Check by external source ID first (including events where this source was previously merged)
             $existingEvent = null;
             if ($dto->sourceExternalId) {
                 $existingEvent = Event::withTrashed()
-                    ->where('source_id', $source->id)
-                    ->where('source_external_id', $dto->sourceExternalId)
+                    ->where(function ($q) use ($source, $dto) {
+                        $q->where(function ($sq) use ($source, $dto) {
+                            $sq->where('source_id', $source->id)
+                               ->where('source_external_id', $dto->sourceExternalId);
+                        })->orWhere("raw_data->merged_external_ids->{$source->slug}", $dto->sourceExternalId);
+                    })
                     ->first();
             }
 
@@ -405,58 +409,75 @@ class EventIngestionService
             }
 
             // Match by unique ticketing URL or platform event ID (e.g. Biļešu Paradīze, Biļešu Serviss, Aula, BezRindas)
-            if (!$existingEvent && !empty($dto->ticketUrl) && self::isTicketingSource($source->slug, $dto->ticketUrl, $source->type)) {
-                $cleanTicketUrl = self::canonicalizeTicketUrl($dto->ticketUrl);
-                $dtoTicketMeta = self::extractTicketingPlatformMeta($dto->ticketUrl);
+            $dtoTicketUrls = array_values(array_unique(array_filter(array_merge(
+                [$dto->ticketUrl],
+                !empty($dto->rawData['ticket_links']) && is_array($dto->rawData['ticket_links'])
+                    ? array_column($dto->rawData['ticket_links'], 'url')
+                    : []
+            ))));
 
-                $ticketCandidates = Event::withTrashed()
-                    ->where(function ($q) use ($dto, $cleanTicketUrl, $dtoTicketMeta) {
-                        $q->where('ticket_url', $dto->ticketUrl)
-                          ->orWhere('ticket_url', $cleanTicketUrl)
-                          ->orWhere('ticket_url', $cleanTicketUrl . '/')
-                          ->orWhere('ticket_url', 'like', $cleanTicketUrl . '?%');
-
-                        if ($dtoTicketMeta && !empty($dtoTicketMeta['event_id'])) {
-                            if ($dtoTicketMeta['platform'] === 'bilesuparadize') {
-                                $q->orWhere('ticket_url', 'like', '%/event/' . $dtoTicketMeta['event_id'] . '%')
-                                  ->orWhere('source_url', 'like', '%/event/' . $dtoTicketMeta['event_id'] . '%');
-                            } elseif ($dtoTicketMeta['platform'] === 'bezrindas') {
-                                $q->orWhere('ticket_url', 'like', '%/' . $dtoTicketMeta['event_id'] . '/%')
-                                  ->orWhere('ticket_url', 'like', '%/' . $dtoTicketMeta['event_id'])
-                                  ->orWhere('source_url', 'like', '%/' . $dtoTicketMeta['event_id'] . '/%');
-                            } elseif ($dtoTicketMeta['platform'] === 'ekase') {
-                                $q->orWhere('ticket_url', 'like', '%/' . $dtoTicketMeta['event_id'] . '%');
-                            }
-                        } elseif ($dtoTicketMeta && $dtoTicketMeta['platform'] === 'bilesuserviss' && !empty($dtoTicketMeta['slug'])) {
-                            $q->orWhere('ticket_url', 'like', '%/' . $dtoTicketMeta['slug'] . '%');
-                        }
-                    })
-                    ->get();
-
-                foreach ($ticketCandidates as $candidateByTicket) {
-                    $isDifferentSessionSameDay = false;
-                    if ($candidateByTicket->start_at && $dto->startAt) {
-                        if ($candidateByTicket->start_at->toDateString() === $dto->startAt->toDateString()) {
-                            $candMinutes = $candidateByTicket->start_at->hour * 60 + $candidateByTicket->start_at->minute;
-                            $dtoMinutes = $dto->startAt->hour * 60 + $dto->startAt->minute;
-                            if (abs($candMinutes - $dtoMinutes) >= 45) {
-                                $isDifferentSessionSameDay = true;
-                            }
-                        } else {
-                            // Different date: verify it's a postponed event or matches titles
-                            $isPostponed = str_contains(mb_strtolower($dto->description ?? '', 'UTF-8'), 'pārcelt') ||
-                                str_contains(mb_strtolower($candidateByTicket->description ?? '', 'UTF-8'), 'pārcelt') ||
-                                ($dto->rawData['is_postponed'] ?? false);
-                            similar_text(mb_strtolower($candidateByTicket->title), mb_strtolower($dto->title), $titleSim);
-                            if (!$isPostponed && $titleSim < 50) {
-                                $isDifferentSessionSameDay = true;
-                            }
-                        }
+            if (!$existingEvent && !empty($dtoTicketUrls)) {
+                foreach ($dtoTicketUrls as $currentTicketUrl) {
+                    if (!self::isTicketingSource($source->slug, $currentTicketUrl, $source->type)) {
+                        continue;
                     }
 
-                    if (!$isDifferentSessionSameDay) {
-                        $existingEvent = $candidateByTicket;
-                        break;
+                    $cleanTicketUrl = self::canonicalizeTicketUrl($currentTicketUrl);
+                    $dtoTicketMeta = self::extractTicketingPlatformMeta($currentTicketUrl);
+
+                    $ticketCandidates = Event::withTrashed()
+                        ->where(function ($q) use ($currentTicketUrl, $cleanTicketUrl, $dtoTicketMeta) {
+                            $q->where('ticket_url', $currentTicketUrl)
+                              ->orWhere('ticket_url', $cleanTicketUrl)
+                              ->orWhere('ticket_url', $cleanTicketUrl . '/')
+                              ->orWhere('ticket_url', 'like', $cleanTicketUrl . '?%');
+
+                            if ($dtoTicketMeta && !empty($dtoTicketMeta['event_id'])) {
+                                if ($dtoTicketMeta['platform'] === 'bilesuparadize') {
+                                    $q->orWhere('ticket_url', 'like', '%/event/' . $dtoTicketMeta['event_id'] . '%')
+                                      ->orWhere('source_url', 'like', '%/event/' . $dtoTicketMeta['event_id'] . '%')
+                                      ->orWhere('description', 'like', '%/event/' . $dtoTicketMeta['event_id'] . '%');
+                                } elseif ($dtoTicketMeta['platform'] === 'bezrindas') {
+                                    $q->orWhere('ticket_url', 'like', '%/' . $dtoTicketMeta['event_id'] . '/%')
+                                      ->orWhere('ticket_url', 'like', '%/' . $dtoTicketMeta['event_id'])
+                                      ->orWhere('source_url', 'like', '%/' . $dtoTicketMeta['event_id'] . '/%')
+                                      ->orWhere('description', 'like', '%/' . $dtoTicketMeta['event_id'] . '%');
+                                } elseif ($dtoTicketMeta['platform'] === 'ekase') {
+                                    $q->orWhere('ticket_url', 'like', '%/' . $dtoTicketMeta['event_id'] . '%')
+                                      ->orWhere('description', 'like', '%/' . $dtoTicketMeta['event_id'] . '%');
+                                }
+                            } elseif ($dtoTicketMeta && $dtoTicketMeta['platform'] === 'bilesuserviss' && !empty($dtoTicketMeta['slug'])) {
+                                $q->orWhere('ticket_url', 'like', '%/' . $dtoTicketMeta['slug'] . '%')
+                                  ->orWhere('description', 'like', '%/' . $dtoTicketMeta['slug'] . '%');
+                            }
+                        })
+                        ->get();
+
+                    foreach ($ticketCandidates as $candidateByTicket) {
+                        $isDifferentSessionSameDay = false;
+                        if ($candidateByTicket->start_at && $dto->startAt) {
+                            if ($candidateByTicket->start_at->toDateString() === $dto->startAt->toDateString()) {
+                                $candMinutes = $candidateByTicket->start_at->hour * 60 + $candidateByTicket->start_at->minute;
+                                $dtoMinutes = $dto->startAt->hour * 60 + $dto->startAt->minute;
+                                if (abs($candMinutes - $dtoMinutes) >= 45) {
+                                    $isDifferentSessionSameDay = true;
+                                }
+                            } else {
+                                // Different date: verify it's a postponed event or matches titles
+                                $isPostponed = str_contains(mb_strtolower($dto->description ?? '', 'UTF-8'), 'pārcelt') ||
+                                    str_contains(mb_strtolower($candidateByTicket->description ?? '', 'UTF-8'), 'pārcelt') ||
+                                    ($dto->rawData['is_postponed'] ?? false);
+                                similar_text(mb_strtolower($candidateByTicket->title), mb_strtolower($dto->title), $titleSim);
+                                if (!$isPostponed && $titleSim < 50) {
+                                    $isDifferentSessionSameDay = true;
+                                }
+                            }
+                        }
+
+                        if (!$isDifferentSessionSameDay) {
+                            $existingEvent = $candidateByTicket;
+                            break 2;
+                        }
                     }
                 }
             }
@@ -954,6 +975,13 @@ class EventIngestionService
 
                 $shouldAdoptAuthoritativeSource = ($dtoSourceType->priority() > $existingSourceType->priority());
 
+                $mergedRaw = array_merge($existingEvent->raw_data ?? [], $dto->rawData);
+                if ($dto->sourceExternalId) {
+                    $mergedIds = $mergedRaw['merged_external_ids'] ?? [];
+                    $mergedIds[$source->slug] = $dto->sourceExternalId;
+                    $mergedRaw['merged_external_ids'] = $mergedIds;
+                }
+
                 // Update existing event details
                 $updateData = [
                     'source_id' => $shouldAdoptAuthoritativeSource ? $source->id : ($existingEvent->source_id ?: $source->id),
@@ -968,7 +996,7 @@ class EventIngestionService
                     'price_min' => $pMin,
                     'price_max' => $pMax,
                     'entertainment_type' => $dto->entertainmentType ?: (($existingEvent->entertainment_type && !in_array($existingEvent->entertainment_type, ['chill', 'exhibition'], true)) ? $existingEvent->entertainment_type : $this->guessEntertainmentType($finalTitle ?: $dto->title, $dto->categoryNames)),
-                    'raw_data' => array_merge($existingEvent->raw_data ?? [], $dto->rawData),
+                    'raw_data' => $mergedRaw,
                 ];
 
                 if ($finalImageUrl !== $existingEvent->image_url) {
@@ -1042,6 +1070,13 @@ class EventIngestionService
                 [$newPMin, $newPMax] = [$newPMax, $newPMin];
             }
 
+            $initialRawData = $dto->rawData;
+            if ($dto->sourceExternalId) {
+                $initialRawData['merged_external_ids'] = [
+                    $source->slug => $dto->sourceExternalId,
+                ];
+            }
+
             // 4. Create new event
             $event = Event::create([
                 'source_id' => $source->id,
@@ -1066,7 +1101,7 @@ class EventIngestionService
                 'entertainment_type' => $dto->entertainmentType ?: $this->guessEntertainmentType($dto->title, $dto->categoryNames),
                 'status' => 'published',
                 'published_at' => now(),
-                'raw_data' => $dto->rawData,
+                'raw_data' => $initialRawData,
             ]);
 
             // Save translation in event_translations table

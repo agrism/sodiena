@@ -27,47 +27,43 @@ class AfiroApiScraper extends BaseScraper
     public function scrape(Source $source): Collection
     {
         $events = collect();
-        $locales = ['lv', 'en', 'ru'];
+        $cursor = null;
+        $page = 0;
+        $maxPages = 30; // 30 * 100 = up to 3000 events
 
-        foreach ($locales as $locale) {
-            $cursor = null;
-            $page = 0;
-            $maxPages = 30; // 30 * 100 = up to 3000 events per locale
+        do {
+            $page++;
+            $url = "{$this->apiBase}/events?limit=100" . ($cursor ? "&cursor={$cursor}" : '');
+            
+            $headers = [
+                'Accept' => 'application/json, text/plain, */*',
+                'User-Agent' => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Origin' => 'https://afiro.lv',
+                'Referer' => 'https://afiro.lv/',
+                'x-lang' => 'lv',
+            ];
 
-            do {
-                $page++;
-                $url = "{$this->apiBase}/events?limit=100" . ($cursor ? "&cursor={$cursor}" : '');
-                
-                $headers = [
-                    'Accept' => 'application/json, text/plain, */*',
-                    'User-Agent' => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                    'Origin' => 'https://afiro.lv',
-                    'Referer' => 'https://afiro.lv/',
-                    'x-lang' => $locale,
-                ];
+            $json = $this->fetchJsonWithHeaders($url, $headers);
+            if (!$json || empty($json['data'])) {
+                break;
+            }
 
-                $json = $this->fetchJsonWithHeaders($url, $headers);
-                if (!$json || empty($json['data'])) {
-                    break;
-                }
-
-                foreach ($json['data'] as $item) {
-                    try {
-                        $dto = $this->mapItemToDTO($item, $source, $locale);
-                        if ($dto) {
-                            $events->push($dto);
-                        }
-                    } catch (\Throwable $e) {
-                        Log::warning("Afiro event mapping failed for item: " . ($item['id'] ?? 'unknown'), [
-                            'locale' => $locale,
-                            'error' => $e->getMessage(),
-                        ]);
+            foreach ($json['data'] as $item) {
+                try {
+                    $dto = $this->mapItemToDTO($item, $source, 'lv');
+                    if ($dto) {
+                        $events->push($dto);
                     }
+                } catch (\Throwable $e) {
+                    Log::warning("Afiro event mapping failed for item: " . ($item['id'] ?? 'unknown'), [
+                        'locale' => 'lv',
+                        'error' => $e->getMessage(),
+                    ]);
                 }
+            }
 
-                $cursor = $json['nextCursor'] ?? null;
-            } while ($cursor && $page < $maxPages);
-        }
+            $cursor = $json['nextCursor'] ?? null;
+        } while ($cursor && $page < $maxPages);
 
         return $events;
     }

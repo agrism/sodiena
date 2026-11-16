@@ -212,6 +212,34 @@ class VisitOgreScraper extends BaseScraper
             'address' => 'Lēdmane, Ogres novads, LV-5011',
             'place_type' => 'cultural_center',
         ],
+        'ķeipenes tautas nams' => [
+            'name' => 'Ķeipenes Tautas nams',
+            'city' => 'Ķeipene',
+            'region' => 'Vidzeme',
+            'address' => 'Ķeipene, Ogres novads, LV-5062',
+            'place_type' => 'cultural_center',
+        ],
+        'ogres mūzikas un mākslas skola' => [
+            'name' => 'Ogres Mūzikas un mākslas skola',
+            'city' => 'Ogre',
+            'region' => 'Vidzeme',
+            'address' => 'Brīvības iela 50, Ogre, LV-5001',
+            'place_type' => 'education',
+        ],
+        'ogresgrīvas pusmuiža' => [
+            'name' => 'Ogresgrīvas pusmuiža',
+            'city' => 'Ogre',
+            'region' => 'Vidzeme',
+            'address' => 'Rīgas iela 14a, Ogre, LV-5001',
+            'place_type' => 'venue',
+        ],
+        'ogres novada pašvaldības domes ēka' => [
+            'name' => 'Ogres novada pašvaldības domes ēka',
+            'city' => 'Ogre',
+            'region' => 'Vidzeme',
+            'address' => 'Brīvības iela 33, Ogre, LV-5001',
+            'place_type' => 'municipal',
+        ],
     ];
 
     public function getSlug(): string
@@ -508,7 +536,7 @@ class VisitOgreScraper extends BaseScraper
         $priceMax = $priceData['price_max'];
 
         // Ticket URL resolution
-        $ticketUrl = $this->extractTicketUrl($html, $eventUrl);
+        $ticketUrl = $this->extractTicketUrl($html, null);
 
         $eventId = $meta['id'] ?? (preg_match('#/pasakumi/(\d+)#', $eventUrl, $im) ? $im[1] : md5($eventUrl));
         $sourceExternalId = "visitogre-{$eventId}";
@@ -588,6 +616,19 @@ class VisitOgreScraper extends BaseScraper
             'mazozolu tautas nam' => 'mazozolu tautas nams',
             'lēdmanes tautas nam' => 'lēdmanes tautas nams',
             'ledmanes tautas nam' => 'lēdmanes tautas nams',
+            'ķeipenes tautas nam' => 'ķeipenes tautas nams',
+            'ķeipenes' => 'ķeipenes tautas nams',
+            'mūzikas un mākslas skol' => 'ogres mūzikas un mākslas skola',
+            'muzikas un makslas skol' => 'ogres mūzikas un mākslas skola',
+            'omms' => 'ogres mūzikas un mākslas skola',
+            'ogresgrīvas pusmuiž' => 'ogresgrīvas pusmuiža',
+            'ogresgrivas pusmuiz' => 'ogresgrīvas pusmuiža',
+            'ogresgrīvas' => 'ogresgrīvas pusmuiža',
+            'ogresgrivas' => 'ogresgrīvas pusmuiža',
+            'pašvaldības domes ēk' => 'ogres novada pašvaldības domes ēka',
+            'pasvaldibas domes ek' => 'ogres novada pašvaldības domes ēka',
+            'brīvības ielā 33' => 'ogres novada pašvaldības domes ēka',
+            'brīvības 33' => 'ogres novada pašvaldības domes ēka',
             'ogres novada kultūras centr' => 'ogres novada kultūras centrs',
             'ogres kultūras centr' => 'ogres novada kultūras centrs',
         ];
@@ -627,6 +668,8 @@ class VisitOgreScraper extends BaseScraper
             'mazozol' => 'Mazozoli',
             'lēdman' => 'Lēdmane',
             'ledman' => 'Lēdmane',
+            'ķeipen' => 'Ķeipene',
+            'keipen' => 'Ķeipene',
             'ogrē' => 'Ogre',
             'ogre' => 'Ogre',
         ];
@@ -668,6 +711,7 @@ class VisitOgreScraper extends BaseScraper
             'Krape' => 'Krapes Tautas nams',
             'Mazozoli' => 'Mazozolu Tautas nams',
             'Lēdmane' => 'Lēdmanes Tautas nams',
+            'Ķeipene' => 'Ķeipenes Tautas nams',
             default => 'Ogres novada Kultūras centrs',
         };
 
@@ -942,13 +986,20 @@ class VisitOgreScraper extends BaseScraper
     /**
      * Extract ticketing link if present in description
      */
-    protected function extractTicketUrl(string $html, string $defaultUrl): string
+    protected function extractTicketUrl(string $html, ?string $defaultUrl = null): ?string
     {
-        if (preg_match('/href=["\'](https?:\/\/(?:www\.)?(?:bilesuparadize\.lv|bezrindas\.lv|aula\.lv|ekase\.lv|ticketbest\.lv)[^"\']*)["\']/iu', $html, $tm)) {
-            $clean = urldecode($tm[1]);
+        if (preg_match('/(?:href=["\']|https?:\/\/)(?:www\.)?(bilesuparadize\.lv|bezrindas\.lv|aula\.lv|ekase\.lv|ticketbest\.lv)[^"\'>\s]*/iu', $html, $tm)) {
+            $raw = $tm[0];
+            if (str_starts_with($raw, 'href=')) {
+                $raw = preg_replace('/^href=["\']?/i', '', $raw);
+            }
+            if (!str_starts_with($raw, 'http')) {
+                $raw = 'https://' . $raw;
+            }
+            $clean = urldecode($raw);
             // Strip trailing " vai", " vai/", punctuation
             $clean = preg_replace('/\s+vai.*$/i', '', $clean);
-            $clean = trim($clean, " /");
+            $clean = trim($clean, " /.,;:)'\"");
             if (filter_var($clean, FILTER_VALIDATE_URL)) {
                 return $clean;
             }
