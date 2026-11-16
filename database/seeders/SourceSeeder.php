@@ -43,6 +43,7 @@ use App\Services\Scrapers\Sources\OgresMuzejsScraper;
 use App\Services\Scrapers\Sources\OgresNovadsScraper;
 use App\Services\Scrapers\Sources\OkulturaScraper;
 use App\Services\Scrapers\Sources\PassportixScraper;
+use App\Services\Scrapers\Sources\RopaziScraper;
 use App\Services\Scrapers\Sources\SiguldaNovadsScraper;
 use App\Services\Scrapers\Sources\SiguldaTourismScraper;
 use App\Services\Scrapers\Sources\TicketBestLvScraper;
@@ -451,6 +452,14 @@ class SourceSeeder extends Seeder
                 'slug' => 'marupe',
                 'url' => 'https://www.marupe.lv/lv/notikumu-kalendars',
                 'scraper_class' => MarupeScraper::class,
+                'type' => SourceType::MUNICIPALITY->value,
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Ropažu novada pašvaldība',
+                'slug' => 'ropazi',
+                'url' => 'https://www.ropazi.lv/lv/notikumu-kalendars',
+                'scraper_class' => RopaziScraper::class,
                 'type' => SourceType::MUNICIPALITY->value,
                 'is_active' => true,
             ],

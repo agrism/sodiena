@@ -1,0 +1,960 @@
+<?php
+
+namespace App\Services\Scrapers\Sources;
+
+use App\Models\Source;
+use App\Services\Scrapers\BaseScraper;
+use App\Services\Scrapers\DTO\ScrapedEventDTO;
+use Carbon\Carbon;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
+use Symfony\Component\DomCrawler\Crawler;
+
+class RopaziScraper extends BaseScraper
+{
+    public const BASE_URL = 'https://www.ropazi.lv';
+    public const CALENDAR_PATH = '/lv/notikumu-kalendars';
+
+    /**
+     * Map of known Ropažu novads venues with normalized metadata
+     */
+    protected array $venueAddressMap = [
+        // Ulbroka & Stopiņi (Administrative center)
+        'ulbrokas pērle' => [
+            'name' => 'Kultūras centrs "Ulbrokas Pērle"',
+            'city' => 'Ulbroka',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Institūta iela 3, Ulbroka, Stopiņu pagasts, Ropažu novads, LV-2130',
+            'place_type' => 'cultural_center',
+        ],
+        'kc ulbrokas pērle' => [
+            'name' => 'Kultūras centrs "Ulbrokas Pērle"',
+            'city' => 'Ulbroka',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Institūta iela 3, Ulbroka, Stopiņu pagasts, Ropažu novads, LV-2130',
+            'place_type' => 'cultural_center',
+        ],
+        'ulbrokas pērlē' => [
+            'name' => 'Kultūras centrs "Ulbrokas Pērle"',
+            'city' => 'Ulbroka',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Institūta iela 3, Ulbroka, Stopiņu pagasts, Ropažu novads, LV-2130',
+            'place_type' => 'cultural_center',
+        ],
+        'ulbrokas kultūras centrs' => [
+            'name' => 'Kultūras centrs "Ulbrokas Pērle"',
+            'city' => 'Ulbroka',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Institūta iela 3, Ulbroka, Stopiņu pagasts, Ropažu novads, LV-2130',
+            'place_type' => 'cultural_center',
+        ],
+        'ulbrokas bibliotēka' => [
+            'name' => 'Ulbrokas bibliotēka',
+            'city' => 'Ulbroka',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Institūta iela 3, Ulbroka, Stopiņu pagasts, Ropažu novads, LV-2130',
+            'place_type' => 'library',
+        ],
+        'ulbrokas mūzikas un mākslas skola' => [
+            'name' => 'Ulbrokas Mūzikas un mākslas skola',
+            'city' => 'Ulbroka',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Institūta iela 1b, Ulbroka, Stopiņu pagasts, Ropažu novads, LV-2130',
+            'place_type' => 'cultural_center',
+        ],
+        'stopiņu vēstures muzejs' => [
+            'name' => 'Stopiņu Vēstures muzejs',
+            'city' => 'Ulbroka',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Institūta iela 1, Ulbroka, Stopiņu pagasts, Ropažu novads, LV-2130',
+            'place_type' => 'museum',
+        ],
+        'ulbrokas ezera estrāde' => [
+            'name' => 'Ulbrokas ezera estrāde',
+            'city' => 'Ulbroka',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Ulbroka, Stopiņu pagasts, Ropažu novads, LV-2130',
+            'place_type' => 'park',
+        ],
+        'līgo parks' => [
+            'name' => 'Līgo parks',
+            'city' => 'Ulbroka',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Līgo parks, Ulbroka, Stopiņu pagasts, Ropažu novads, LV-2130',
+            'place_type' => 'park',
+        ],
+        'stopiņu peldbaseins' => [
+            'name' => 'Stopiņu peldbaseins',
+            'city' => 'Ulbroka',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Institūta iela 4, Ulbroka, Stopiņu pagasts, Ropažu novads, LV-2130',
+            'place_type' => 'sports_facility',
+        ],
+        'ulbrokas sporta komplekss' => [
+            'name' => 'Ulbrokas sporta komplekss',
+            'city' => 'Ulbroka',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Institūta iela 4, Ulbroka, Stopiņu pagasts, Ropažu novads, LV-2130',
+            'place_type' => 'sports_facility',
+        ],
+        'ulbrokas vidusskola' => [
+            'name' => 'Ulbrokas vidusskola',
+            'city' => 'Ulbroka',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Vāveru iela 1, Dreiliņi, Stopiņu pagasts, Ropažu novads, LV-2130',
+            'place_type' => 'education',
+        ],
+        'ropažu novada pašvaldība' => [
+            'name' => 'Ropažu novada pašvaldība',
+            'city' => 'Ulbroka',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Institūta iela 1A, Ulbroka, Stopiņu pagasts, Ropažu novads, LV-2130',
+            'place_type' => 'venue',
+        ],
+        'ropažu novada dome' => [
+            'name' => 'Ropažu novada pašvaldība',
+            'city' => 'Ulbroka',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Institūta iela 1A, Ulbroka, Stopiņu pagasts, Ropažu novads, LV-2130',
+            'place_type' => 'venue',
+        ],
+
+        // Ropaži
+        'ropažu kultūras centrs' => [
+            'name' => 'Ropažu Kultūras centrs',
+            'city' => 'Ropaži',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Sporta iela 2/k-1, Ropaži, Ropažu pagasts, Ropažu novads, LV-2135',
+            'place_type' => 'cultural_center',
+        ],
+        'ropažu kultūras nams' => [
+            'name' => 'Ropažu Kultūras centrs',
+            'city' => 'Ropaži',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Sporta iela 2/k-1, Ropaži, Ropažu pagasts, Ropažu novads, LV-2135',
+            'place_type' => 'cultural_center',
+        ],
+        'ropažu kc' => [
+            'name' => 'Ropažu Kultūras centrs',
+            'city' => 'Ropaži',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Sporta iela 2/k-1, Ropaži, Ropažu pagasts, Ropažu novads, LV-2135',
+            'place_type' => 'cultural_center',
+        ],
+        'ropažu pilsdrupas' => [
+            'name' => 'Ropažu pilsdrupas',
+            'city' => 'Ropaži',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Ropaži, Ropažu novads, LV-2135',
+            'place_type' => 'historical',
+        ],
+        'ropažu parka estrāde' => [
+            'name' => 'Ropažu parka estrāde',
+            'city' => 'Ropaži',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Ropaži, Ropažu novads, LV-2135',
+            'place_type' => 'park',
+        ],
+        'ropažu estrāde' => [
+            'name' => 'Ropažu estrāde',
+            'city' => 'Ropaži',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Ropaži, Ropažu novads, LV-2135',
+            'place_type' => 'park',
+        ],
+        'ropažu bibliotēka' => [
+            'name' => 'Ropažu bibliotēka',
+            'city' => 'Ropaži',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Sporta iela 1, Ropaži, Ropažu novads, LV-2135',
+            'place_type' => 'library',
+        ],
+        'rodenpois' => [
+            'name' => 'Ropažu Mūzikas un mākslas skola "Rodenpois"',
+            'city' => 'Ropaži',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Sporta iela 1, Ropaži, Ropažu novads, LV-2135',
+            'place_type' => 'cultural_center',
+        ],
+        'ropažu vidusskola' => [
+            'name' => 'Ropažu vidusskola',
+            'city' => 'Ropaži',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Sporta iela 2, Ropaži, Ropažu novads, LV-2135',
+            'place_type' => 'education',
+        ],
+        'ropažu baznīca' => [
+            'name' => 'Ropažu evaņģēliski luteriskā baznīca',
+            'city' => 'Ropaži',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Ropaži, Ropažu novads, LV-2135',
+            'place_type' => 'religious',
+        ],
+
+        // Vangaži
+        'vangažu kultūras nams' => [
+            'name' => 'Vangažu Kultūras nams',
+            'city' => 'Vangaži',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Gaujas iela 12, Vangaži, Ropažu novads, LV-2145',
+            'place_type' => 'cultural_center',
+        ],
+        'vangažu kn' => [
+            'name' => 'Vangažu Kultūras nams',
+            'city' => 'Vangaži',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Gaujas iela 12, Vangaži, Ropažu novads, LV-2145',
+            'place_type' => 'cultural_center',
+        ],
+        'vangažu pilsētas bibliotēka' => [
+            'name' => 'Vangažu pilsētas bibliotēka',
+            'city' => 'Vangaži',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Gaujas iela 12, Vangaži, Ropažu novads, LV-2145',
+            'place_type' => 'library',
+        ],
+        'vangažu vidusskola' => [
+            'name' => 'Vangažu vidusskola',
+            'city' => 'Vangaži',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Gaujas iela 2, Vangaži, Ropažu novads, LV-2145',
+            'place_type' => 'education',
+        ],
+        'vangažu sporta zāle' => [
+            'name' => 'Vangažu sporta zāle',
+            'city' => 'Vangaži',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Gaujas iela 2, Vangaži, Ropažu novads, LV-2145',
+            'place_type' => 'sports_facility',
+        ],
+        'vangažu baznīca' => [
+            'name' => 'Vangažu evaņģēliski luteriskā baznīca',
+            'city' => 'Vangaži',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Vangaži, Ropažu novads, LV-2145',
+            'place_type' => 'religious',
+        ],
+
+        // Garkalne & Berģi
+        'berģu kultūras nams' => [
+            'name' => 'Berģu Kultūras nams',
+            'city' => 'Berģi',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Brīvības gatve 452, Berģi, Garkalnes pagasts, Ropažu novads, LV-1024',
+            'place_type' => 'cultural_center',
+        ],
+        'berģu kn' => [
+            'name' => 'Berģu Kultūras nams',
+            'city' => 'Berģi',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Brīvības gatve 452, Berģi, Garkalnes pagasts, Ropažu novads, LV-1024',
+            'place_type' => 'cultural_center',
+        ],
+        'berģu kac' => [
+            'name' => 'Berģu Kultūras nams',
+            'city' => 'Berģi',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Brīvības gatve 452, Berģi, Garkalnes pagasts, Ropažu novads, LV-1024',
+            'place_type' => 'cultural_center',
+        ],
+        'garkalnes kultūras centrs' => [
+            'name' => 'Garkalnes novadpētniecības un kultūras centrs',
+            'city' => 'Garkalne',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Vidzemes šoseja 1A, Garkalne, Garkalnes pagasts, Ropažu novads, LV-2137',
+            'place_type' => 'cultural_center',
+        ],
+        'garkalnes bibliotēka' => [
+            'name' => 'Garkalnes bibliotēka',
+            'city' => 'Garkalne',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Vidzemes šoseja 1A, Garkalne, Ropažu novads, LV-2137',
+            'place_type' => 'library',
+        ],
+        'garkalnes pamatskola' => [
+            'name' => 'Garkalnes Mākslu un vispārizglītojošā pamatskola',
+            'city' => 'Garkalne',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Vidzemes šoseja 34, Garkalne, Ropažu novads, LV-2137',
+            'place_type' => 'education',
+        ],
+        'upesciema stadions' => [
+            'name' => 'Upesciema stadions',
+            'city' => 'Upesciems',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Upesciems, Garkalnes pagasts, Ropažu novads, LV-2137',
+            'place_type' => 'sports_facility',
+        ],
+        'upesciema sporta laukums' => [
+            'name' => 'Upesciema stadions',
+            'city' => 'Upesciems',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Upesciems, Garkalnes pagasts, Ropažu novads, LV-2137',
+            'place_type' => 'sports_facility',
+        ],
+
+        // Zaķumuiža & Silakrogs
+        'zaķumuižas kultūras nams' => [
+            'name' => 'Zaķumuižas Kultūras nams',
+            'city' => 'Zaķumuiža',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Parka iela 8, Zaķumuiža, Ropažu pagasts, Ropažu novads, LV-2133',
+            'place_type' => 'cultural_center',
+        ],
+        'zaķumuižas sabiedriskais centrs' => [
+            'name' => 'Zaķumuižas sabiedriskais centrs',
+            'city' => 'Zaķumuiža',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Parka iela 8, Zaķumuiža, Ropažu pagasts, Ropažu novads, LV-2133',
+            'place_type' => 'cultural_center',
+        ],
+        'zaķumuižas bibliotēka' => [
+            'name' => 'Zaķumuižas bibliotēka',
+            'city' => 'Zaķumuiža',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Parka iela 8, Zaķumuiža, Ropažu novads, LV-2133',
+            'place_type' => 'library',
+        ],
+        'silakroga bibliotēka' => [
+            'name' => 'Silakroga bibliotēka',
+            'city' => 'Silakrogs',
+            'region' => 'Rīga un Pierīga',
+            'address' => 'Silakrogs, Ropažu novads, LV-2133',
+            'place_type' => 'library',
+        ],
+    ];
+
+    public function getSlug(): string
+    {
+        return 'ropazi';
+    }
+
+    public function getName(): string
+    {
+        return 'Ropažu novada pašvaldība';
+    }
+
+    /**
+     * Scrape events from ropazi.lv/lv/notikumu-kalendars
+     * Strict rule: NO crawling into detail pages - everything extracted from calendar cards directly!
+     */
+    public function scrape(Source $source): Collection
+    {
+        $events = collect();
+        $baseUrl = $source->url ?: (self::BASE_URL . self::CALENDAR_PATH);
+        $maxPages = 10;
+        $today = Carbon::today('Europe/Riga');
+        $seenExternalIds = [];
+
+        for ($page = 0; $page < $maxPages; $page++) {
+            $pageUrl = $page === 0 ? $baseUrl : $baseUrl . '?page=' . $page;
+            $crawler = $this->fetchCrawler($pageUrl);
+
+            if (!$crawler) {
+                break;
+            }
+
+            $items = $crawler->filter('div.event');
+            if ($items->count() === 0) {
+                break;
+            }
+
+            $allPageEventsPast = true;
+
+            $items->each(function (Crawler $node) use (&$events, &$seenExternalIds, &$allPageEventsPast, $baseUrl, $today) {
+                $titleNode = $node->filter('h2.event-title a, .event-title a, h2.event-title');
+                $title = $this->cleanText($titleNode->count() ? $titleNode->first()->text() : '');
+                if (empty($title)) {
+                    return;
+                }
+
+                // Extract Categories
+                $categories = [];
+                $node->filter('.event-categories a, .event-categories')
+                    ->each(function (Crawler $c) use (&$categories) {
+                        $catText = trim($c->text());
+                        if (!empty($catText)) {
+                            $categories[] = $catText;
+                        }
+                    });
+                $categories = array_values(array_unique($categories));
+
+                // Exclude committee meetings, council sessions, citizen receptions, etc.
+                if ($this->isExcludedEvent($categories, $title)) {
+                    return;
+                }
+
+                // Link to event
+                $linkNode = $node->filter('h2.event-title a, a[href*="/notikums/"]');
+                $relLink = $linkNode->count() ? $linkNode->first()->attr('href') : '';
+                $cleanUrl = $this->normalizeUrl($relLink);
+
+                $slugPart = $cleanUrl ? basename(parse_url($cleanUrl, PHP_URL_PATH)) : Str::slug($title);
+                $externalId = 'ropazi-' . $slugPart;
+
+                if (isset($seenExternalIds[$externalId])) {
+                    return;
+                }
+
+                // Dates & times
+                $dateStr = $node->filter('span.date-date')->count() ? $this->cleanText($node->filter('span.date-date')->text()) : '';
+                $timeStr = $node->filter('span.date-time')->count() ? $this->cleanText($node->filter('span.date-time')->text()) : '';
+                [$startAt, $endAt, $allDay] = $this->parseLatvianDates($dateStr, $timeStr);
+
+                if (!$startAt) {
+                    return;
+                }
+
+                // Strict AGENTS.md rule: Do not process past events
+                if ($endAt && $endAt->lt($today)) {
+                    return;
+                }
+                if (!$endAt && $startAt->lt($today)) {
+                    return;
+                }
+
+                $allPageEventsPast = false;
+
+                // Description directly from card (strictly NO crawling into detail pages)
+                $description = $node->filter('div.event-content')->count() ? $this->cleanText($node->filter('div.event-content')->text()) : $title;
+                if (empty($description)) {
+                    $description = $title;
+                }
+
+                // Location
+                $locationRaw = $node->filter('span.describing-field-value')->count() ? $this->cleanText($node->filter('span.describing-field-value')->text()) : '';
+                $venueInfo = $this->resolveLocation($locationRaw, $title, $description);
+
+                // Categories & Entertainment Type (adhering strictly to AGENTS.md)
+                $canonicalCategories = $this->resolveCategories($categories, $title, $description);
+                $entertainmentType = $this->resolveEntertainmentType($canonicalCategories, $title, $description);
+
+                // Price & Free check
+                $priceData = $this->parsePrice($description);
+
+                // Image
+                $thumbImg = $node->filter('div.event-image img')->count() ? $node->filter('div.event-image img')->attr('src') : null;
+                if ($thumbImg && !str_starts_with($thumbImg, 'http')) {
+                    $thumbImg = self::BASE_URL . (str_starts_with($thumbImg, '/') ? '' : '/') . $thumbImg;
+                }
+
+                $seenExternalIds[$externalId] = true;
+
+                $dto = new ScrapedEventDTO(
+                    title: $title,
+                    startAt: $startAt,
+                    endAt: $endAt,
+                    description: $description,
+                    shortDescription: Str::limit(strip_tags($description), 160),
+                    venueName: $venueInfo['name'],
+                    city: $venueInfo['city'],
+                    region: $venueInfo['region'] ?? 'Rīga un Pierīga',
+                    address: $venueInfo['address'],
+                    placeType: $venueInfo['place_type'],
+                    categoryNames: $canonicalCategories,
+                    entertainmentType: $entertainmentType,
+                    isFree: $priceData['is_free'],
+                    priceMin: $priceData['price_min'],
+                    priceMax: $priceData['price_max'],
+                    currency: 'EUR',
+                    ticketUrl: $cleanUrl ?: $baseUrl,
+                    imageUrl: $thumbImg,
+                    sourceUrl: $cleanUrl ?: $baseUrl,
+                    sourceExternalId: $externalId,
+                    locale: 'lv',
+                    rawData: [
+                        'date_raw' => $dateStr,
+                        'time_raw' => $timeStr,
+                        'location_raw' => $locationRaw,
+                        'categories_raw' => $categories,
+                    ]
+                );
+
+                $events->push($dto);
+            });
+
+            if ($allPageEventsPast && $items->count() > 0) {
+                // If all events on this page are in the past, stop paginating
+                break;
+            }
+        }
+
+        return $events;
+    }
+
+    /**
+     * Resolve Location metadata for Ropažu novads
+     */
+    public function resolveLocation(string $locationRaw, string $title = '', string $description = ''): array
+    {
+        $raw = trim($locationRaw);
+        $combined = mb_strtolower($raw . ' ' . $title . ' ' . $description, 'UTF-8');
+
+        // 1. Direct or stem match in known venues map
+        foreach ($this->venueAddressMap as $venueKey => $info) {
+            if (str_contains($combined, $venueKey)) {
+                return $info;
+            }
+            // Check stem (e.g. "ulbrokas pērl" matches "ulbrokas pērlē")
+            $stem = preg_replace('/(s|ā|u|am|i|a|e|ē)$/u', '', $venueKey);
+            if (mb_strlen($stem) >= 6 && str_contains($combined, $stem)) {
+                return $info;
+            }
+        }
+
+        // 2. Identify town / parish from location or combined context
+        // Strip generic "Ropažu novads" so it doesn't falsely trigger the "Ropaži" village stem
+        $rawCleaned = trim(preg_replace('/\bropažu\s+novad[a-zāčēģīķļņšūž]*/ui', '', $raw));
+        $combinedCleaned = trim(preg_replace('/\bropažu\s+novad[a-zāčēģīķļņšūž]*/ui', '', $combined));
+
+        $townStems = [
+            'ulbrok' => 'Ulbroka',
+            'stopiņ' => 'Ulbroka',
+            'stopin' => 'Ulbroka',
+            'vangaž' => 'Vangaži',
+            'vangaz' => 'Vangaži',
+            'garkaln' => 'Garkalne',
+            'berģ' => 'Berģi',
+            'berg' => 'Berģi',
+            'zaķumuiž' => 'Zaķumuiža',
+            'zakumuiz' => 'Zaķumuiža',
+            'silakrog' => 'Silakrogs',
+            'upesciem' => 'Upesciems',
+            'langstiņ' => 'Langstiņi',
+            'langstin' => 'Langstiņi',
+            'bukult' => 'Bukulti',
+            'sunīš' => 'Sunīši',
+            'sunis' => 'Sunīši',
+            'upeslej' => 'Upeslejas',
+            'saurieš' => 'Saurieši',
+            'sauries' => 'Saurieši',
+            'dreiliņ' => 'Dreiliņi',
+            'dreilin' => 'Dreiliņi',
+            'dzidriņ' => 'Dzidriņas',
+            'dzidrin' => 'Dzidriņas',
+            'līč' => 'Līči',
+            'lic' => 'Līči',
+            'rumbul' => 'Rumbula',
+            'cekul' => 'Cekule',
+            'tumšup' => 'Tumšupe',
+            'tumsup' => 'Tumšupe',
+            'kākciem' => 'Kākciems',
+            'kakciem' => 'Kākciems',
+            'muceniek' => 'Mucenieki',
+            'ropaž' => 'Ropaži',
+            'ropaz' => 'Ropaži',
+        ];
+
+        $matchedTown = null;
+        // Check cleaned raw location string first
+        foreach ($townStems as $stem => $canonicalTown) {
+            if (preg_match('/\b' . preg_quote($stem, '/') . '[a-zāčēģīķļņšūž]*/ui', $rawCleaned)) {
+                $matchedTown = $canonicalTown;
+                break;
+            }
+        }
+
+        // If not found in raw, check combined context
+        if (!$matchedTown) {
+            foreach ($townStems as $stem => $canonicalTown) {
+                if (preg_match('/\b' . preg_quote($stem, '/') . '[a-zāčēģīķļņšūž]*/ui', $combinedCleaned)) {
+                    $matchedTown = $canonicalTown;
+                    break;
+                }
+            }
+        }
+
+        $city = $matchedTown ?: 'Ulbroka';
+
+        // 3. Extract venue name and address
+        $venueName = $city;
+        $address = "{$city}, Ropažu novads";
+
+        if (!empty($raw)) {
+            $parts = array_map('trim', explode(',', $raw));
+
+            // Clean trailing country/municipality redundant tokens
+            $cleanParts = array_filter($parts, function ($part) {
+                $p = mb_strtolower($part, 'UTF-8');
+                return $p !== 'latvija' && $p !== 'latvia' && $p !== 'ropažu novads' && $p !== 'ropaži' && $p !== 'ropazi' && $p !== 'ulbroka';
+            });
+
+            if (!empty($cleanParts)) {
+                $venueName = reset($cleanParts);
+                $address = implode(', ', $cleanParts) . ', Ropažu novads';
+            }
+        }
+
+        // 4. Infer place type
+        $placeType = 'venue';
+        $lowerVenue = mb_strtolower($venueName, 'UTF-8');
+        if (str_contains($lowerVenue, 'kultūras centrs') || str_contains($lowerVenue, 'kultūras nams') || str_contains($lowerVenue, 'tautas nams') || str_contains($lowerVenue, 'sabiedriskais centrs') || str_contains($lowerVenue, 'pērle')) {
+            $placeType = 'cultural_center';
+        } elseif (str_contains($lowerVenue, 'muzejs')) {
+            $placeType = 'museum';
+        } elseif (str_contains($lowerVenue, 'muiža') || str_contains($lowerVenue, 'pils') || str_contains($lowerVenue, 'drupas')) {
+            $placeType = 'historical';
+        } elseif (str_contains($lowerVenue, 'bibliotēka')) {
+            $placeType = 'library';
+        } elseif (str_contains($lowerVenue, 'sporta') || str_contains($lowerVenue, 'halle') || str_contains($lowerVenue, 'stadions') || str_contains($lowerVenue, 'baseins')) {
+            $placeType = 'sports_facility';
+        } elseif (str_contains($lowerVenue, 'parks') || str_contains($lowerVenue, 'estrāde') || str_contains($lowerVenue, 'ezers')) {
+            $placeType = 'park';
+        } elseif (str_contains($lowerVenue, 'skola') || str_contains($lowerVenue, 'ģimnāzija')) {
+            $placeType = 'education';
+        } elseif (str_contains($lowerVenue, 'baznīca')) {
+            $placeType = 'religious';
+        }
+
+        return [
+            'name' => $venueName,
+            'city' => $city,
+            'region' => 'Rīga un Pierīga',
+            'address' => $address,
+            'place_type' => $placeType,
+        ];
+    }
+
+    /**
+     * Resolve categories following strict AGENTS.md rules
+     */
+    public function resolveCategories(array $rawCategories, string $title, string $description = ''): array
+    {
+        $text = mb_strtolower(implode(' ', $rawCategories) . ' ' . $title . ' ' . $description, 'UTF-8');
+
+        // STRICT RULE 1: Cinema / Kino (Priority)
+        // Kino venues or keywords: ALWAYS KINO, NEVER TEATRIS
+        $cinemaKeywords = [
+            'filma', 'filmas', 'filmu', 'filmā',
+            'kinoseanss', 'filmas seanss', 'spēlfilma',
+            'dokumentālā filma', 'animācijas filma', 'kinofestivāls',
+            'kino seanss', 'kinoteātr', 'kino:', 'kino |',
+        ];
+        $isCinema = in_array('Kino', $rawCategories, true);
+        if (!$isCinema) {
+            foreach ($cinemaKeywords as $kw) {
+                if (str_contains($text, $kw)) {
+                    $isCinema = true;
+                    break;
+                }
+            }
+        }
+
+        if ($isCinema) {
+            $categories = ['Kino'];
+            if (str_contains($text, 'bērniem') || str_contains($text, 'animācija') || str_contains($text, 'multfilma')) {
+                $categories[] = 'Bērniem';
+            }
+            return array_unique($categories);
+        }
+
+        // STRICT RULE 2: Theaters
+        $theatreKeywords = [
+            'teātra izrāde', 'izrāde', 'izrādē', 'izrādi', 'izrādes', 'iestudējums',
+            'luga', 'lugā', 'komēdija', 'traģēdija', 'stāvizrāde',
+            'stand-up', 'standup', 'leļļu izrāde', 'balets', 'opera',
+        ];
+        $isTheatre = in_array('Teātris', $rawCategories, true) || in_array('Izrāde', $rawCategories, true);
+        if (!$isTheatre) {
+            foreach ($theatreKeywords as $kw) {
+                if (str_contains($text, $kw)) {
+                    $isTheatre = true;
+                    break;
+                }
+            }
+        }
+
+        if ($isTheatre) {
+            $categories = ['Teātris'];
+            if (str_contains($text, 'bērniem') || str_contains($text, 'ģimenēm') || str_contains($text, 'leļļu')) {
+                $categories[] = 'Bērniem';
+            }
+            return array_unique($categories);
+        }
+
+        // Music & Concerts
+        $musicKeywords = [
+            'koncerts', 'koncertā', 'koncertprogramma', 'dziedātājs',
+            'koris', 'koru', 'orķestris', 'orķestra', 'kvartets',
+            'akustiskā tūre', 'dziesmas', 'muzikāls', 'džezs', 'roks', 'balle',
+        ];
+        $isMusic = in_array('Koncerts', $rawCategories, true) || in_array('Mūzika', $rawCategories, true);
+        if (!$isMusic) {
+            foreach ($musicKeywords as $kw) {
+                if (str_contains($text, $kw)) {
+                    $isMusic = true;
+                    break;
+                }
+            }
+        }
+
+        if ($isMusic) {
+            $categories = ['Mūzika'];
+            if (str_contains($text, 'bērniem') || str_contains($text, 'ģimenēm')) {
+                $categories[] = 'Bērniem';
+            }
+            return array_unique($categories);
+        }
+
+        // Exhibitions & Art
+        $exhibitionKeywords = [
+            'izstāde', 'izstādē', 'izstādi', 'ekspozīcija',
+            'personālizstāde', 'gleznas', 'glezniecība', 'gleznu',
+            'tēlniecība', 'fotogrāfiju izstāde',
+        ];
+        $isExhibition = in_array('Izstāde', $rawCategories, true);
+        if (!$isExhibition) {
+            foreach ($exhibitionKeywords as $kw) {
+                if (str_contains($text, $kw)) {
+                    $isExhibition = true;
+                    break;
+                }
+            }
+        }
+
+        if ($isExhibition) {
+            return ['Izstādes'];
+        }
+
+        // Sports
+        $sportsKeywords = ['sports', 'skrējiens', 'maratons', 'basketbols', 'futbols', 'hokejs', 'slidošana', 'turnīrs', 'nūjošana', 'peldēšana'];
+        foreach ($sportsKeywords as $kw) {
+            if (str_contains($text, $kw)) {
+                return ['Sports'];
+            }
+        }
+
+        // Children
+        if (str_contains($text, 'bērniem') || str_contains($text, 'leļļu') || in_array('Bērniem', $rawCategories, true)) {
+            return ['Bērniem'];
+        }
+
+        // Fallback: Cits (Strict AGENTS.md rule)
+        return ['Cits'];
+    }
+
+    /**
+     * Resolve entertainment type
+     */
+    public function resolveEntertainmentType(array $categories, string $title, string $description = ''): string
+    {
+        $text = mb_strtolower($title . ' ' . $description, 'UTF-8');
+
+        if (in_array('Kino', $categories, true)) {
+            return 'movie';
+        }
+        if (in_array('Mūzika', $categories, true)) {
+            return 'concert';
+        }
+        if (in_array('Teātris', $categories, true)) {
+            return 'theatre';
+        }
+        if (in_array('Izstādes', $categories, true)) {
+            return 'exhibition';
+        }
+        if (in_array('Sports', $categories, true)) {
+            return 'sports';
+        }
+        if (str_contains($text, 'festivāls') || str_contains($text, 'svētki') || str_contains($text, 'tirdziņš') || str_contains($text, 'gadatirgus')) {
+            return 'festival';
+        }
+
+        return 'event';
+    }
+
+    /**
+     * Parse Latvian dates from "span.date-date" and "span.date-time"
+     */
+    public function parseLatvianDates(string $dateStr, string $timeStr = ''): array
+    {
+        $months = [
+            'janvāris' => 1, 'janvārī' => 1, 'janvāra' => 1, 'janv' => 1,
+            'februāris' => 2, 'februārī' => 2, 'februāra' => 2, 'febr' => 2,
+            'marts' => 3, 'martā' => 3, 'marta' => 3, 'mar' => 3,
+            'aprīlis' => 4, 'aprīlī' => 4, 'aprīļa' => 4, 'apr' => 4,
+            'maijs' => 5, 'maijā' => 5, 'maija' => 5, 'mai' => 5,
+            'jūnijs' => 6, 'jūnijā' => 6, 'jūnija' => 6, 'jūn' => 6,
+            'jūlijs' => 7, 'jūlijā' => 7, 'jūlija' => 7, 'jūl' => 7,
+            'augusts' => 8, 'augustā' => 8, 'augusta' => 8, 'aug' => 8,
+            'septembris' => 9, 'septembrī' => 9, 'septembra' => 9, 'sept' => 9,
+            'oktobris' => 10, 'oktobrī' => 10, 'oktobra' => 10, 'okt' => 10,
+            'novembris' => 11, 'novembrī' => 11, 'novembra' => 11, 'nov' => 11,
+            'decembris' => 12, 'decembrī' => 12, 'decembra' => 12, 'dec' => 12,
+        ];
+
+        $clean = trim(str_replace(['&#8211;', '&ndash;', '–', '—'], '-', $dateStr));
+        $allDay = false;
+
+        // Parse time string e.g. "18.00", "18:00", "18.00 - 20.00", "Visu dienu"
+        $startTime = '10:00:00';
+        $endTime = null;
+
+        $timeClean = trim(str_replace(['&#8211;', '&ndash;', '–', '—'], '-', $timeStr));
+        if (mb_stripos($timeClean, 'visu dienu') !== false) {
+            $allDay = true;
+            $startTime = '00:00:00';
+            $endTime = '23:59:59';
+        } elseif (preg_match('/(\d{1,2})[.:](\d{2})\s*-\s*(\d{1,2})[.:](\d{2})/u', $timeClean, $tm)) {
+            $startTime = sprintf('%02d:%02d:00', (int)$tm[1], (int)$tm[2]);
+            $endTime = sprintf('%02d:%02d:00', (int)$tm[3], (int)$tm[4]);
+        } elseif (preg_match('/(\d{1,2})[.:](\d{2})/u', $timeClean, $tm)) {
+            $startTime = sprintf('%02d:%02d:00', (int)$tm[1], (int)$tm[2]);
+        }
+
+        // Check for date range e.g. "16. - 20. novembris, 2026" or "16. novembris - 5. decembris, 2026"
+        if (str_contains($clean, '-')) {
+            $parts = explode('-', $clean, 2);
+            $p1 = trim($parts[0]);
+            $p2 = trim($parts[1]);
+
+            // Case: "16. - 20. novembris, 2026"
+            if (preg_match('/^(\d{1,2})\.?$/u', $p1, $m1) && preg_match('/^(\d{1,2})\.\s*([a-zāčēģīķļņšūž]+)(?:,?\s*(\d{4}))?/ui', $p2, $m2)) {
+                $day1 = (int) $m1[1];
+                $day2 = (int) $m2[1];
+                $monthName = mb_strtolower($m2[2], 'UTF-8');
+                $month = $months[$monthName] ?? (int) date('n');
+                $year = !empty($m2[3]) ? (int) $m2[3] : (int) date('Y');
+
+                $startAt = Carbon::createFromFormat('Y-m-d H:i:s', sprintf('%04d-%02d-%02d %s', $year, $month, $day1, $startTime), 'Europe/Riga');
+                $endAt = Carbon::createFromFormat('Y-m-d H:i:s', sprintf('%04d-%02d-%02d %s', $year, $month, $day2, $endTime ?: '22:00:00'), 'Europe/Riga');
+
+                return [$startAt, $endAt, $allDay];
+            }
+
+            // Case: "16. novembris - 5. decembris, 2026"
+            if (preg_match('/(\d{1,2})\.\s*([a-zāčēģīķļņšūž]+)(?:,?\s*(\d{4}))?/ui', $p1, $m1) &&
+                preg_match('/(\d{1,2})\.\s*([a-zāčēģīķļņšūž]+)(?:,?\s*(\d{4}))?/ui', $p2, $m2)) {
+                $day1 = (int) $m1[1];
+                $mName1 = mb_strtolower($m1[2], 'UTF-8');
+                $month1 = $months[$mName1] ?? (int) date('n');
+
+                $day2 = (int) $m2[1];
+                $mName2 = mb_strtolower($m2[2], 'UTF-8');
+                $month2 = $months[$mName2] ?? (int) date('n');
+
+                $year2 = !empty($m2[3]) ? (int) $m2[3] : (int) date('Y');
+                $year1 = !empty($m1[3]) ? (int) $m1[3] : $year2;
+
+                $startAt = Carbon::createFromFormat('Y-m-d H:i:s', sprintf('%04d-%02d-%02d %s', $year1, $month1, $day1, $startTime), 'Europe/Riga');
+                $endAt = Carbon::createFromFormat('Y-m-d H:i:s', sprintf('%04d-%02d-%02d %s', $year2, $month2, $day2, $endTime ?: '22:00:00'), 'Europe/Riga');
+
+                return [$startAt, $endAt, $allDay];
+            }
+        }
+
+        // Single date e.g. "18. novembris, 2026" or "18. novembris"
+        if (preg_match('/(\d{1,2})\.\s*([a-zāčēģīķļņšūž]+)(?:,?\s*(\d{4}))?/ui', $clean, $m)) {
+            $day = (int) $m[1];
+            $monthName = mb_strtolower($m[2], 'UTF-8');
+            $month = $months[$monthName] ?? (int) date('n');
+            $year = !empty($m[3]) ? (int) $m[3] : (int) date('Y');
+
+            $startAt = Carbon::createFromFormat('Y-m-d H:i:s', sprintf('%04d-%02d-%02d %s', $year, $month, $day, $startTime), 'Europe/Riga');
+            $endAt = $endTime ? Carbon::createFromFormat('Y-m-d H:i:s', sprintf('%04d-%02d-%02d %s', $year, $month, $day, $endTime), 'Europe/Riga') : null;
+
+            return [$startAt, $endAt, $allDay];
+        }
+
+        // Standard numeric date: "18.11.2026"
+        if (preg_match('/(\d{1,2})\.(\d{1,2})\.(\d{4})/u', $clean, $m)) {
+            $day = (int) $m[1];
+            $month = (int) $m[2];
+            $year = (int) $m[3];
+
+            $startAt = Carbon::createFromFormat('Y-m-d H:i:s', sprintf('%04d-%02d-%02d %s', $year, $month, $day, $startTime), 'Europe/Riga');
+            $endAt = $endTime ? Carbon::createFromFormat('Y-m-d H:i:s', sprintf('%04d-%02d-%02d %s', $year, $month, $day, $endTime), 'Europe/Riga') : null;
+
+            return [$startAt, $endAt, $allDay];
+        }
+
+        return [null, null, false];
+    }
+
+    /**
+     * Parse price and free status
+     */
+    public function parsePrice(string $content): array
+    {
+        $isFree = true;
+        $priceMin = null;
+        $priceMax = null;
+
+        if (
+            preg_match('/(?:ieeja|biļet[a-z]*|maksa)\s*[-–—:]?\s*(?:bez\s+maksas|brīva)/iu', $content) ||
+            preg_match('/\b(?:bezmaksas|brīva\s+ieeja|ieeja\s+brīva)\b/iu', $content)
+        ) {
+            $isFree = true;
+            $priceMin = 0.0;
+            $priceMax = 0.0;
+        } elseif (preg_match('/(?:ieeja|biļet[a-z]*|cena|maksa)\s*[-–—:]?\s*(\d+(?:[.,]\d{1,2})?)\s*(?:€|eur)/iu', $content, $pm)) {
+            $val = (float) str_replace(',', '.', $pm[1]);
+            $isFree = false;
+            $priceMin = $val;
+            $priceMax = $val;
+        } elseif (preg_match('/(\d+(?:[.,]\d{1,2})?)\s*(?:€|eur)/iu', $content, $pm)) {
+            $val = (float) str_replace(',', '.', $pm[1]);
+            if ($val > 0 && $val <= 500) {
+                $isFree = false;
+                $priceMin = $val;
+                $priceMax = $val;
+            }
+        }
+
+        return [
+            'is_free' => $isFree,
+            'price_min' => $priceMin,
+            'price_max' => $priceMax,
+        ];
+    }
+
+    /**
+     * Normalize relative or absolute event URLs
+     */
+    public function normalizeUrl(?string $relUrl): ?string
+    {
+        if (empty($relUrl)) {
+            return null;
+        }
+
+        if (str_starts_with($relUrl, 'http://') || str_starts_with($relUrl, 'https://')) {
+            $parsed = parse_url($relUrl);
+            return ($parsed['scheme'] ?? 'https') . '://' . ($parsed['host'] ?? 'www.ropazi.lv') . ($parsed['path'] ?? '');
+        }
+
+        $path = strtok($relUrl, '?');
+        return self::BASE_URL . (str_starts_with($path, '/') ? '' : '/') . $path;
+    }
+
+    /**
+     * Check if item is an administrative / municipal meeting that shouldn't be in cultural events calendar
+     */
+    public function isExcludedEvent(array $categories, string $title): bool
+    {
+        $categoriesLower = array_map(fn ($c) => mb_strtolower($c, 'UTF-8'), $categories);
+        foreach ($categoriesLower as $cat) {
+            if (
+                str_contains($cat, 'komitejas sēde') ||
+                str_contains($cat, 'domes sēde') ||
+                str_contains($cat, 'ārkārtas sēde') ||
+                str_contains($cat, 'iedzīvotāju pieņemšana')
+            ) {
+                return true;
+            }
+        }
+
+        $titleLower = mb_strtolower($title, 'UTF-8');
+        if (
+            str_contains($titleLower, 'komitejas sēde') ||
+            str_contains($titleLower, 'domes sēde') ||
+            str_contains($titleLower, 'ārkārtas sēde') ||
+            str_contains($titleLower, 'pieņem iedzīvotājus') ||
+            str_contains($titleLower, 'deputātu tikšanās') ||
+            str_contains($titleLower, 'deputāta pieņemšana')
+        ) {
+            return true;
+        }
+
+        return false;
+    }
+}
