@@ -165,10 +165,11 @@
         <!-- Changes / Items Found & Created -->
         <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
             <div class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Pasākumi dienas laikā</div>
-            <div class="mt-1 flex items-baseline gap-2">
+            <div class="mt-1 flex items-baseline gap-1.5 flex-wrap">
                 <span class="text-lg font-black text-slate-900" title="Atrasti pasākumi">{{ $dayStats['items_found'] }}</span>
                 <span class="text-xs font-extrabold text-emerald-600" title="Jauni izveidoti">+{{ $dayStats['items_created'] }}</span>
-                <span class="text-xs font-bold text-blue-600" title="Atjaunināti">~{{ $dayStats['items_updated'] }}</span>
+                <span class="text-xs font-bold text-amber-600" title="Atjaunināti">~{{ $dayStats['items_updated'] }}</span>
+                <span class="text-xs font-bold text-indigo-600" title="Novērsti duplikāti">⊘{{ $dayStats['items_deduplicated'] ?? 0 }}</span>
             </div>
             <div class="text-[10px] text-slate-400 mt-0.5">Ilgums: {{ $dayStats['total_duration'] }}s</div>
         </div>
@@ -255,6 +256,7 @@
                         <th class="py-3 px-4">Atrasti</th>
                         <th class="py-3 px-4">Izveidoti</th>
                         <th class="py-3 px-4">Atjaunoti</th>
+                        <th class="py-3 px-4">Novērsti dupl.</th>
                         <th class="py-3 px-4 min-w-[200px]">Kļūda / Iemesls</th>
                         <th class="py-3 px-4 text-right">Darbība</th>
                     </tr>
@@ -328,8 +330,19 @@
                             <!-- Items Updated -->
                             <td class="py-3.5 px-4">
                                 @if($log->items_updated > 0)
-                                    <span class="font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 text-[11px]">
+                                    <span class="font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 text-[11px]">
                                         {{ $log->items_updated }}
+                                    </span>
+                                @else
+                                    <span class="text-slate-400">0</span>
+                                @endif
+                            </td>
+
+                            <!-- Items Deduplicated -->
+                            <td class="py-3.5 px-4">
+                                @if(($log->items_deduplicated ?? 0) > 0)
+                                    <span class="font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200 text-[11px]" title="Novērsti duplikāti: pasākumi, ko atrada šis skreiperis, bet kuri jau eksistē no augstākas prioritātes avota">
+                                        {{ $log->items_deduplicated }}
                                     </span>
                                 @else
                                     <span class="text-slate-400">0</span>
@@ -412,7 +425,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="10" class="py-10 text-center text-slate-400">
+                            <td colspan="11" class="py-10 text-center text-slate-400">
                                 <i data-lucide="inbox" class="w-8 h-8 mx-auto text-slate-300 mb-2"></i>
                                 Izvēlētajā datumā ({{ \Carbon\Carbon::parse($selectedDate)->format('d.m.Y') }}) nav reģistrēts neviens parsēšanas žurnāla ieraksts.
                             </td>

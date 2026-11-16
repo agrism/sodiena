@@ -16,6 +16,7 @@ class ScrapeLog extends Model
         'items_found',
         'items_created',
         'items_updated',
+        'items_deduplicated',
         'duration_seconds',
         'errors',
         'started_at',
@@ -23,6 +24,10 @@ class ScrapeLog extends Model
     ];
 
     protected $casts = [
+        'items_found' => 'integer',
+        'items_created' => 'integer',
+        'items_updated' => 'integer',
+        'items_deduplicated' => 'integer',
         'errors' => 'array',
         'started_at' => 'datetime',
         'completed_at' => 'datetime',

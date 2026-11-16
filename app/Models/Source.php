@@ -22,12 +22,14 @@ class Source extends Model
         'last_scraped_at',
         'last_status',
         'last_error',
+        'duplicates_prevented_count',
         'settings',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
         'last_scraped_at' => 'datetime',
+        'duplicates_prevented_count' => 'integer',
         'settings' => 'array',
     ];
 
@@ -47,5 +49,25 @@ class Source extends Model
     public function scrapeLogs(): HasMany
     {
         return $this->hasMany(ScrapeLog::class)->orderByDesc('started_at');
+    }
+
+    public function latestScrapeLog(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(ScrapeLog::class)->latestOfMany('started_at');
+    }
+
+    public function scopeOrderByPriority($query)
+    {
+        return $query->orderByRaw("
+            CASE type
+                WHEN 'venue' THEN 90
+                WHEN 'sports' THEN 85
+                WHEN 'ticketing' THEN 80
+                WHEN 'thematic' THEN 75
+                WHEN 'municipality' THEN 70
+                WHEN 'aggregator' THEN 50
+                ELSE 40
+            END DESC, name ASC
+        ");
     }
 }

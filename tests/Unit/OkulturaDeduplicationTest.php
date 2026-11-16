@@ -94,7 +94,7 @@ class OkulturaDeduplicationTest extends TestCase
         );
 
         $res2 = $ingestionService->ingestDTO($dtoOkultura, $sourceOkultura);
-        $this->assertEquals('updated', $res2);
+        $this->assertEquals('deduplicated', $res2);
 
         // Crucial Assertion: NO DUPLICATE CREATED
         $this->assertEquals(1, Event::count());
@@ -154,7 +154,7 @@ class OkulturaDeduplicationTest extends TestCase
         );
 
         $res = $ingestionService->ingestDTO($dtoPostponed, $sourceOkultura);
-        $this->assertEquals('updated', $res);
+        $this->assertEquals('deduplicated', $res);
 
         // Crucial: Must NOT create duplicate, must update date to postponed date
         $this->assertEquals(1, Event::count());
@@ -199,7 +199,7 @@ class OkulturaDeduplicationTest extends TestCase
             sourceExternalId: 'okultura-15899',
         );
         $res = $ingestionService->ingestDTO($dto2, $sourceOkultura);
-        $this->assertEquals('updated', $res);
+        $this->assertEquals('deduplicated', $res);
         $this->assertEquals(1, Event::count());
     }
 
@@ -241,7 +241,7 @@ class OkulturaDeduplicationTest extends TestCase
             sourceExternalId: 'novads-zorzs-siksna-taurupe',
         );
         $res = $ingestionService->ingestDTO($dto2, $sourceNovads);
-        $this->assertEquals('updated', $res);
+        $this->assertEquals('deduplicated', $res);
         $this->assertEquals(1, Event::count(), 'Identical concert with 60 min schedule discrepancy must merge');
     }
 
@@ -287,7 +287,7 @@ class OkulturaDeduplicationTest extends TestCase
             sourceExternalId: 'novads-valsts-svetku-balle-mazozoli',
         );
         $res = $ingestionService->ingestDTO($dto2, $sourceNovads);
-        $this->assertEquals('updated', $res);
+        $this->assertEquals('deduplicated', $res);
         $this->assertEquals(1, Event::count(), 'Identical flyer description with generic candidate city must merge and adopt parish');
     }
 }

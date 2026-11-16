@@ -79,7 +79,7 @@ class OgresMuzejsDeduplicationTest extends TestCase
         );
 
         $res2 = $ingestionService->ingestDTO($dtoMuzejs, $sourceMuzejs);
-        $this->assertEquals('updated', $res2);
+        $this->assertEquals('deduplicated', $res2);
 
         // Must NOT create duplicate!
         $this->assertEquals(1, Event::count());

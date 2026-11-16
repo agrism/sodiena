@@ -105,7 +105,7 @@ class AfiroDeduplicationTest extends TestCase
         );
 
         $res2 = $ingestionService->ingestDTO($dtoAfiro, $sourceAfiro);
-        $this->assertEquals('updated', $res2);
+        $this->assertEquals('deduplicated', $res2);
 
         // Crucial assertion: No duplicate created
         $this->assertEquals(1, Event::count());
@@ -116,7 +116,7 @@ class AfiroDeduplicationTest extends TestCase
 
         // 3. Subsequent ingestion by afiro matches immediately via merged_external_ids
         $res3 = $ingestionService->ingestDTO($dtoAfiro, $sourceAfiro);
-        $this->assertEquals('updated', $res3);
+        $this->assertEquals('deduplicated', $res3);
         $this->assertEquals(1, Event::count());
     }
 }

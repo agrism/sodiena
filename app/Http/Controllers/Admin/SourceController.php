@@ -59,7 +59,7 @@ class SourceController extends Controller
             $query->where('type', $validType->value);
         }
 
-        $sources = $query->orderBy('name')->get();
+        $sources = $query->orderByPriority()->get();
 
         $typeCounts = Source::query()
             ->selectRaw('type, count(*) as count')
@@ -184,6 +184,7 @@ class SourceController extends Controller
             'items_found' => (int) $allDayLogs->sum('items_found'),
             'items_created' => (int) $allDayLogs->sum('items_created'),
             'items_updated' => (int) $allDayLogs->sum('items_updated'),
+            'items_deduplicated' => (int) $allDayLogs->sum('items_deduplicated'),
             'total_duration' => round((float) $allDayLogs->sum('duration_seconds'), 1),
         ];
 
@@ -223,12 +224,12 @@ class SourceController extends Controller
 
             $loopIndex = $request->input('loop_index');
             return view('admin.sources.partials.source-card', [
-                'source' => $source->fresh(['scrapeLogs']),
+                'source' => $source->fresh(['scrapeLogs'])->loadCount('events'),
                 'loopIndex' => $loopIndex,
             ]);
         }
 
-        $statusMsg = "Avota '{$source->name}' parsēšana pabeigta! Statuss: {$log->statusLabel()} (Atrasti: {$log->items_found}, Izveidoti: +{$log->items_created}, Atjaunoti: {$log->items_updated}, Ilgums: {$log->getFormattedDuration()})";
+        $statusMsg = "Avota '{$source->name}' parsēšana pabeigta! Statuss: {$log->statusLabel()} (Atrasti: {$log->items_found}, Izveidoti: +{$log->items_created}, Atjaunoti: {$log->items_updated}, Novērsti duplikāti: {$log->items_deduplicated}, Ilgums: {$log->getFormattedDuration()})";
         if ($log->isFailed() && $log->getPrimaryError()) {
             $statusMsg .= " — Kļūda: " . $log->getPrimaryError();
         }

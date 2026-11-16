@@ -27,6 +27,7 @@ class EventIngestionService
         $scrapedCount = 0;
         $createdCount = 0;
         $updatedCount = 0;
+        $deduplicatedCount = 0;
         $failedCount = 0;
         $errors = [];
 
@@ -39,6 +40,7 @@ class EventIngestionService
                 'items_found' => 0,
                 'items_created' => 0,
                 'items_updated' => 0,
+                'items_deduplicated' => 0,
                 'duration_seconds' => 0,
                 'errors' => null,
                 'started_at' => $startedAt,
@@ -67,6 +69,8 @@ class EventIngestionService
                         $createdCount++;
                     } elseif ($result === 'updated') {
                         $updatedCount++;
+                    } elseif ($result === 'deduplicated') {
+                        $deduplicatedCount++;
                     }
                 } catch (\Throwable $e) {
                     $failedCount++;
@@ -91,7 +95,7 @@ class EventIngestionService
             }, array_slice($errors, 0, 15));
         }
 
-        $finalStatus = empty($errors) ? 'success' : ($createdCount > 0 || $updatedCount > 0 ? 'partial' : 'failed');
+        $finalStatus = empty($errors) ? 'success' : ($createdCount > 0 || $updatedCount > 0 || $deduplicatedCount > 0 ? 'partial' : 'failed');
         $primaryError = !empty($cleanErrors) ? Str::limit($cleanErrors[0], 500) : null;
 
         try {
@@ -99,6 +103,7 @@ class EventIngestionService
                 'last_scraped_at' => now(),
                 'last_status' => $finalStatus,
                 'last_error' => $primaryError,
+                'duplicates_prevented_count' => $deduplicatedCount,
             ]);
         } catch (\Throwable $updateEx) {
             Log::warning("Could not update last_status for {$source->name}: " . $updateEx->getMessage());
@@ -111,6 +116,7 @@ class EventIngestionService
                     'items_found' => $scrapedCount,
                     'items_created' => $createdCount,
                     'items_updated' => $updatedCount,
+                    'items_deduplicated' => $deduplicatedCount,
                     'duration_seconds' => round($duration, 2),
                     'errors' => $cleanErrors,
                     'completed_at' => now(),
@@ -123,6 +129,7 @@ class EventIngestionService
                 'items_found' => $scrapedCount,
                 'items_created' => $createdCount,
                 'items_updated' => $updatedCount,
+                'items_deduplicated' => $deduplicatedCount,
                 'duration_seconds' => round($duration, 2),
                 'status' => $finalStatus,
                 'errors' => $cleanErrors,
@@ -136,6 +143,7 @@ class EventIngestionService
                 'items_found' => $scrapedCount,
                 'items_created' => $createdCount,
                 'items_updated' => $updatedCount,
+                'items_deduplicated' => $deduplicatedCount,
                 'duration_seconds' => round($duration, 2),
                 'status' => $finalStatus,
                 'errors' => array_merge($cleanErrors ?? [], [$logEx->getMessage()]),
@@ -1051,6 +1059,10 @@ class EventIngestionService
                 }
 
                 $this->inheritSiblingTranslations($existingEvent);
+
+                if ($existingEvent->source_id !== $source->id && !$shouldAdoptAuthoritativeSource) {
+                    return 'deduplicated';
+                }
 
                 return 'updated';
             }

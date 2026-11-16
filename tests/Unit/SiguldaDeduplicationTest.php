@@ -282,7 +282,7 @@ class SiguldaDeduplicationTest extends TestCase
         );
 
         $res3 = $ingestionService->ingestDTO($dto3, $sourceSigulda);
-        $this->assertEquals('updated', $res3);
+        $this->assertEquals('deduplicated', $res3);
         $this->assertEquals(1, Event::count());
     }
 

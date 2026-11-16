@@ -1,4 +1,11 @@
 <div id="source-row-{{ $source->id }}" class="bg-white rounded-2xl border border-slate-200/90 shadow-2xs hover:border-slate-300 transition-all overflow-hidden">
+    @php
+        $latestLog = $source->scrapeLogs->first();
+        $createdCount = $latestLog?->items_created ?? 0;
+        $updatedCount = $latestLog?->items_updated ?? 0;
+        $dedupedCount = $source->duplicates_prevented_count ?? ($latestLog?->items_deduplicated ?? 0);
+        $activeEventsCount = $source->events_count ?? $source->events()->count();
+    @endphp
     <!-- Main Compact Row (Clickable to Expand) -->
     <div class="p-4 sm:p-4.5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 cursor-pointer select-none hover:bg-slate-50/60 transition-colors"
          onclick="toggleSourceDetails({{ $source->id }})">
@@ -89,10 +96,37 @@
                 </div>
             </div>
 
-            <!-- Events Count Metric -->
-            <div class="min-w-[80px] text-right">
-                <span class="text-xl font-black text-emerald-600">{{ $source->events_count ?? $source->events()->count() }}</span>
-                <span class="text-[10px] text-slate-400 font-bold block uppercase -mt-0.5">Notikumi</span>
+            <!-- Scraper Metrics Strip (Notikumi, Jauni, Atjaunoti, Novērsti duplikāti) -->
+            <div class="flex items-center gap-2 sm:gap-3 shrink-0 px-2.5 py-1.5 bg-slate-50/80 rounded-xl border border-slate-200/60" onclick="event.stopPropagation()">
+                <!-- Aktīvie notikumi -->
+                <div class="text-right min-w-[48px]" title="Aktīvi šī avota pasākumi datubāzē">
+                    <span class="text-base sm:text-lg font-black text-emerald-600 block leading-tight">{{ $activeEventsCount }}</span>
+                    <span class="text-[9px] text-slate-400 font-bold block uppercase -mt-0.5">Notikumi</span>
+                </div>
+
+                <div class="w-px h-6 bg-slate-200"></div>
+
+                <!-- Jauni / Izveidoti -->
+                <div class="text-right min-w-[40px]" title="Pēdējā parsēšanā no jauna izveidotie pasākumi">
+                    <span class="text-base sm:text-lg font-black text-blue-600 block leading-tight">+{{ $createdCount }}</span>
+                    <span class="text-[9px] text-slate-400 font-bold block uppercase -mt-0.5">Jauni</span>
+                </div>
+
+                <div class="w-px h-6 bg-slate-200"></div>
+
+                <!-- Atjaunoti -->
+                <div class="text-right min-w-[40px]" title="Pēdējā parsēšanā atjauninātie pasākumi">
+                    <span class="text-base sm:text-lg font-black text-amber-600 block leading-tight">{{ $updatedCount }}</span>
+                    <span class="text-[9px] text-slate-400 font-bold block uppercase -mt-0.5">Atjaun.</span>
+                </div>
+
+                <div class="w-px h-6 bg-slate-200"></div>
+
+                <!-- Novērsti duplikāti -->
+                <div class="text-right min-w-[46px]" title="Novērsti duplikāti: pasākumi, ko atrada šis skreiperis, bet kuri jau eksistē no augstākas prioritātes avota">
+                    <span class="text-base sm:text-lg font-black text-indigo-600 block leading-tight">{{ $dedupedCount }}</span>
+                    <span class="text-[9px] text-slate-400 font-bold block uppercase -mt-0.5">Novērsti</span>
+                </div>
             </div>
 
             <!-- Action Button: Trigger Scrape Now -->
@@ -161,7 +195,7 @@
 
             <!-- Execution Status & Timing -->
             <div class="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-2xs space-y-1.5">
-                <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Parsēšanas laiki</div>
+                <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Parsēšanas rezultāti & laiki</div>
                 <div class="flex justify-between">
                     <span class="text-slate-500">Pēdējais sākums:</span>
                     <strong class="text-slate-800 font-mono text-[11px]">
@@ -170,7 +204,19 @@
                 </div>
                 <div class="flex justify-between">
                     <span class="text-slate-500">Kopā datubāzē:</span>
-                    <strong class="text-emerald-700 font-bold">{{ $source->events_count ?? $source->events()->count() }} pasākumi</strong>
+                    <strong class="text-emerald-700 font-bold">{{ $activeEventsCount }} pasākumi</strong>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-500">Pēdējā ciklā jauni:</span>
+                    <strong class="text-blue-700 font-bold">+{{ $createdCount }}</strong>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-500">Pēdējā ciklā atjaunoti:</span>
+                    <strong class="text-amber-700 font-bold">{{ $updatedCount }}</strong>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-500">Pēdējā ciklā novērsti duplikāti:</span>
+                    <strong class="text-indigo-700 font-bold">{{ $dedupedCount }}</strong>
                 </div>
                 <div class="flex justify-between pt-1 border-t border-slate-100">
                     <span class="text-slate-500">Avota saite:</span>

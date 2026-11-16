@@ -50,7 +50,7 @@ class ScrapeEventsCommand extends Command
             $query->where('type', $type);
         }
 
-        $sources = $query->get();
+        $sources = $query->orderByPriority()->get();
 
         if ($sources->isEmpty()) {
             $this->warn('Nav atrasts neviens aktīvs pasākumu avots.');
@@ -127,7 +127,9 @@ class ScrapeEventsCommand extends Command
         $failedSources = [];
 
         foreach ($sources as $source) {
-            $this->output->write("🔄 Parsējam avotu: <comment>{$source->name}</comment>... ");
+            $typeLabel = $source->type instanceof \App\Enums\SourceType ? $source->type->label() : ($source->type ?? 'Nav');
+            $priority = $source->type instanceof \App\Enums\SourceType ? $source->type->priority() : 40;
+            $this->output->write("🔄 Parsējam avotu [{$typeLabel} | Prioritāte: {$priority}]: <comment>{$source->name}</comment>... ");
 
             try {
                 // Garbage collect between scraper runs to prevent memory bloat
@@ -137,7 +139,7 @@ class ScrapeEventsCommand extends Command
 
                 if ($log->status === 'success' || $log->status === 'partial') {
                     $statusText = $log->status === 'partial' ? '<comment>DAĻĒJI PABEIGTS</comment>' : '<info>PABEIGTS</info>';
-                    $this->output->writeln("{$statusText} (Atrasti: {$log->items_found}, Izveidoti: {$log->items_created}, Atjaunoti: {$log->items_updated}, Ilgums: {$log->duration_seconds}s)");
+                    $this->output->writeln("{$statusText} (Atrasti: {$log->items_found}, Izveidoti: {$log->items_created}, Atjaunoti: {$log->items_updated}, Novērsti duplikāti: {$log->items_deduplicated}, Ilgums: {$log->duration_seconds}s)");
                     $successCount++;
                 } else {
                     $errMsg = is_array($log->errors) ? ($log->errors[0] ?? 'Nezināma kļūda') : 'Nezināma kļūda';
