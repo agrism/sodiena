@@ -9,6 +9,7 @@ use App\Services\Scrapers\Sources\AizkrauklesNovadsScraper;
 use App\Services\Scrapers\Sources\AluksneTourismScraper;
 use App\Services\Scrapers\Sources\AulaLvScraper;
 use App\Services\Scrapers\Sources\BasketLvScraper;
+use App\Services\Scrapers\Sources\BauskasNovadsScraper;
 use App\Services\Scrapers\Sources\BezRindasScraper;
 use App\Services\Scrapers\Sources\BilesuParadizeScraper;
 use App\Services\Scrapers\Sources\BilesuServissScraper;
@@ -433,6 +434,14 @@ class SourceSeeder extends Seeder
                 'slug' => 'dkn',
                 'url' => 'https://www.dkn.lv/lv/notikumu-kalendars',
                 'scraper_class' => DknScraper::class,
+                'type' => SourceType::MUNICIPALITY->value,
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Bauskas novada pašvaldība',
+                'slug' => 'bauskas-novads',
+                'url' => 'https://www.bauskasnovads.lv/lv/notikumu-kalendars',
+                'scraper_class' => BauskasNovadsScraper::class,
                 'type' => SourceType::MUNICIPALITY->value,
                 'is_active' => true,
             ],
