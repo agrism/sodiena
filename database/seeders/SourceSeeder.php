@@ -46,6 +46,7 @@ use App\Services\Scrapers\Sources\PassportixScraper;
 use App\Services\Scrapers\Sources\RopaziScraper;
 use App\Services\Scrapers\Sources\SiguldaNovadsScraper;
 use App\Services\Scrapers\Sources\SiguldaTourismScraper;
+use App\Services\Scrapers\Sources\TalsiScraper;
 use App\Services\Scrapers\Sources\TicketBestLvScraper;
 use App\Services\Scrapers\Sources\ValmierasNovadsScraper;
 use App\Services\Scrapers\Sources\VentspilsScraper;
@@ -460,6 +461,14 @@ class SourceSeeder extends Seeder
                 'slug' => 'ropazi',
                 'url' => 'https://www.ropazi.lv/lv/notikumu-kalendars',
                 'scraper_class' => RopaziScraper::class,
+                'type' => SourceType::MUNICIPALITY->value,
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Talsu novada pašvaldība',
+                'slug' => 'talsi',
+                'url' => 'https://www.talsunovads.lv/lv/notikumu-kalendars',
+                'scraper_class' => TalsiScraper::class,
                 'type' => SourceType::MUNICIPALITY->value,
                 'is_active' => true,
             ],
