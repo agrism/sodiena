@@ -38,6 +38,7 @@ use App\Services\Scrapers\Sources\LhfHokejsScraper;
 use App\Services\Scrapers\Sources\LiveRigaScraper;
 use App\Services\Scrapers\Sources\MadonaScraper;
 use App\Services\Scrapers\Sources\MadonasMuzejsScraper;
+use App\Services\Scrapers\Sources\MarupeScraper;
 use App\Services\Scrapers\Sources\OgresMuzejsScraper;
 use App\Services\Scrapers\Sources\OgresNovadsScraper;
 use App\Services\Scrapers\Sources\OkulturaScraper;
@@ -442,6 +443,14 @@ class SourceSeeder extends Seeder
                 'slug' => 'bauskas-novads',
                 'url' => 'https://www.bauskasnovads.lv/lv/notikumu-kalendars',
                 'scraper_class' => BauskasNovadsScraper::class,
+                'type' => SourceType::MUNICIPALITY->value,
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Mārupes novada pašvaldība',
+                'slug' => 'marupe',
+                'url' => 'https://www.marupe.lv/lv/notikumu-kalendars',
+                'scraper_class' => MarupeScraper::class,
                 'type' => SourceType::MUNICIPALITY->value,
                 'is_active' => true,
             ],
