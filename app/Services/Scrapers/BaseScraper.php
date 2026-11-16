@@ -94,4 +94,19 @@ abstract class BaseScraper implements EventScraperInterface
         $lines = array_map('trim', explode("\n", $text));
         return trim(implode("\n", $lines));
     }
+
+    /**
+     * Polite delay between requests with jitter to avoid triggering anti-bot / rate-limiters
+     * Default: 1000ms with jitter +/- 300ms (700ms - 1300ms)
+     */
+    protected function politeDelay(int $baseMs = 1000, int $jitterMs = 300): void
+    {
+        if (app()->runningUnitTests()) {
+            return;
+        }
+
+        $min = max(100, $baseMs - $jitterMs);
+        $max = $baseMs + $jitterMs;
+        usleep(random_int($min, $max) * 1000);
+    }
 }

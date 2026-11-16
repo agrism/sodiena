@@ -343,7 +343,7 @@ class DknScraper extends BaseScraper
 
         for ($page = 0; $page < $maxPages; $page++) {
             if ($page > 0) {
-                usleep(300000);
+                $this->politeDelay(1000, 300);
             }
             $pageUrl = $page === 0 ? $baseUrl : $baseUrl . '?page=' . $page;
             $crawler = $this->fetchCrawler($pageUrl);
