@@ -180,7 +180,7 @@ class SourceTypeRegistryTest extends TestCase
         );
 
         $res3 = $service->ingestDTO($ticketDto, $ticketingSource);
-        $this->assertEquals('updated', $res3);
+        $this->assertEquals('deduplicated', $res3);
 
         $event->refresh();
         // Direct checkout ticket URL and prices updated because Ticketing ticketPriority > Venue

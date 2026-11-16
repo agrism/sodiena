@@ -134,6 +134,7 @@ class JurmalasMuzejsScraper extends BaseScraper
         }
 
         try {
+            $this->politeDelay(800, 250);
             $crawler = $this->fetchCrawler($url);
             if (!$crawler) {
                 return null;

@@ -30,6 +30,9 @@ class AizkrauklesNovadsScraper extends BaseScraper
         $maxPages = 10;
 
         for ($page = 0; $page < $maxPages; $page++) {
+            if ($page > 0) {
+                $this->politeDelay(1000, 300);
+            }
             $pageUrl = $page === 0 ? $baseUrl : $baseUrl . '?page=' . $page;
             $crawler = $this->fetchCrawler($pageUrl);
 
@@ -137,6 +140,7 @@ class AizkrauklesNovadsScraper extends BaseScraper
         }
 
         try {
+            $this->politeDelay(800, 250);
             $crawler = $this->fetchCrawler($url);
             if (!$crawler) {
                 return null;

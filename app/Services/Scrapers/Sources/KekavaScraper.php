@@ -656,6 +656,7 @@ class KekavaScraper extends BaseScraper
             return $this->detailDescriptionCache[$url];
         }
 
+        $this->politeDelay(800, 250);
         $crawler = $this->fetchCrawler($url);
         if (!$crawler) {
             return null;

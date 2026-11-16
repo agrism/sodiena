@@ -259,6 +259,9 @@ class OgresNovadsScraper extends BaseScraper
         $today = Carbon::today('Europe/Riga');
 
         for ($page = 0; $page < $maxPages; $page++) {
+            if ($page > 0) {
+                $this->politeDelay(1000, 300);
+            }
             $pageUrl = $page === 0 ? $baseUrl : $baseUrl . '?page=' . $page;
             $crawler = $this->fetchCrawler($pageUrl);
 
@@ -1018,6 +1021,7 @@ class OgresNovadsScraper extends BaseScraper
         }
 
         try {
+            $this->politeDelay(800, 250);
             $response = $this->httpClient->get($url, ['timeout' => 10]);
             $html = (string) $response->getBody();
             $this->detailCache[$url] = $html;

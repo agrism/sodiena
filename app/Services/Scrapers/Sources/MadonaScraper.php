@@ -365,6 +365,7 @@ class MadonaScraper extends BaseScraper
 
             ksort($discoveredPages);
             foreach (array_keys($discoveredPages) as $pageNum) {
+                $this->politeDelay(1000, 300);
                 $paginatedUrl = self::BASE_URL . self::KALENDARS_PATH . '?start=' . $pageNum;
                 $this->scrapeArticleList($paginatedUrl, $events, $seenExternalIds, $seenUrls, $today);
             }

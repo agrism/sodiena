@@ -225,7 +225,7 @@ class VisitTukumsScraperTest extends TestCase
                         </a>
                     </div>
                     <h3><a href="/lv/Pasakumi/0/6179">TEĀTRIS | Amatierteātra izrāde "Dārgumi"</a></h3>
-                    <div style="font-size: 12px;">15.11.2026 15:00</div>
+                    <div style="font-size: 12px;">25.11.2026 15:00</div>
                     <div class="excerpt">Irlavas kultūras namā viesosies Džūkstes amatierteātris ar izrādi “Dārgumi”. Ieeja bez maksas.</div>
                 </div>
             </div>
@@ -237,7 +237,7 @@ class VisitTukumsScraperTest extends TestCase
                         </a>
                     </div>
                     <h3><a href="/lv/Pasakumi/0/6183">LATVIJA | "Mēs esam Latvija"</a></h3>
-                    <div style="font-size: 12px;">17.11.2026 19:00 - 21:00</div>
+                    <div style="font-size: 12px;">27.11.2026 19:00 - 21:00</div>
                     <div class="excerpt">Šlokenbekas muižā Latvijas valsts svētki tiks atzīmēti ar svētku koncertu. Biļetes cena: 10 EUR.</div>
                 </div>
             </div>
@@ -279,7 +279,7 @@ HTML;
         $this->assertEquals('Irlavas kultūras nams', $dto1->venueName);
         $this->assertEquals('Irlava', $dto1->city);
         $this->assertEquals('Kurzeme', $dto1->region);
-        $this->assertEquals('2026-11-15 15:00:00', $dto1->startAt->format('Y-m-d H:i:s'));
+        $this->assertEquals('2026-11-25 15:00:00', $dto1->startAt->format('Y-m-d H:i:s'));
         $this->assertNull($dto1->endAt);
         $this->assertContains('Teātris', $dto1->categoryNames);
         $this->assertEquals('performance', $dto1->entertainmentType);
@@ -292,8 +292,8 @@ HTML;
         $this->assertEquals('Šlokenbekas muiža', $dto2->venueName);
         $this->assertEquals('Milzkalne', $dto2->city);
         $this->assertEquals('Kurzeme', $dto2->region);
-        $this->assertEquals('2026-11-17 19:00:00', $dto2->startAt->format('Y-m-d H:i:s'));
-        $this->assertEquals('2026-11-17 21:00:00', $dto2->endAt->format('Y-m-d H:i:s'));
+        $this->assertEquals('2026-11-27 19:00:00', $dto2->startAt->format('Y-m-d H:i:s'));
+        $this->assertEquals('2026-11-27 21:00:00', $dto2->endAt->format('Y-m-d H:i:s'));
         $this->assertContains('Mūzika', $dto2->categoryNames);
         $this->assertContains('Svētki', $dto2->categoryNames);
         $this->assertEquals('concert', $dto2->entertainmentType);
