@@ -258,8 +258,28 @@ class RopaziScraperTest extends TestCase
         </div>
 HTML;
 
+        $detailHtml1 = <<<HTML
+        <article class="node notikums">
+            <div class="field--name-body">
+                <p>Kultūras centrā "Ulbrokas Pērle" izskanēs svinīgs koncerts par godu Latvijas Republikas proklamēšanas dienai. Ieeja brīva.</p>
+                <p>Piedalās novada kori un viesmākslinieki.</p>
+            </div>
+        </article>
+HTML;
+
+        $detailHtml2 = <<<HTML
+        <article class="node notikums">
+            <div class="field--name-body">
+                <p>Kinoseanss visai ģimenei Ropažos. Filma "Straume". Biļetes cena: 4.00 EUR.</p>
+                <p>Režisors Gints Zilbalodis.</p>
+            </div>
+        </article>
+HTML;
+
         $mock = new MockHandler([
             new Response(200, ['Content-Type' => 'text/html'], $html),
+            new Response(200, ['Content-Type' => 'text/html'], $detailHtml1),
+            new Response(200, ['Content-Type' => 'text/html'], $detailHtml2),
             new Response(200, ['Content-Type' => 'text/html'], '<div class="calendar-list"></div>'), // empty next page
         ]);
 
@@ -287,6 +307,7 @@ HTML;
         $this->assertEquals('https://www.ropazi.lv/files/gallery_images/valsts_svetku_koncerts_ulbroka.jpg', $e1->imageUrl);
         $this->assertEquals('https://www.ropazi.lv/lv/notikums/valsts-svetku-koncerts-ulbrokas-perle', $e1->sourceUrl);
         $this->assertEquals('ropazi-valsts-svetku-koncerts-ulbrokas-perle', $e1->sourceExternalId);
+        $this->assertStringContainsString('Piedalās novada kori', $e1->description);
 
         // Event 2 verification (Strict Kino classification)
         $e2 = $events->get(1);
@@ -298,5 +319,32 @@ HTML;
         $this->assertFalse($e2->isFree);
         $this->assertEquals(4.00, (float) $e2->priceMin);
         $this->assertEquals('ropazi-filmas-seanss-straume-ropazos', $e2->sourceExternalId);
+        $this->assertStringContainsString('Režisors Gints Zilbalodis', $e2->description);
+    }
+
+    public function test_fetch_detail_description_extracts_full_text(): void
+    {
+        $detailHtml = <<<HTML
+        <article class="node notikums">
+            <div class="field--name-body">
+                <p>"Staro Ropaži 2026" norisināsies 18. novembrī no plkst. 19.00 līdz 22.00.</p>
+                <p>Apmeklētājiem būs iespēja apskatīt dažādus izgaismotus vides objektus, baudīt gaismas instalācijas un muzikālus priekšnesumus.</p>
+                <p>Ieeja bez maksas.</p>
+            </div>
+        </article>
+HTML;
+
+        $mock = new MockHandler([
+            new Response(200, ['Content-Type' => 'text/html'], $detailHtml),
+        ]);
+        $client = new Client(['handler' => HandlerStack::create($mock)]);
+        $scraper = new RopaziScraper();
+        $scraper->setClient($client);
+
+        $desc = $scraper->fetchDetailDescription('https://www.ropazi.lv/lv/notikums/staro-ropazi-0');
+        $this->assertNotNull($desc);
+        $this->assertStringContainsString('Staro Ropaži 2026', $desc);
+        $this->assertStringContainsString('gaismas instalācijas', $desc);
+        $this->assertStringContainsString('Ieeja bez maksas.', $desc);
     }
 }

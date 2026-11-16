@@ -426,11 +426,12 @@ class BauskasNovadsScraper extends BaseScraper
 
                 $allPageEventsPast = false;
 
-                // Description directly from card (strictly NO crawling into detail pages)
-                $description = $node->filter('div.event-content')->count() ? $this->cleanText($node->filter('div.event-content')->text()) : $title;
-                if (empty($description)) {
-                    $description = $title;
-                }
+                // Description: fetch full description from detail page if available, fallback to card preview
+                $cardDesc = $node->filter('div.event-content')->count() ? $this->cleanText($node->filter('div.event-content')->text()) : '';
+                $detailDesc = $cleanUrl ? $this->fetchDetailDescription($cleanUrl) : null;
+                $description = (!empty($detailDesc) && mb_strlen($detailDesc) >= mb_strlen($cardDesc))
+                    ? $detailDesc
+                    : (!empty($cardDesc) ? $cardDesc : (!empty($detailDesc) ? $detailDesc : $title));
 
                 // Location
                 $locationRaw = $node->filter('span.describing-field-value')->count() ? $this->cleanText($node->filter('span.describing-field-value')->text()) : '';
@@ -950,6 +951,65 @@ class BauskasNovadsScraper extends BaseScraper
         }
 
         return false;
+    }
+
+    protected array $detailDescriptionCache = [];
+
+    /**
+     * Fetch full description from event detail page
+     */
+    public function fetchDetailDescription(?string $url): ?string
+    {
+        if (empty($url) || !str_starts_with($url, 'http') || !str_contains($url, '/notikums/')) {
+            return null;
+        }
+
+        if (isset($this->detailDescriptionCache[$url])) {
+            return $this->detailDescriptionCache[$url];
+        }
+
+        try {
+            $this->politeDelay(600, 200);
+            $crawler = $this->fetchCrawler($url);
+            if (!$crawler) {
+                return null;
+            }
+
+            // In LVRTC Drupal websites, main article description is in .field--name-body,
+            // .cke_editable, .text__text-content, or .event-content
+            $bodyNodes = $crawler->filter('article .field--name-body, article .cke_editable, article .text__text-content, .region-content .field--name-body, .region-content .cke_editable, .region-content .text__text-content, .field--name-body, .field--type-text-with-summary, .cke_editable, .text__text-content, article .event-content, .event-detail .event-content, .event-content');
+
+            if ($bodyNodes->count() > 0) {
+                $html = $bodyNodes->first()->html();
+                $html = preg_replace('/<(script|style)\b[^>]*>(.*?)<\/\1>/is', '', $html);
+                $cleaned = $this->cleanText($html);
+                if (!empty($cleaned)) {
+                    $this->detailDescriptionCache[$url] = $cleaned;
+                    return $cleaned;
+                }
+            }
+
+            // Paragraph fallback inside article/main container
+            $paragraphs = [];
+            $crawler->filter('article p, .region-content p')->each(function (Crawler $p) use (&$paragraphs) {
+                $t = $this->cleanText($p->text());
+                if (!empty($t) && !in_array($t, $paragraphs, true)) {
+                    if (!preg_match('/^(dalīties|pievienot kalendāram|sākums|notikumu kalendārs)$/iu', $t)) {
+                        $paragraphs[] = $t;
+                    }
+                }
+            });
+
+            if (!empty($paragraphs)) {
+                $text = implode("\n\n", $paragraphs);
+                $this->detailDescriptionCache[$url] = $text;
+                return $text;
+            }
+        } catch (\Throwable $e) {
+            Log::warning(static::class . ": detail fetch failed for {$url}: " . $e->getMessage());
+        }
+
+        return null;
     }
 }
 

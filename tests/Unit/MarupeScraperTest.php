@@ -258,8 +258,28 @@ class MarupeScraperTest extends TestCase
         </div>
 HTML;
 
+        $detailHtml1 = <<<HTML
+        <article class="node notikums">
+            <div class="field--name-body">
+                <p>Mārupes Kultūras namā notiks svinīgs koncerts par godu Latvijas Republikas proklamēšanas dienai. Ieeja brīva.</p>
+                <p>Koncertā uzstāsies Mārupes novada jauniešu koris un solisti.</p>
+            </div>
+        </article>
+HTML;
+
+        $detailHtml2 = <<<HTML
+        <article class="node notikums">
+            <div class="field--name-body">
+                <p>Animācijas filmas "Straume" kinoseanss Piņķos. Biļetes cena: 4.50 EUR.</p>
+                <p>Režisors Gints Zilbalodis. Seanss ģimenēm ar bērniem.</p>
+            </div>
+        </article>
+HTML;
+
         $mock = new MockHandler([
             new Response(200, ['Content-Type' => 'text/html'], $html),
+            new Response(200, ['Content-Type' => 'text/html'], $detailHtml1),
+            new Response(200, ['Content-Type' => 'text/html'], $detailHtml2),
             new Response(200, ['Content-Type' => 'text/html'], '<div class="calendar-list"></div>'), // empty next page
         ]);
 
@@ -287,6 +307,7 @@ HTML;
         $this->assertEquals('https://www.marupe.lv/files/gallery_images/marupes_koncerts.jpg', $e1->imageUrl);
         $this->assertEquals('https://www.marupe.lv/lv/notikums/valsts-svetku-koncerts-marupe', $e1->sourceUrl);
         $this->assertEquals('marupe-valsts-svetku-koncerts-marupe', $e1->sourceExternalId);
+        $this->assertStringContainsString('Koncertā uzstāsies Mārupes novada jauniešu koris', $e1->description);
 
         // Event 2 verification (Strict Kino classification)
         $e2 = $events->get(1);
@@ -298,5 +319,32 @@ HTML;
         $this->assertFalse($e2->isFree);
         $this->assertEquals(4.50, (float) $e2->priceMin);
         $this->assertEquals('marupe-filmas-seanss-straume-pinkos', $e2->sourceExternalId);
+        $this->assertStringContainsString('Režisors Gints Zilbalodis', $e2->description);
+    }
+
+    public function test_fetch_detail_description_extracts_full_text(): void
+    {
+        $detailHtml = <<<HTML
+        <article class="node notikums">
+            <div class="field--name-body">
+                <p>Valsts svētku nedēļā sarkanbaltsarkanā lentīte pie apģērba ir neatņemama modes sastāvdaļa.</p>
+                <p>Nāc un izgatavo savu unikālo svētku piespraudi meistarklasē kopā ar tekstilmākslinieci.</p>
+                <p>Visi materiāli tiks nodrošināti. Dalība pasākumā bez maksas.</p>
+            </div>
+        </article>
+HTML;
+
+        $mock = new MockHandler([
+            new Response(200, ['Content-Type' => 'text/html'], $detailHtml),
+        ]);
+        $client = new Client(['handler' => HandlerStack::create($mock)]);
+        $scraper = new MarupeScraper();
+        $scraper->setClient($client);
+
+        $desc = $scraper->fetchDetailDescription('https://www.marupe.lv/lv/notikums/svetku-aksesuaru-darbnica');
+        $this->assertNotNull($desc);
+        $this->assertStringContainsString('sarkanbaltsarkanā lentīte', $desc);
+        $this->assertStringContainsString('meistarklasē kopā ar tekstilmākslinieci', $desc);
+        $this->assertStringContainsString('Dalība pasākumā bez maksas.', $desc);
     }
 }

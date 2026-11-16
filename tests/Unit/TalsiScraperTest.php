@@ -276,8 +276,28 @@ class TalsiScraperTest extends TestCase
         </div>
 HTML;
 
+        $detailHtml1 = <<<HTML
+        <article class="node notikums">
+            <div class="field--name-body">
+                <p>Talsu Tautas namā notiks svinīgs koncerts par godu Latvijas Republikas proklamēšanas dienai. Ieeja brīva.</p>
+                <p>Koncertā piedalās Talsu novada apvienotais koris un pūtēju orķestris.</p>
+            </div>
+        </article>
+HTML;
+
+        $detailHtml2 = <<<HTML
+        <article class="node notikums">
+            <div class="field--name-body">
+                <p>Animācijas filmas "Straume" kinoseanss Talsos. Biļetes cena: 4.00 EUR.</p>
+                <p>Režisors Gints Zilbalodis. Seanss visai ģimenei kinoteātrī "Auseklis".</p>
+            </div>
+        </article>
+HTML;
+
         $mock = new MockHandler([
             new Response(200, ['Content-Type' => 'text/html'], $html),
+            new Response(200, ['Content-Type' => 'text/html'], $detailHtml1),
+            new Response(200, ['Content-Type' => 'text/html'], $detailHtml2),
             new Response(200, ['Content-Type' => 'text/html'], '<div class="calendar-list"></div>'), // empty next page
         ]);
 
@@ -305,6 +325,7 @@ HTML;
         $this->assertEquals('https://www.talsunovads.lv/files/gallery_images/talsu_valsts_svetku_koncerts.jpg', $e1->imageUrl);
         $this->assertEquals('https://www.talsunovads.lv/lv/notikums/valsts-svetku-koncerts-talsos', $e1->sourceUrl);
         $this->assertEquals('talsi-valsts-svetku-koncerts-talsos', $e1->sourceExternalId);
+        $this->assertStringContainsString('Talsu novada apvienotais koris', $e1->description);
 
         // Event 2 verification (Strict Kino classification)
         $e2 = $events->get(1);
@@ -316,5 +337,32 @@ HTML;
         $this->assertFalse($e2->isFree);
         $this->assertEquals(4.00, (float) $e2->priceMin);
         $this->assertEquals('talsi-filmas-seanss-straume-talsos', $e2->sourceExternalId);
+        $this->assertStringContainsString('Režisors Gints Zilbalodis', $e2->description);
+    }
+
+    public function test_fetch_detail_description_extracts_full_text(): void
+    {
+        $detailHtml = <<<HTML
+        <article class="node notikums">
+            <div class="field--name-body">
+                <p>Talsu novada muzeja izstāžu zālē apskatāma retrospektīva mākslas izstāde.</p>
+                <p>Izstādē eksponēti vairāk nekā piecdesmit autoru darbi, kas tapuši pēdējā desmitgadē.</p>
+                <p>Ieejas maksa: 2.50 EUR pieaugušajiem, 1.50 EUR skolēniem un pensionāriem.</p>
+            </div>
+        </article>
+HTML;
+
+        $mock = new MockHandler([
+            new Response(200, ['Content-Type' => 'text/html'], $detailHtml),
+        ]);
+        $client = new Client(['handler' => HandlerStack::create($mock)]);
+        $scraper = new TalsiScraper();
+        $scraper->setClient($client);
+
+        $desc = $scraper->fetchDetailDescription('https://www.talsunovads.lv/lv/notikums/makslas-izstade-talsos');
+        $this->assertNotNull($desc);
+        $this->assertStringContainsString('Talsu novada muzeja izstāžu zālē', $desc);
+        $this->assertStringContainsString('retrospektīva mākslas izstāde', $desc);
+        $this->assertStringContainsString('Ieejas maksa: 2.50 EUR', $desc);
     }
 }

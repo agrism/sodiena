@@ -254,8 +254,28 @@ class BauskasNovadsScraperTest extends TestCase
         </div>
 HTML;
 
+        $detailHtml1 = <<<HTML
+        <article class="node notikums">
+            <div class="field--name-body">
+                <p>Bauskas Kultūras centrā izskanēs svinīgs svētku koncerts ar novada jaukto kori "Dzīle". Ieeja brīva.</p>
+                <p>Programmā latviešu komponistu skaņdarbi un patriotiskas dziesmas svētku noskaņās.</p>
+            </div>
+        </article>
+HTML;
+
+        $detailHtml2 = <<<HTML
+        <article class="node notikums">
+            <div class="field--name-body">
+                <p>Kinoseanss visai ģimenei. Animācijas filma "Straume". Biļetes cena: 4.00 EUR.</p>
+                <p>Režisors Gints Zilbalodis. Starptautiski atzīta animācijas filma.</p>
+            </div>
+        </article>
+HTML;
+
         $mock = new MockHandler([
             new Response(200, ['Content-Type' => 'text/html'], $html),
+            new Response(200, ['Content-Type' => 'text/html'], $detailHtml1),
+            new Response(200, ['Content-Type' => 'text/html'], $detailHtml2),
             new Response(200, ['Content-Type' => 'text/html'], '<div class="calendar-list"></div>'), // empty next page
         ]);
 
@@ -283,6 +303,7 @@ HTML;
         $this->assertEquals('https://www.bauskasnovads.lv/files/gallery_images/bauskas_valsts_svetku_koncerts.jpg', $e1->imageUrl);
         $this->assertEquals('https://www.bauskasnovads.lv/lv/notikums/valsts-svetku-koncerts-bauska', $e1->sourceUrl);
         $this->assertEquals('bauskasnovads-valsts-svetku-koncerts-bauska', $e1->sourceExternalId);
+        $this->assertStringContainsString('Programmā latviešu komponistu', $e1->description);
 
         // Event 2 verification (Strict Kino classification)
         $e2 = $events->get(1);
@@ -294,5 +315,33 @@ HTML;
         $this->assertFalse($e2->isFree);
         $this->assertEquals(4.00, (float) $e2->priceMin);
         $this->assertEquals('bauskasnovads-filmas-seanss-straume-iecava', $e2->sourceExternalId);
+        $this->assertStringContainsString('Režisors Gints Zilbalodis', $e2->description);
+    }
+
+    public function test_fetch_detail_description_extracts_full_text(): void
+    {
+        $detailHtml = <<<HTML
+        <article class="node notikums">
+            <div class="field--name-body">
+                <p>9.00 B.Jukņeviča "Tās kartupeļu kastes..." Vecumnieku tautas nama amatierteātris</p>
+                <p>11.00 R.Blaumanis "Trīnes grēki" Bauskas Tautas teātris</p>
+                <p>13.30 A.Upīts "Sūnu ciema zēni" Iecavas amatierteātris</p>
+                <p>Ieeja brīva.</p>
+            </div>
+        </article>
+HTML;
+
+        $mock = new MockHandler([
+            new Response(200, ['Content-Type' => 'text/html'], $detailHtml),
+        ]);
+        $client = new Client(['handler' => HandlerStack::create($mock)]);
+        $scraper = new BauskasNovadsScraper();
+        $scraper->setClient($client);
+
+        $desc = $scraper->fetchDetailDescription('https://www.bauskasnovads.lv/lv/notikums/bauskas-novada-amatierteatru-skate-3');
+        $this->assertNotNull($desc);
+        $this->assertStringContainsString('Vecumnieku tautas nama amatierteātris', $desc);
+        $this->assertStringContainsString('Trīnes grēki', $desc);
+        $this->assertStringContainsString('Ieeja brīva.', $desc);
     }
 }

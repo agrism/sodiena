@@ -973,15 +973,17 @@ class EventIngestionService
                     $finalTitle = $dto->title;
                 }
 
+                $shouldAdoptAuthoritativeSource = ($dtoSourceType->priority() > $existingSourceType->priority());
+
                 $finalDescription = self::mergeDescriptions($existingEvent->description, $dto->description);
-                $finalShortDesc = $existingEvent->short_description ?: $dto->shortDescription;
+                $finalShortDesc = ($shouldAdoptAuthoritativeSource || ($existingEvent->source_id === $source->id && !empty($dto->shortDescription)))
+                    ? ($dto->shortDescription ?: $existingEvent->short_description)
+                    : ($existingEvent->short_description ?: $dto->shortDescription);
 
                 $finalSourceUrl = $existingEvent->source_url;
                 if (empty($finalSourceUrl) || ($dtoIsTicketing && !$existingIsTicketing) || ($dtoSourceType->priority() > $existingSourceType->priority() && !empty($dto->sourceUrl))) {
                     $finalSourceUrl = $dto->sourceUrl ?: $finalSourceUrl;
                 }
-
-                $shouldAdoptAuthoritativeSource = ($dtoSourceType->priority() > $existingSourceType->priority());
 
                 $mergedRaw = array_merge($existingEvent->raw_data ?? [], $dto->rawData);
                 if ($dto->sourceExternalId) {

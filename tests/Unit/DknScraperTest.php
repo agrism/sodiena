@@ -248,8 +248,28 @@ class DknScraperTest extends TestCase
         </div>
 HTML;
 
+        $detailHtml1 = <<<HTML
+        <article class="node notikums">
+            <div class="field--name-body">
+                <p>Aizputes kultūras namā svinīgs koncerts par godu Latvijas Republikas proklamēšanas dienai. Ieeja brīva.</p>
+                <p>Programmā Aizputes mūzikas skolas audzēkņu un kora uzstāšanās.</p>
+            </div>
+        </article>
+HTML;
+
+        $detailHtml2 = <<<HTML
+        <article class="node notikums">
+            <div class="field--name-body">
+                <p>Animācijas filmas "Straume" kinoseanss Priekulē. Biļetes cena: 3.50 EUR.</p>
+                <p>Režisors Gints Zilbalodis. Seanss visai ģimenei.</p>
+            </div>
+        </article>
+HTML;
+
         $mock = new MockHandler([
             new Response(200, ['Content-Type' => 'text/html'], $html),
+            new Response(200, ['Content-Type' => 'text/html'], $detailHtml1),
+            new Response(200, ['Content-Type' => 'text/html'], $detailHtml2),
             new Response(200, ['Content-Type' => 'text/html'], '<div class="calendar-list"></div>'), // empty next page
         ]);
 
@@ -277,6 +297,7 @@ HTML;
         $this->assertEquals('https://www.dkn.lv/files/gallery_images/valsts_svetku_koncerts.jpg', $e1->imageUrl);
         $this->assertEquals('https://www.dkn.lv/lv/notikums/valsts-svetku-koncerts-aizpute', $e1->sourceUrl);
         $this->assertEquals('dkn-valsts-svetku-koncerts-aizpute', $e1->sourceExternalId);
+        $this->assertStringContainsString('Aizputes mūzikas skolas audzēkņu', $e1->description);
 
         // Event 2 verification (Strict Kino classification)
         $e2 = $events->get(1);
@@ -288,5 +309,33 @@ HTML;
         $this->assertFalse($e2->isFree);
         $this->assertEquals(3.50, (float) $e2->priceMin);
         $this->assertEquals('dkn-filmas-seanss-straume-priekule', $e2->sourceExternalId);
+        $this->assertStringContainsString('Režisors Gints Zilbalodis', $e2->description);
+    }
+
+    public function test_fetch_detail_description_extracts_full_text(): void
+    {
+        $detailHtml = <<<HTML
+        <article class="node notikums">
+            <div class="field--name-body">
+                <p>Aizputes kultūras namā 10.00 Aizputes amatierteātris “Priekšspēle” ar izrādi “Čūsku ballīte”.</p>
+                <p>Režisore: Juta Priedniece. Autore: Anita Grīniece.</p>
+                <p>12.00 Vaiņodes amatierteātris ar izrādi "Kaimiņu būšana".</p>
+                <p>Ieejas maksa: 2.00 EUR.</p>
+            </div>
+        </article>
+HTML;
+
+        $mock = new MockHandler([
+            new Response(200, ['Content-Type' => 'text/html'], $detailHtml),
+        ]);
+        $client = new Client(['handler' => HandlerStack::create($mock)]);
+        $scraper = new DknScraper();
+        $scraper->setClient($client);
+
+        $desc = $scraper->fetchDetailDescription('https://www.dkn.lv/lv/notikums/dienvidkurzemes-novada-amatierteatru-skate-2026');
+        $this->assertNotNull($desc);
+        $this->assertStringContainsString('Čūsku ballīte', $desc);
+        $this->assertStringContainsString('Juta Priedniece', $desc);
+        $this->assertStringContainsString('Vaiņodes amatierteātris', $desc);
     }
 }
