@@ -15,6 +15,7 @@ use App\Services\Scrapers\Sources\BilesuServissScraper;
 use App\Services\Scrapers\Sources\CesisScraper;
 use App\Services\Scrapers\Sources\DaugavpilsScraper;
 use App\Services\Scrapers\Sources\DienvidkurzemeScraper;
+use App\Services\Scrapers\Sources\DknScraper;
 use App\Services\Scrapers\Sources\DzejasDienasScraper;
 use App\Services\Scrapers\Sources\EkaseLvScraper;
 use App\Services\Scrapers\Sources\EstLatblScraper;
@@ -424,6 +425,14 @@ class SourceSeeder extends Seeder
                 'slug' => 'dienvidkurzeme',
                 'url' => 'https://www.dienvidkurzeme.travel/pasakumi-dienvidkurzeme/',
                 'scraper_class' => DienvidkurzemeScraper::class,
+                'type' => SourceType::MUNICIPALITY->value,
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Dienvidkurzemes novada pašvaldība',
+                'slug' => 'dkn',
+                'url' => 'https://www.dkn.lv/lv/notikumu-kalendars',
+                'scraper_class' => DknScraper::class,
                 'type' => SourceType::MUNICIPALITY->value,
                 'is_active' => true,
             ],
