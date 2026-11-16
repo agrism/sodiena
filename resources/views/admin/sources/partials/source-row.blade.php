@@ -125,7 +125,7 @@
                 <!-- Novērsti duplikāti -->
                 <div class="text-right min-w-[40px]" title="Novērsti duplikāti: pasākumi, ko atrada šis skreiperis, bet kuri jau eksistē no augstākas prioritātes avota">
                     <span class="text-base sm:text-lg font-black text-indigo-600 block leading-tight">{{ $dedupedCount }}</span>
-                    <span class="text-[9px] text-slate-400 font-bold block uppercase -mt-0.5">Dupl.</span>
+                    <span class="text-[9px] text-slate-400 font-bold block uppercase -mt-0.5">Duplik.</span>
                 </div>
             </div>
 
