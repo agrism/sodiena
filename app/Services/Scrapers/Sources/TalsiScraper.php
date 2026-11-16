@@ -509,6 +509,9 @@ class TalsiScraper extends BaseScraper
         $seenExternalIds = [];
 
         for ($page = 0; $page < $maxPages; $page++) {
+            if ($page > 0) {
+                usleep(300000);
+            }
             $pageUrl = $page === 0 ? $baseUrl : $baseUrl . '?page=' . $page;
             $crawler = $this->fetchCrawler($pageUrl);
 

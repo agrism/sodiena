@@ -14,10 +14,10 @@ abstract class BaseScraper implements EventScraperInterface
     public function __construct()
     {
         $this->httpClient = new Client([
-            'timeout' => 20,
-            'connect_timeout' => 10,
+            'timeout' => 30,
+            'connect_timeout' => 20,
             'headers' => [
-                'User-Agent' => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+                'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
                 'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
                 'Accept-Language' => 'lv,en-US;q=0.7,en;q=0.3',
             ],
@@ -35,16 +35,26 @@ abstract class BaseScraper implements EventScraperInterface
      */
     protected function fetchCrawler(string $url): ?Crawler
     {
-        try {
-            $response = $this->httpClient->get($url);
-            $html = (string) $response->getBody();
-            return new Crawler($html, $url);
-        } catch (\Throwable $e) {
-            Log::error("Scraper fetch error for URL {$url}: " . $e->getMessage(), [
-                'scraper' => static::class,
-            ]);
-            return null;
+        $maxRetries = 2;
+        for ($attempt = 0; $attempt <= $maxRetries; $attempt++) {
+            try {
+                if ($attempt > 0) {
+                    usleep(1500000); // 1.5s backoff
+                }
+                $response = $this->httpClient->get($url);
+                $html = (string) $response->getBody();
+                return new Crawler($html, $url);
+            } catch (\Throwable $e) {
+                if ($attempt === $maxRetries) {
+                    Log::error("Scraper fetch error for URL {$url}: " . $e->getMessage(), [
+                        'scraper' => static::class,
+                    ]);
+                    return null;
+                }
+            }
         }
+
+        return null;
     }
 
     /**
