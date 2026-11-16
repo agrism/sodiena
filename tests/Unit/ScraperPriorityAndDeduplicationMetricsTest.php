@@ -204,3 +204,4 @@ class ScraperPriorityAndDeduplicationMetricsTest extends TestCase
         $this->assertEquals('agg_999', $mergedIds['afiro-agg']);
     }
 }
+
