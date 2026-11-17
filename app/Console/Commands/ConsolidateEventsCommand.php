@@ -120,6 +120,42 @@ class ConsolidateEventsCommand extends Command
             }
         }
 
+        // 1.6 Number differentiator guard for distinct parts/editions (e.g. 1. daļa vs 2. daļa, 5 vs 10 spēļu abonements)
+        preg_match_all('/\b\d+\b/', $cleanTitleA, $numsA);
+        preg_match_all('/\b\d+\b/', $cleanTitleB, $numsB);
+        $diffA = array_diff($numsA[0] ?? [], $numsB[0] ?? []);
+        $diffB = array_diff($numsB[0] ?? [], $numsA[0] ?? []);
+        $nonYearA = array_filter($diffA, fn ($n) => (int)$n < 2000 || (int)$n > 2100);
+        $nonYearB = array_filter($diffB, fn ($n) => (int)$n < 2000 || (int)$n > 2100);
+
+        $eventDays = array_filter([$a->start_at?->day, $a->end_at?->day, $b->start_at?->day, $b->end_at?->day]);
+        $nonYearA = array_filter($nonYearA, fn ($n) => !in_array((int)$n, $eventDays, true));
+        $nonYearB = array_filter($nonYearB, fn ($n) => !in_array((int)$n, $eventDays, true));
+
+        $eventHours = array_filter([$a->start_at?->hour, $a->end_at?->hour, $b->start_at?->hour, $b->end_at?->hour]);
+        $nonYearA = array_filter($nonYearA, fn ($n) => !in_array((int)$n, $eventHours, true));
+        $nonYearB = array_filter($nonYearB, fn ($n) => !in_array((int)$n, $eventHours, true));
+
+        $isJubilee = function (string $num, string $title) {
+            if (preg_match('/\b' . $num . '\s*(?:\.|\b)\s*(?:gadi|gadu|jubilej|dzimšanas|dzimsanas|sezon|tūr)/ui', $title)) {
+                return true;
+            }
+            if (preg_match('/(?:jubilej|sezon|tūr|latvijai)\s*(?:\.|\b)\s*' . $num . '\b/ui', $title)) {
+                return true;
+            }
+            if (preg_match('/[A-ZĀČĒĢĪĶĻŅŠŪŽ][a-zāčēģīķļņšūž]+\s+[A-ZĀČĒĢĪĶĻŅŠŪŽ][a-zāčēģīķļņšūž]+(?:am|iem)?\s+' . $num . '\b/u', $title)) {
+                return true;
+            }
+            return false;
+        };
+
+        $nonYearA = array_filter($nonYearA, fn ($n) => !$isJubilee($n, $a->title));
+        $nonYearB = array_filter($nonYearB, fn ($n) => !$isJubilee($n, $b->title));
+
+        if (!empty($nonYearA) && !empty($nonYearB)) {
+            return false;
+        }
+
         // 2. City mismatch guard: If both candidate and dto have known cities and they differ, they are distinct events
         $cityA = mb_strtolower(trim($a->location?->city ?? ''), 'UTF-8');
         $cityB = mb_strtolower(trim($b->location?->city ?? ''), 'UTF-8');
@@ -287,11 +323,15 @@ class ConsolidateEventsCommand extends Command
             }
         }
 
-        // 11. Direct high title similarity
+        // 11. Direct high title similarity (including normalized comparison without trailing locatives)
         $cleanA = preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower($a->title, 'UTF-8'));
         $cleanB = preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower($b->title, 'UTF-8'));
+        $normA = EventIngestionService::normalizeTitleForComparison($a->title);
+        $normB = EventIngestionService::normalizeTitleForComparison($b->title);
+
         similar_text($cleanA, $cleanB, $pct);
-        if ($pct >= 75 && ($sameLocation || $venuesEquivalent)) {
+        similar_text($normA, $normB, $normPct);
+        if (($pct >= 75 || $normPct >= 75 || ($normA === $normB && mb_strlen($normA, 'UTF-8') >= 5)) && ($sameLocation || $venuesEquivalent)) {
             return true;
         }
 
@@ -470,8 +510,36 @@ class ConsolidateEventsCommand extends Command
                 $canonical->categories()->syncWithoutDetaching($duplicate->categories->pluck('id')->all());
             }
 
-            // 8. Raw data
-            $update['raw_data'] = array_merge($duplicate->raw_data ?? [], $canonical->raw_data ?? []);
+            // 8. Raw data, merged external IDs & ticket links
+            $mergedRaw = array_merge($duplicate->raw_data ?? [], $canonical->raw_data ?? []);
+
+            // Track merged external IDs so future scraper runs update canonical rather than recreating duplicate
+            $mergedIds = $mergedRaw['merged_external_ids'] ?? [];
+            if ($duplicate->source_slug && $duplicate->source_external_id) {
+                $mergedIds[$duplicate->source_slug] = $duplicate->source_external_id;
+            }
+            if (!empty($duplicate->raw_data['merged_external_ids']) && is_array($duplicate->raw_data['merged_external_ids'])) {
+                $mergedIds = array_merge($duplicate->raw_data['merged_external_ids'], $mergedIds);
+            }
+            $mergedRaw['merged_external_ids'] = $mergedIds;
+
+            // Merge ticket links without duplicate URLs
+            if (!empty($duplicate->raw_data['ticket_links']) && is_array($duplicate->raw_data['ticket_links'])) {
+                $existingLinks = $mergedRaw['ticket_links'] ?? [];
+                $allLinks = array_merge(
+                    is_array($existingLinks) ? $existingLinks : [],
+                    $duplicate->raw_data['ticket_links']
+                );
+                $uniqueLinks = [];
+                foreach ($allLinks as $tl) {
+                    if (!empty($tl['url'])) {
+                        $uniqueLinks[$tl['url']] = $tl;
+                    }
+                }
+                $mergedRaw['ticket_links'] = array_values($uniqueLinks);
+            }
+
+            $update['raw_data'] = $mergedRaw;
 
             // 9. Slug & Fingerprint updates
             $effectiveTitle = $update['title'] ?? $canonical->title;

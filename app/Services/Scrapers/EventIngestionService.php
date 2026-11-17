@@ -438,25 +438,30 @@ class EventIngestionService
                             $q->where('ticket_url', $currentTicketUrl)
                               ->orWhere('ticket_url', $cleanTicketUrl)
                               ->orWhere('ticket_url', $cleanTicketUrl . '/')
-                              ->orWhere('ticket_url', 'like', $cleanTicketUrl . '?%');
+                              ->orWhere('ticket_url', 'like', $cleanTicketUrl . '?%')
+                              ->orWhere('raw_data', 'like', '%' . $cleanTicketUrl . '%');
 
                             if ($dtoTicketMeta && !empty($dtoTicketMeta['event_id'])) {
                                 if ($dtoTicketMeta['platform'] === 'bilesuparadize') {
                                     $q->orWhere('ticket_url', 'like', '%/event/' . $dtoTicketMeta['event_id'] . '%')
                                       ->orWhere('source_url', 'like', '%/event/' . $dtoTicketMeta['event_id'] . '%')
-                                      ->orWhere('description', 'like', '%/event/' . $dtoTicketMeta['event_id'] . '%');
+                                      ->orWhere('description', 'like', '%/event/' . $dtoTicketMeta['event_id'] . '%')
+                                      ->orWhere('raw_data', 'like', '%' . $dtoTicketMeta['event_id'] . '%');
                                 } elseif ($dtoTicketMeta['platform'] === 'bezrindas') {
                                     $q->orWhere('ticket_url', 'like', '%/' . $dtoTicketMeta['event_id'] . '/%')
                                       ->orWhere('ticket_url', 'like', '%/' . $dtoTicketMeta['event_id'])
                                       ->orWhere('source_url', 'like', '%/' . $dtoTicketMeta['event_id'] . '/%')
-                                      ->orWhere('description', 'like', '%/' . $dtoTicketMeta['event_id'] . '%');
+                                      ->orWhere('description', 'like', '%/' . $dtoTicketMeta['event_id'] . '%')
+                                      ->orWhere('raw_data', 'like', '%' . $dtoTicketMeta['event_id'] . '%');
                                 } elseif ($dtoTicketMeta['platform'] === 'ekase') {
                                     $q->orWhere('ticket_url', 'like', '%/' . $dtoTicketMeta['event_id'] . '%')
-                                      ->orWhere('description', 'like', '%/' . $dtoTicketMeta['event_id'] . '%');
+                                      ->orWhere('description', 'like', '%/' . $dtoTicketMeta['event_id'] . '%')
+                                      ->orWhere('raw_data', 'like', '%' . $dtoTicketMeta['event_id'] . '%');
                                 }
                             } elseif ($dtoTicketMeta && $dtoTicketMeta['platform'] === 'bilesuserviss' && !empty($dtoTicketMeta['slug'])) {
                                 $q->orWhere('ticket_url', 'like', '%/' . $dtoTicketMeta['slug'] . '%')
-                                  ->orWhere('description', 'like', '%/' . $dtoTicketMeta['slug'] . '%');
+                                  ->orWhere('description', 'like', '%/' . $dtoTicketMeta['slug'] . '%')
+                                  ->orWhere('raw_data', 'like', '%' . $dtoTicketMeta['slug'] . '%');
                             }
                         })
                         ->get();
@@ -673,7 +678,20 @@ class EventIngestionService
 
                     $cleanCand = preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower($candidate->title, 'UTF-8'));
 
-                    // 1. Number differentiator guard (e.g. 5 vs 10 spēļu abonements, 1. daļa vs 2. daļa)
+                    // 1. Package modifier guard (e.g. 'enbl', 'biznesa', 'vip')
+                    $distinguishingModifiers = ['enbl', 'biznesa', 'vip', 'premium', 'standart'];
+                    $hasModifierMismatch = false;
+                    foreach ($distinguishingModifiers as $mod) {
+                        if (str_contains($cleanCand, $mod) !== str_contains($cleanDto, $mod)) {
+                            $hasModifierMismatch = true;
+                            break;
+                        }
+                    }
+                    if ($hasModifierMismatch) {
+                        continue;
+                    }
+
+                    // 1.5. Number differentiator guard (e.g. 5 vs 10 spēļu abonements, 1. daļa vs 2. daļa)
                     preg_match_all('/\b\d+\b/', $cleanCand, $candNums);
                     preg_match_all('/\b\d+\b/', $cleanDto, $dtoNums);
                     $candNumDiff = array_diff($candNums[0] ?? [], $dtoNums[0] ?? []);
@@ -691,24 +709,39 @@ class EventIngestionService
                     $candNonYear = array_filter($candNonYear, fn ($n) => !in_array((int)$n, $eventDays, true));
                     $dtoNonYear = array_filter($dtoNonYear, fn ($n) => !in_array((int)$n, $eventDays, true));
 
-                    if (!empty($candNonYear) || !empty($dtoNonYear)) {
-                        continue;
-                    }
+                    // Ignore event hours (e.g. "19", "20" matching start or end hour)
+                    $eventHours = array_filter([
+                        $candidate->start_at?->hour,
+                        $candidate->end_at?->hour,
+                        $dto->startAt?->hour,
+                        $dto->endAt?->hour,
+                    ]);
+                    $candNonYear = array_filter($candNonYear, fn ($n) => !in_array((int)$n, $eventHours, true));
+                    $dtoNonYear = array_filter($dtoNonYear, fn ($n) => !in_array((int)$n, $eventHours, true));
 
-                    // 2. Package modifier guard (e.g. 'enbl', 'biznesa', 'vip')
-                    $distinguishingModifiers = ['enbl', 'biznesa', 'vip', 'premium', 'standart'];
-                    $hasModifierMismatch = false;
-                    foreach ($distinguishingModifiers as $mod) {
-                        if (str_contains($cleanCand, $mod) !== str_contains($cleanDto, $mod)) {
-                            $hasModifierMismatch = true;
-                            break;
+                    // Ignore composer/artist age jubilees and anniversary numbers (e.g. "Imantam Kalniņam 85", "Latvijai 106", "50 gadu jubileja")
+                    $isJubileeNumber = function (string $num, string $title) {
+                        if (preg_match('/\b' . $num . '\s*(?:\.|\b)\s*(?:gadi|gadu|jubilej|dzimšanas|dzimsanas|sezon|tūr)/ui', $title)) {
+                            return true;
                         }
-                    }
-                    if ($hasModifierMismatch) {
+                        if (preg_match('/(?:jubilej|sezon|tūr|latvijai)\s*(?:\.|\b)\s*' . $num . '\b/ui', $title)) {
+                            return true;
+                        }
+                        if (preg_match('/[A-ZĀČĒĢĪĶĻŅŠŪŽ][a-zāčēģīķļņšūž]+\s+[A-ZĀČĒĢĪĶĻŅŠŪŽ][a-zāčēģīķļņšūž]+(?:am|iem)?\s+' . $num . '\b/u', $title)) {
+                            return true;
+                        }
+                        return false;
+                    };
+
+                    $candNonYear = array_filter($candNonYear, fn ($n) => !$isJubileeNumber($n, $candidate->title));
+                    $dtoNonYear = array_filter($dtoNonYear, fn ($n) => !$isJubileeNumber($n, $dto->title));
+
+                    // If both titles contain conflicting non-jubilee numbers, they are distinct events
+                    if (!empty($candNonYear) && !empty($dtoNonYear)) {
                         continue;
                     }
 
-                    // 2.5. Cinema session equivalence: same cinema venue on same date & time (within 15 min)
+                    // 2. Cinema session equivalence: same cinema venue on same date & time (within 15 min)
                     $candIsCinema = self::isCinemaEvent($candidate->title, $candidate->location?->name, $candidate->categories->pluck('name')->all());
                     $dtoIsCinema = self::isCinemaEvent($dto->title, $dto->venueName, $dto->categoryNames);
                     $sameCinemaVenue = false;
@@ -730,30 +763,7 @@ class EventIngestionService
                         }
                     }
 
-                    // 2.6. Cross-language / Translations title similarity (e.g. 'The Dark Border' vs 'Tumšā robeža', 'Кот в шляпе' vs 'Glaunais runcis')
-                    $allCandidateTitles = array_filter(array_merge(
-                        [$candidate->title],
-                        $candidate->translations ? $candidate->translations->pluck('title')->all() : []
-                    ));
-                    $isTransMatch = false;
-                    foreach ($allCandidateTitles as $cTitle) {
-                        $cleanCTitle = preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower($cTitle, 'UTF-8'));
-                        similar_text($cleanCTitle, $cleanDto, $tPct);
-                        if ($tPct >= 75) {
-                            $isTransMatch = true;
-                            break;
-                        }
-                        if (mb_strlen($cleanDto, 'UTF-8') > 10 && (str_contains($cleanCTitle, $cleanDto) || str_contains($cleanDto, $cleanCTitle))) {
-                            $isTransMatch = true;
-                            break;
-                        }
-                    }
-                    if ($isTransMatch) {
-                        $existingEvent = $candidate;
-                        break;
-                    }
-
-                    // 2.7. Delimited sub-title / Quoted artwork title equivalence (e.g. "Jūtu impērija")
+                    // 3. Delimited sub-title / Quoted artwork title equivalence (e.g. "Jūtu impērija", "Viena saule, viena zeme")
                     $candSegments = self::extractTitleSegments($candidate->title);
                     $dtoSegments = self::extractTitleSegments($dto->title);
                     $hasSegmentMatch = false;
@@ -791,9 +801,48 @@ class EventIngestionService
                         }
                     }
 
-                    // 3. Direct string similarity
+                    // 4. Exact normalized title equivalence (strips trailing city locatives like Ogrē, Rīgā, etc.)
+                    $normCand = self::normalizeTitleForComparison($candidate->title);
+                    $normDto = self::normalizeTitleForComparison($dto->title);
+                    if ($normCand === $normDto && mb_strlen($normCand, 'UTF-8') >= 5) {
+                        $sameLoc = (!empty($locationId) && $candidate->location_id && $locationId === $candidate->location_id);
+                        $candVenue = trim($candidate->location?->name ?? '');
+                        $dtoVenue = trim($dto->venueName ?? '');
+                        $venuesMatch = empty($candVenue) || empty($dtoVenue) || self::areVenuesEquivalent($candVenue, $dtoVenue);
+
+                        if ($sameLoc || $venuesMatch) {
+                            $existingEvent = $candidate;
+                            break;
+                        }
+                    }
+
+                    // 6. Cross-language / Translations title similarity (e.g. 'The Dark Border' vs 'Tumšā robeža', 'Кот в шляпе' vs 'Glaunais runcis')
+                    $allCandidateTitles = array_filter(array_merge(
+                        [$candidate->title],
+                        $candidate->translations ? $candidate->translations->pluck('title')->all() : []
+                    ));
+                    $isTransMatch = false;
+                    foreach ($allCandidateTitles as $cTitle) {
+                        $cleanCTitle = preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower($cTitle, 'UTF-8'));
+                        similar_text($cleanCTitle, $cleanDto, $tPct);
+                        if ($tPct >= 75) {
+                            $isTransMatch = true;
+                            break;
+                        }
+                        if (mb_strlen($cleanDto, 'UTF-8') > 10 && (str_contains($cleanCTitle, $cleanDto) || str_contains($cleanDto, $cleanCTitle))) {
+                            $isTransMatch = true;
+                            break;
+                        }
+                    }
+                    if ($isTransMatch) {
+                        $existingEvent = $candidate;
+                        break;
+                    }
+
+                    // 7. Direct string similarity (raw and normalized)
                     similar_text($cleanCand, $cleanDto, $percent);
-                    if ($percent >= 75) {
+                    similar_text($normCand, $normDto, $normPercent);
+                    if ($percent >= 75 || $normPercent >= 75) {
                         $existingEvent = $candidate;
                         break;
                     }
@@ -2082,7 +2131,8 @@ class EventIngestionService
         // 1. Quoted text inside “...”, "...", '...', «...»
         if (preg_match_all('/[“\"«]([^”\"»]{3,})[”\"»]/u', $text, $qm)) {
             foreach ($qm[1] as $q) {
-                $qTrim = trim($q);
+                $qTrim = trim(preg_replace('/[^\p{L}\p{N}\s]+/u', ' ', $q));
+                $qTrim = preg_replace('/\s+/u', ' ', $qTrim);
                 if (mb_strlen($qTrim, 'UTF-8') >= 3) {
                     $segments[] = mb_strtolower($qTrim, 'UTF-8');
                 }
@@ -2099,6 +2149,22 @@ class EventIngestionService
         }
 
         return array_values(array_unique($segments));
+    }
+
+    /**
+     * Clean and normalize title for robust deduplication comparison.
+     * Strips noise punctuation, excess whitespace, and trailing regional city locatives (e.g. Ogrē, Rīgā, etc.)
+     */
+    public static function normalizeTitleForComparison(string $title): string
+    {
+        $clean = preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower($title, 'UTF-8'));
+        $clean = preg_replace('/\s+/u', ' ', trim($clean));
+
+        // Strip trailing Latvian city locatives often appended by regional aggregators
+        $locativesRegex = '/\s+\b(?:ogrē|rīgā|jelgavā|cēsīs|liepājā|ventspilī|valmierā|siguldā|tukumā|kuldīgā|daugavpilī|rēzeknē|jūrmalā|talsos|bauskā|madonā|saldū|dobelē|alūksnē|gulbenē|smiltenē|limbažos|aizkrauklē|saulkrastos|ādažos|mārupē|ķekavā|olainē|salaspilī|ikšķilē|lielvārdē)\b\s*$/ui';
+        $stripped = preg_replace($locativesRegex, '', $clean);
+
+        return trim(!empty($stripped) ? $stripped : $clean);
     }
 
     /**

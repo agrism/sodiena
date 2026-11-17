@@ -50,6 +50,13 @@ class OgresNovadsScraper extends BaseScraper
             'address' => 'Brīvības iela 15, Ogre, LV-5001',
             'place_type' => 'cultural_center',
         ],
+        'ogres novada pašvaldības domes ēka' => [
+            'name' => 'Ogres novada pašvaldības domes ēka',
+            'city' => 'Ogre',
+            'region' => 'Vidzeme',
+            'address' => 'Brīvības iela 33, Ogre, LV-5001',
+            'place_type' => 'municipal',
+        ],
         'ogres vēstures un mākslas muzejs' => [
             'name' => 'Ogres Vēstures un mākslas muzejs',
             'city' => 'Ogre',
@@ -667,6 +674,15 @@ class OgresNovadsScraper extends BaseScraper
             'ledmanes tautas nam' => 'lēdmanes tautas nams',
             'ogres novada kultūras centr' => 'ogres novada kultūras centrs',
             'ogres kultūras centr' => 'ogres novada kultūras centrs',
+            'pašvaldības domes ēk' => 'ogres novada pašvaldības domes ēka',
+            'pasvaldibas domes ek' => 'ogres novada pašvaldības domes ēka',
+            'domes ēk' => 'ogres novada pašvaldības domes ēka',
+            'domes ek' => 'ogres novada pašvaldības domes ēka',
+            'brīvības ielā 33' => 'ogres novada pašvaldības domes ēka',
+            'brīvības 33' => 'ogres novada pašvaldības domes ēka',
+            'brivibas iela 33' => 'ogres novada pašvaldības domes ēka',
+            'brivibas 33' => 'ogres novada pašvaldības domes ēka',
+            'ogres novada pašvaldīb' => 'ogres novada pašvaldības domes ēka',
         ];
 
         foreach ($stemVenueMap as $stem => $mapKey) {

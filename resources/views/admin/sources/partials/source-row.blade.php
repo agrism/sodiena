@@ -1,10 +1,16 @@
 <div id="source-row-{{ $source->id }}" class="bg-white rounded-2xl border border-slate-200/90 shadow-2xs hover:border-slate-300 transition-all overflow-hidden">
     @php
         $latestLog = $source->scrapeLogs->first();
+        $foundCount = $latestLog?->items_found ?? 0;
         $createdCount = $latestLog?->items_created ?? 0;
         $updatedCount = $latestLog?->items_updated ?? 0;
         $dedupedCount = $source->duplicates_prevented_count ?? ($latestLog?->items_deduplicated ?? 0);
         $activeEventsCount = $source->events_count ?? $source->events()->count();
+
+        // Drošības rezerve: ja vecākā žurnāla ierakstā items_found bija 0, bet komponentes ir > 0
+        if ($foundCount === 0 && ($createdCount > 0 || $updatedCount > 0 || $dedupedCount > 0)) {
+            $foundCount = $createdCount + $updatedCount + $dedupedCount;
+        }
     @endphp
     <!-- Main Compact Row (Clickable to Expand) -->
     <div class="p-4 sm:p-4.5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 cursor-pointer select-none hover:bg-slate-50/60 transition-colors"
@@ -96,18 +102,26 @@
                 </div>
             </div>
 
-            <!-- Scraper Metrics Strip (Notikumi, Jauni, Atjaunoti, Novērsti duplikāti) -->
-            <div class="flex items-center gap-2 sm:gap-3 shrink-0 px-2.5 py-1.5 bg-slate-50/80 rounded-xl border border-slate-200/60" onclick="event.stopPropagation()">
-                <!-- Aktīvie notikumi -->
-                <div class="text-right min-w-[48px]" title="Aktīvi šī avota pasākumi datubāzē">
+            <!-- Scraper Metrics Strip (Notikumi DB, Nolasīti, Jauni, Atjaunoti, Novērsti duplikāti) -->
+            <div class="flex items-center gap-2 sm:gap-2.5 shrink-0 px-2.5 py-1.5 bg-slate-50/80 rounded-xl border border-slate-200/60" onclick="event.stopPropagation()">
+                <!-- Aktīvie notikumi datubāzē -->
+                <div class="text-right min-w-[56px]" title="Aktīvi šī avota pasākumi datubāzē kopā">
                     <span class="text-base sm:text-lg font-black text-emerald-600 block leading-tight">{{ $activeEventsCount }}</span>
-                    <span class="text-[9px] text-slate-400 font-bold block uppercase -mt-0.5">Notikumi</span>
+                    <span class="text-[9px] text-slate-400 font-bold block uppercase -mt-0.5">Notikumi DB</span>
+                </div>
+
+                <div class="w-px h-6 bg-slate-200"></div>
+
+                <!-- Nolasīti šajā reizē -->
+                <div class="text-right min-w-[42px]" title="Pēdējā parsēšanā no avota nolasītie pasākumi kopā (Jauni + Atjaunoti + Duplikāti)">
+                    <span class="text-base sm:text-lg font-black text-slate-800 block leading-tight">{{ $foundCount }}</span>
+                    <span class="text-[9px] text-slate-400 font-bold block uppercase -mt-0.5">Nolasīti</span>
                 </div>
 
                 <div class="w-px h-6 bg-slate-200"></div>
 
                 <!-- Jauni / Izveidoti -->
-                <div class="text-right min-w-[40px]" title="Pēdējā parsēšanā no jauna izveidotie pasākumi">
+                <div class="text-right min-w-[38px]" title="Pēdējā parsēšanā no jauna izveidotie pasākumi">
                     <span class="text-base sm:text-lg font-black text-blue-600 block leading-tight">+{{ $createdCount }}</span>
                     <span class="text-[9px] text-slate-400 font-bold block uppercase -mt-0.5">Jauni</span>
                 </div>
@@ -115,7 +129,7 @@
                 <div class="w-px h-6 bg-slate-200"></div>
 
                 <!-- Atjaunoti -->
-                <div class="text-right min-w-[40px]" title="Pēdējā parsēšanā atjauninātie pasākumi">
+                <div class="text-right min-w-[38px]" title="Pēdējā parsēšanā atjauninātie pasākumi">
                     <span class="text-base sm:text-lg font-black text-amber-600 block leading-tight">{{ $updatedCount }}</span>
                     <span class="text-[9px] text-slate-400 font-bold block uppercase -mt-0.5">Atjaun.</span>
                 </div>
@@ -123,7 +137,7 @@
                 <div class="w-px h-6 bg-slate-200"></div>
 
                 <!-- Novērsti duplikāti -->
-                <div class="text-right min-w-[40px]" title="Novērsti duplikāti: pasākumi, ko atrada šis skreiperis, bet kuri jau eksistē no augstākas prioritātes avota">
+                <div class="text-right min-w-[38px]" title="Novērsti duplikāti: pasākumi, ko atrada šis skreiperis, bet kuri jau eksistē no augstākas prioritātes avota">
                     <span class="text-base sm:text-lg font-black text-indigo-600 block leading-tight">{{ $dedupedCount }}</span>
                     <span class="text-[9px] text-slate-400 font-bold block uppercase -mt-0.5">Duplik.</span>
                 </div>
@@ -205,6 +219,10 @@
                 <div class="flex justify-between">
                     <span class="text-slate-500">Kopā datubāzē:</span>
                     <strong class="text-emerald-700 font-bold">{{ $activeEventsCount }} pasākumi</strong>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-500">Pēdējā ciklā nolasīti:</span>
+                    <strong class="text-slate-900 font-bold">{{ $foundCount }} pasākumi</strong>
                 </div>
                 <div class="flex justify-between">
                     <span class="text-slate-500">Pēdējā ciklā jauni:</span>
