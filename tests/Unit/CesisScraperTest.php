@@ -214,7 +214,9 @@ class CesisScraperTest extends TestCase
 
     public function test_scrape_mock_html(): void
     {
-        $mockHtml = <<<'HTML'
+        $upcomingDate = \Carbon\Carbon::today('Europe/Riga')->addDays(3)->format('d.m.Y');
+        $expectedStart = \Carbon\Carbon::today('Europe/Riga')->addDays(3)->format('Y-m-d') . ' 17:00:00';
+        $mockHtml = <<<HTML
 <!DOCTYPE html>
 <html lang="lv">
 <body>
@@ -222,7 +224,7 @@ class CesisScraperTest extends TestCase
         <div class="event-thumbnail">
             <a href="https://pasakumi.cesis.lv/pasakums/latvijas-valsts-svetku-koncerts-es-esmu-sava-vieta/">
                 <div class="event-poster" style="background-image:url('https://pasakumi.cesis.lv/wp-content/uploads/2026/10/1811bilde.png')">
-                    <span class="date">18.11.2026</span>
+                    <span class="date">{$upcomingDate}</span>
                 </div>
                 <h3>Latvijas valsts svētku koncerts "Es esmu savā vietā"</h3>
                 <p>Koncertu caurvij stāsts par latvieti, kurš joprojām sēj un pļauj rudzus.</p>
@@ -232,7 +234,7 @@ class CesisScraperTest extends TestCase
     </div>
     <div class="filter-results-container">
         <div class="row results-event">
-            <div class="col-md-1 col-sm-2 col-xs-4"><span class="date">18.11.2026</span></div>
+            <div class="col-md-1 col-sm-2 col-xs-4"><span class="date">{$upcomingDate}</span></div>
             <div class="col-md-1 col-sm-1 col-xs-6"><span class="time">17:00</span></div>
             <div class="col-md-5 col-sm-4 col-xs-12"><a class="title" href="https://pasakumi.cesis.lv/pasakums/latvijas-valsts-svetku-koncerts-es-esmu-sava-vieta/">Latvijas valsts svētku koncerts "Es esmu savā vietā"</a></div>
             <div class="col-md-3 col-sm-3 col-xs-12"><span class="location">Koncertzāle "Cēsis"</span></div>
@@ -281,7 +283,7 @@ HTML;
         $this->assertEquals('Koncertzāle "Cēsis"', $dto1->venueName);
         $this->assertEquals('Cēsis', $dto1->city);
         $this->assertEquals('Vidzeme', $dto1->region);
-        $this->assertEquals('2026-11-18 17:00:00', $dto1->startAt->format('Y-m-d H:i:s'));
+        $this->assertEquals($expectedStart, $dto1->startAt->format('Y-m-d H:i:s'));
         $this->assertNull($dto1->endAt);
         $this->assertContains('Mūzika', $dto1->categoryNames);
         $this->assertContains('Svētki', $dto1->categoryNames);

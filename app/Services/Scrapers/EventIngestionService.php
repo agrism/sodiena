@@ -1949,6 +1949,7 @@ class EventIngestionService
         $ticketingSlugs = [
             'passportix', 'bilesuparadize', 'bilesu-paradize', 'bilesuserviss',
             'bilesu-serviss', 'bezrindas', 'ticketbest', 'ticketshop', 'aula', 'fienta', 'ekase',
+            'apollo-kino', 'apollokino', 'forum-cinemas', 'forumcinemas',
         ];
 
         if ($sourceSlug && in_array(mb_strtolower($sourceSlug, 'UTF-8'), $ticketingSlugs, true)) {
@@ -1957,7 +1958,7 @@ class EventIngestionService
 
         if (!empty($ticketUrl)) {
             $lower = mb_strtolower($ticketUrl, 'UTF-8');
-            return (bool) preg_match('/(?:passportix\.eu|bilesuparadize\.lv|bilesuserviss\.lv|bezrindas\.lv|ticketbest\.(?:lv|eu)|ticketshop\.lv|aula\.lv|fienta\.com|ekase\.lv)/u', $lower);
+            return (bool) preg_match('/(?:passportix\.eu|bilesuparadize\.lv|bilesuserviss\.lv|bezrindas\.lv|ticketbest\.(?:lv|eu)|ticketshop\.lv|aula\.lv|fienta\.com|ekase\.lv|apollokino\.lv|forumcinemas\.lv)/u', $lower);
         }
 
         return false;
@@ -2084,6 +2085,42 @@ class EventIngestionService
             ];
         }
 
+        // Ticketshop (e.g. ticketshop.lv/lv/events/108027 or ticketshop.lv/events/108027)
+        if (preg_match('/ticketshop\.lv\/(?:[a-z]{2}\/)?events\/(\d+)/i', $clean, $m)) {
+            return [
+                'platform' => 'ticketshop',
+                'event_id' => $m[1],
+            ];
+        }
+
+        // Apollo Kino (e.g. apollokino.lv/websales/show/534330 or apollokino.lv/event/304207)
+        if (preg_match('/apollokino\.lv\/websales\/show\/(\d+)/i', $clean, $m)) {
+            return [
+                'platform' => 'apollokino',
+                'show_id' => $m[1],
+            ];
+        }
+        if (preg_match('/apollokino\.lv\/event\/(\d+)/i', $clean, $m)) {
+            return [
+                'platform' => 'apollokino',
+                'event_id' => $m[1],
+            ];
+        }
+
+        // Forum Cinemas (e.g. forumcinemas.lv/websales/show/444008 or forumcinemas.lv/event/304988)
+        if (preg_match('/forumcinemas\.lv\/websales\/show\/(\d+)/i', $clean, $m)) {
+            return [
+                'platform' => 'forumcinemas',
+                'show_id' => $m[1],
+            ];
+        }
+        if (preg_match('/forumcinemas\.lv\/event\/(\d+)/i', $clean, $m)) {
+            return [
+                'platform' => 'forumcinemas',
+                'event_id' => $m[1],
+            ];
+        }
+
         return null;
     }
 
@@ -2111,7 +2148,9 @@ class EventIngestionService
         }
 
         return match ($metaA['platform']) {
-            'bilesuparadize', 'ekase' => $metaA['event_id'] === $metaB['event_id'],
+            'bilesuparadize', 'ekase', 'ticketshop' => $metaA['event_id'] === $metaB['event_id'],
+            'apollokino' => (!empty($metaA['show_id']) && !empty($metaB['show_id']) && $metaA['show_id'] === $metaB['show_id'])
+                || (!empty($metaA['event_id']) && !empty($metaB['event_id']) && $metaA['event_id'] === $metaB['event_id']),
             'bezrindas' => $metaA['event_id'] === $metaB['event_id'] && (
                 empty($metaA['session_id']) || empty($metaB['session_id']) || $metaA['session_id'] === $metaB['session_id']
             ),

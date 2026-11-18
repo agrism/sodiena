@@ -7,6 +7,7 @@ use App\Models\Source;
 use App\Services\Scrapers\Sources\AfiroApiScraper;
 use App\Services\Scrapers\Sources\AizkrauklesNovadsScraper;
 use App\Services\Scrapers\Sources\AluksneTourismScraper;
+use App\Services\Scrapers\Sources\ApolloKinoScraper;
 use App\Services\Scrapers\Sources\AulaLvScraper;
 use App\Services\Scrapers\Sources\BasketLvScraper;
 use App\Services\Scrapers\Sources\BauskasNovadsScraper;
@@ -17,17 +18,22 @@ use App\Services\Scrapers\Sources\CesisScraper;
 use App\Services\Scrapers\Sources\DaugavpilsScraper;
 use App\Services\Scrapers\Sources\DienvidkurzemeScraper;
 use App\Services\Scrapers\Sources\DknScraper;
+use App\Services\Scrapers\Sources\DobelesNovadsScraper;
 use App\Services\Scrapers\Sources\DzejasDienasScraper;
 use App\Services\Scrapers\Sources\EkaseLvScraper;
 use App\Services\Scrapers\Sources\EstLatblScraper;
 use App\Services\Scrapers\Sources\FientaScraper;
 use App\Services\Scrapers\Sources\FloorballLvScraper;
+use App\Services\Scrapers\Sources\ForumCinemasScraper;
 use App\Services\Scrapers\Sources\HandballLvScraper;
 use App\Services\Scrapers\Sources\JelgavasNovadsScraper;
+use App\Services\Scrapers\Sources\JelgavasValstspilsetaScraper;
 use App\Services\Scrapers\Sources\JkpScraper;
 use App\Services\Scrapers\Sources\JurmalaScraper;
 use App\Services\Scrapers\Sources\JurmalasMuzejsScraper;
 use App\Services\Scrapers\Sources\KekavaScraper;
+use App\Services\Scrapers\Sources\KuldigasNovadsScraper;
+use App\Services\Scrapers\Sources\LimbazuNovadsScraper;
 use App\Services\Scrapers\Sources\KulturaJelgavaScraper;
 use App\Services\Scrapers\Sources\KulturasDatiScraper;
 use App\Services\Scrapers\Sources\LatgalesGorsScraper;
@@ -43,12 +49,15 @@ use App\Services\Scrapers\Sources\OgresMuzejsScraper;
 use App\Services\Scrapers\Sources\OgresNovadsScraper;
 use App\Services\Scrapers\Sources\OkulturaScraper;
 use App\Services\Scrapers\Sources\PassportixScraper;
+use App\Services\Scrapers\Sources\RigaLvScraper;
 use App\Services\Scrapers\Sources\RopaziScraper;
 use App\Services\Scrapers\Sources\SiguldaNovadsScraper;
 use App\Services\Scrapers\Sources\SiguldaTourismScraper;
 use App\Services\Scrapers\Sources\TalsiScraper;
 use App\Services\Scrapers\Sources\TicketBestLvScraper;
+use App\Services\Scrapers\Sources\TicketshopScraper;
 use App\Services\Scrapers\Sources\ValmierasNovadsScraper;
+use App\Services\Scrapers\Sources\VefkpScraper;
 use App\Services\Scrapers\Sources\VentspilsScraper;
 use App\Services\Scrapers\Sources\VisitDaugavpilsScraper;
 use App\Services\Scrapers\Sources\VisitJekabpilsScraper;
@@ -198,6 +207,38 @@ class SourceSeeder extends Seeder
                 'url' => 'https://www.aula.lv/visi',
                 'scraper_class' => AulaLvScraper::class,
                 'type' => SourceType::TICKETING->value,
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Ticketshop.lv',
+                'slug' => 'ticketshop',
+                'url' => 'https://ticketshop.lv/lv/events',
+                'scraper_class' => TicketshopScraper::class,
+                'type' => SourceType::TICKETING->value,
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Apollo Kino',
+                'slug' => 'apollo-kino',
+                'url' => 'https://www.apollokino.lv',
+                'scraper_class' => ApolloKinoScraper::class,
+                'type' => SourceType::VENUE->value,
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Forum Cinemas',
+                'slug' => 'forum-cinemas',
+                'url' => 'https://www.forumcinemas.lv',
+                'scraper_class' => ForumCinemasScraper::class,
+                'type' => SourceType::VENUE->value,
+                'is_active' => true,
+            ],
+            [
+                'name' => 'VEF Kultūras pils',
+                'slug' => 'vef-kulturas-pils',
+                'url' => 'https://www.vefkp.lv/pasakumi/',
+                'scraper_class' => VefkpScraper::class,
+                'type' => SourceType::VENUE->value,
                 'is_active' => true,
             ],
             [
@@ -485,6 +526,46 @@ class SourceSeeder extends Seeder
                 'slug' => 'madona',
                 'url' => 'https://madona.lv/lat/pasakumi',
                 'scraper_class' => MadonaScraper::class,
+                'type' => SourceType::MUNICIPALITY->value,
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Kuldīgas novada pašvaldība',
+                'slug' => 'kuldigas-novads',
+                'url' => 'https://kalendars.kuldigasnovads.lv/event/',
+                'scraper_class' => KuldigasNovadsScraper::class,
+                'type' => SourceType::MUNICIPALITY->value,
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Jelgavas valstspilsēta',
+                'slug' => 'jelgavas-valstspilseta',
+                'url' => 'https://www.jelgava.lv/pasakumi/',
+                'scraper_class' => JelgavasValstspilsetaScraper::class,
+                'type' => SourceType::MUNICIPALITY->value,
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Limbažu novada pašvaldība',
+                'slug' => 'limbazu-novads',
+                'url' => 'https://www.visitlimbazi.lv/lv/pasakumi-drizuma',
+                'scraper_class' => LimbazuNovadsScraper::class,
+                'type' => SourceType::MUNICIPALITY->value,
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Dobeles novada pašvaldība',
+                'slug' => 'dobeles-novads',
+                'url' => 'https://visitdobele.lv/pasakumi',
+                'scraper_class' => DobelesNovadsScraper::class,
+                'type' => SourceType::MUNICIPALITY->value,
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Rīgas valstspilsēta',
+                'slug' => 'riga-lv',
+                'url' => 'https://www.riga.lv/lv/notikumu-kalendars',
+                'scraper_class' => RigaLvScraper::class,
                 'type' => SourceType::MUNICIPALITY->value,
                 'is_active' => true,
             ],
