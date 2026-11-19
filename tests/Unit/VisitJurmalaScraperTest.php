@@ -24,6 +24,12 @@ class VisitJurmalaScraperTest extends TestCase
         $scraper = new VisitJurmalaScraper();
         $this->assertEquals('visitjurmala', $scraper->getSlug());
         $this->assertEquals('Visit Jūrmala', $scraper->getName());
+
+        $client = (function () {
+            return $this->httpClient;
+        })->call($scraper);
+        $this->assertEquals(60, $client->getConfig('timeout'));
+        $this->assertEquals(60, $client->getConfig('connect_timeout'));
     }
 
     public function test_parse_dates_single_date_with_time_range(): void

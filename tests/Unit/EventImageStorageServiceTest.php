@@ -46,6 +46,23 @@ class EventImageStorageServiceTest extends TestCase
         $this->assertEquals(str_starts_with($s3Url, 'http') ? $s3Url : url($s3Url), $event->display_image_url);
     }
 
+    public function test_upload_from_url_downloads_successfully_from_external_ssl_url(): void
+    {
+        $fakePng = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==');
+
+        Http::fake([
+            'https://kekava.lv/poster.png' => Http::response($fakePng, 200, ['Content-Type' => 'image/png']),
+        ]);
+
+        $service = app(EventImageStorageService::class);
+        $url = $service->uploadFromUrl('https://kekava.lv/poster.png');
+
+        $this->assertNotNull($url);
+        Http::assertSent(function ($request) {
+            return $request->url() === 'https://kekava.lv/poster.png';
+        });
+    }
+
     public function test_display_image_url_priority(): void
     {
         $event = new Event([
@@ -104,11 +121,16 @@ class EventImageStorageServiceTest extends TestCase
         $event->refresh();
         $this->assertNotNull($event->internal_image_url);
         $this->assertStringContainsString((string)$event->id, $event->internal_image_url);
-        $this->assertStringEndsWith('.webp', $event->internal_image_url);
+        $expectedExt = (extension_loaded('gd') && function_exists('imagewebp')) ? '.webp' : '.jpg';
+        $this->assertStringEndsWith($expectedExt, $event->internal_image_url);
     }
 
     public function test_optimize_image_converts_png_and_jpeg_to_webp(): void
     {
+        if (!extension_loaded('gd') || !function_exists('imagewebp')) {
+            $this->markTestSkipped('GD extension with WebP support is required for this test.');
+        }
+
         $fakePng = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==');
         $service = app(EventImageStorageService::class);
 
@@ -163,7 +185,8 @@ class EventImageStorageServiceTest extends TestCase
         $s3Url = $service->mirrorEventImage($event);
 
         $this->assertNotNull($s3Url);
-        $this->assertStringEndsWith('.webp', $s3Url);
+        $expectedExt = (extension_loaded('gd') && function_exists('imagewebp')) ? '.webp' : '.jpg';
+        $this->assertStringEndsWith($expectedExt, $s3Url);
 
         $event->refresh();
         $this->assertEquals($s3Url, $event->internal_image_url);
@@ -187,7 +210,8 @@ class EventImageStorageServiceTest extends TestCase
 
         $event->refresh();
         $this->assertNotNull($event->internal_image_url);
-        $this->assertStringEndsWith('.webp', $event->internal_image_url);
+        $expectedExt = (extension_loaded('gd') && function_exists('imagewebp')) ? '.webp' : '.jpg';
+        $this->assertStringEndsWith($expectedExt, $event->internal_image_url);
         $this->assertEquals($event->internal_image_url, $event->image_url);
     }
 }

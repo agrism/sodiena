@@ -281,7 +281,7 @@ class OgreDeduplicationTest extends TestCase
         // Pair 1 pre-existing
         $p1a = Event::create([
             'title' => 'Valsts svētku uguņošana',
-            'start_at' => Carbon::parse('2026-11-18 19:00:00'),
+            'start_at' => now()->addDays(2)->setTime(19, 0, 0),
             'location_id' => $locDomesEka->id,
             'source_id' => $this->sourceOkultura->id,
             'source_slug' => 'okultura',
@@ -290,7 +290,7 @@ class OgreDeduplicationTest extends TestCase
         ]);
         $p1b = Event::create([
             'title' => 'Valsts svētku uguņošana Ogrē',
-            'start_at' => Carbon::parse('2026-11-18 19:00:00'),
+            'start_at' => now()->addDays(2)->setTime(19, 0, 0),
             'location_id' => $locDomesEka->id,
             'source_id' => $this->sourceNovads->id,
             'source_slug' => 'ogres-novads',
@@ -301,7 +301,7 @@ class OgreDeduplicationTest extends TestCase
         // Pair 2 pre-existing
         $p2a = Event::create([
             'title' => 'Danču vakars kopā ar Ogres danču klubu Ogrē',
-            'start_at' => Carbon::parse('2026-11-20 19:00:00'),
+            'start_at' => now()->addDays(3)->setTime(19, 0, 0),
             'location_id' => $locKulturasCentrs->id,
             'source_id' => $this->sourceVisit->id,
             'source_slug' => 'visitogre',
@@ -315,7 +315,7 @@ class OgreDeduplicationTest extends TestCase
         ]);
         $p2b = Event::create([
             'title' => 'DANČU VAKARS kopā ar Ogres danču klubu',
-            'start_at' => Carbon::parse('2026-11-20 19:00:00'),
+            'start_at' => now()->addDays(3)->setTime(19, 0, 0),
             'location_id' => $locKulturasCentrs->id,
             'source_id' => $this->sourceOkultura->id,
             'source_slug' => 'okultura',
@@ -326,7 +326,7 @@ class OgreDeduplicationTest extends TestCase
         // Pair 3 pre-existing
         $p3a = Event::create([
             'title' => 'Imantam Kalniņam 85 RAXTU RAXTI | VIENA SAULE, VIENA ZEME',
-            'start_at' => Carbon::parse('2026-11-21 19:00:00'),
+            'start_at' => now()->addDays(4)->setTime(19, 0, 0),
             'location_id' => $locKulturasCentrs->id,
             'source_id' => $this->sourceOkultura->id,
             'source_slug' => 'okultura',
@@ -335,7 +335,7 @@ class OgreDeduplicationTest extends TestCase
         ]);
         $p3b = Event::create([
             'title' => 'Grupas “Raxtu Raxti” tūres “VIENA SAULE, VIENA ZEME” koncerts Ogrē',
-            'start_at' => Carbon::parse('2026-11-21 19:00:00'),
+            'start_at' => now()->addDays(4)->setTime(19, 0, 0),
             'location_id' => $locKulturasCentrs->id,
             'source_id' => $this->sourceVisit->id,
             'source_slug' => 'visitogre',
@@ -346,7 +346,7 @@ class OgreDeduplicationTest extends TestCase
         // Pair 4 pre-existing
         $p4a = Event::create([
             'title' => 'Spēlfilma “Tumšā robeža” Ogrē',
-            'start_at' => Carbon::parse('2026-11-25 19:00:00'),
+            'start_at' => now()->addDays(5)->setTime(19, 0, 0),
             'location_id' => $locKulturasCentrs->id,
             'source_id' => $this->sourceNovads->id,
             'source_slug' => 'ogres-novads',
@@ -355,7 +355,7 @@ class OgreDeduplicationTest extends TestCase
         ]);
         $p4b = Event::create([
             'title' => 'Spēlfilma TUMŠĀ ROBEŽA',
-            'start_at' => Carbon::parse('2026-11-25 19:00:00'),
+            'start_at' => now()->addDays(5)->setTime(19, 0, 0),
             'location_id' => $locKulturasCentrs->id,
             'source_id' => $this->sourceOkultura->id,
             'source_slug' => 'okultura',
