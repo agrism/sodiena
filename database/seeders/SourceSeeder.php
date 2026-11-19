@@ -8,6 +8,7 @@ use App\Services\Scrapers\Sources\AfiroApiScraper;
 use App\Services\Scrapers\Sources\AizkrauklesNovadsScraper;
 use App\Services\Scrapers\Sources\AluksneTourismScraper;
 use App\Services\Scrapers\Sources\ApolloKinoScraper;
+use App\Services\Scrapers\Sources\AugsdaugavasNovadsScraper;
 use App\Services\Scrapers\Sources\AulaLvScraper;
 use App\Services\Scrapers\Sources\BasketLvScraper;
 use App\Services\Scrapers\Sources\BauskasNovadsScraper;
@@ -566,6 +567,14 @@ class SourceSeeder extends Seeder
                 'slug' => 'riga-lv',
                 'url' => 'https://www.riga.lv/lv/notikumu-kalendars',
                 'scraper_class' => RigaLvScraper::class,
+                'type' => SourceType::MUNICIPALITY->value,
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Augšdaugavas novada pašvaldība',
+                'slug' => 'augsdaugavas-novads',
+                'url' => 'https://www.augsdaugavasnovads.lv/lv/notikumu-kalendars',
+                'scraper_class' => AugsdaugavasNovadsScraper::class,
                 'type' => SourceType::MUNICIPALITY->value,
                 'is_active' => true,
             ],

@@ -256,6 +256,11 @@ class VentspilsScraper extends BaseScraper
         $seenExternalIds = [];
 
         for ($page = 0; $page < $maxPages; $page++) {
+            if ($page > 0) {
+                // 1000ms polite delay with jitter between pagination pages
+                $this->politeDelay(1000, 300);
+            }
+
             $pageUrl = $page === 0
                 ? self::BASE_URL . self::CALENDAR_PATH
                 : self::BASE_URL . '/notikumi/page/' . ($page + 1) . '/?view=all';
@@ -850,6 +855,9 @@ class VentspilsScraper extends BaseScraper
         if (isset($this->detailDescriptionCache[$url])) {
             return $this->detailDescriptionCache[$url];
         }
+
+        // Polite delay (1000ms with jitter) before fetching detail page
+        $this->politeDelay(1000, 300);
 
         $crawler = $this->fetchCrawler($url);
         if (!$crawler) {

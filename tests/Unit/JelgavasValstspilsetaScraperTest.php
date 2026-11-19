@@ -436,4 +436,42 @@ HTML;
         $categories = $event->categories->pluck('name')->toArray();
         $this->assertContains('Mūzika', $categories);
     }
+
+    public function test_detail_page_with_empty_or_button_only_description_never_throws(): void
+    {
+        $mockHtml = <<<HTML
+<!DOCTYPE html>
+<html>
+<body>
+    <div class="block-article-open">
+        <div class="block-content-padding">
+            <a class="button" href="/pasakumi/">Atpakaļ uz pasākumiem</a>
+            <script>console.log('test');</script>
+            <style>.test { color: red; }</style>
+        </div>
+        <div class="article-open-meta">
+            <a href="/pasakumu-kategorija/kino/">Kino</a>
+        </div>
+        <img src="/files/image.jpg" />
+    </div>
+</body>
+</html>
+HTML;
+
+        $mock = new MockHandler([
+            new Response(200, ['Content-Type' => 'text/html'], $mockHtml),
+        ]);
+        $client = new Client(['handler' => HandlerStack::create($mock)]);
+
+        $scraper = new JelgavasValstspilsetaScraper();
+        $scraper->setClient($client);
+
+        // This must not throw "The current node list is empty"
+        $detail = $scraper->fetchDetailPage('https://www.jelgava.lv/pasakums/empty-desc');
+
+        $this->assertIsArray($detail);
+        $this->assertEquals('', $detail['description']);
+        $this->assertEquals(['Kino'], $detail['categories']);
+        $this->assertEquals('/files/image.jpg', $detail['imageUrl']);
+    }
 }

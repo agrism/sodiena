@@ -366,116 +366,120 @@ class JelgavasValstspilsetaScraper extends BaseScraper
             $allPageEventsPast = true;
 
             $items->each(function (Crawler $node) use (&$events, &$seenExternalIds, &$allPageEventsPast, $today, $baseUrl) {
-                $titleNode = $node->filter('.events-title a, .events-title');
-                $title = $this->cleanText($titleNode->count() ? $titleNode->first()->text() : '');
-                if (empty($title)) {
-                    return;
+                try {
+                    $titleNode = $node->filter('.events-title a, .events-title');
+                    $title = $this->cleanText($titleNode->count() ? $titleNode->first()->text('') : '');
+                    if (empty($title)) {
+                        return;
+                    }
+
+                    // Link to event
+                    $linkNode = $node->filter('.events-title a');
+                    $relLink = $linkNode->count() ? $linkNode->first()->attr('href') : '';
+                    $cleanUrl = $this->normalizeUrl($relLink);
+
+                    $slugPart = $cleanUrl ? basename(rtrim(parse_url($cleanUrl, PHP_URL_PATH), '/')) : Str::slug($title);
+                    $externalId = 'jelgava-' . $slugPart;
+
+                    if (isset($seenExternalIds[$externalId])) {
+                        return;
+                    }
+
+                    // Exclude administrative & council meetings
+                    if ($this->isExcludedEvent([], $title)) {
+                        return;
+                    }
+
+                    // Dates & times from card
+                    $dateStr = $node->filter('.events-dates')->count() ? trim($node->filter('.events-dates')->first()->text('')) : '';
+                    $timeStr = $node->filter('.events-times')->count() ? trim($node->filter('.events-times')->first()->text('')) : '';
+
+                    [$startAt, $endAt, $allDay] = $this->parseLatvianDates($dateStr, $timeStr);
+
+                    if (!$startAt) {
+                        return;
+                    }
+
+                    // Strict AGENTS.md rule: Do not process past events
+                    if ($endAt && $endAt->lt($today)) {
+                        return;
+                    }
+                    if (!$endAt && $startAt->lt($today)) {
+                        return;
+                    }
+
+                    $allPageEventsPast = false;
+
+                    // Card image
+                    $cardImgNode = $node->filter('.event-image-wrap img');
+                    $cardImg = $cardImgNode->count() ? $cardImgNode->first()->attr('src') : null;
+
+                    // Card venue
+                    $cardPlace = $node->filter('.events-places')->count() ? $this->cleanText($node->filter('.events-places')->first()->text('')) : '';
+
+                    // Card price
+                    $cardPrice = $node->filter('.events-price')->count() ? $this->cleanText($node->filter('.events-price')->first()->text('')) : '';
+
+                    // Fetch detail page for full rich description, large image, categories, tickets
+                    $detailData = $cleanUrl ? $this->fetchDetailPage($cleanUrl) : [];
+
+                    // Description: full text from detail page, fallback to title
+                    $description = !empty($detailData['description']) ? $detailData['description'] : $title;
+
+                    // Image: prefer detail page high-res image, fallback to card image
+                    $imageUrl = !empty($detailData['imageUrl']) ? $detailData['imageUrl'] : $cardImg;
+
+                    // Categories from detail page
+                    $categories = $detailData['categories'] ?? [];
+
+                    // Ticket URL
+                    $ticketUrl = $detailData['ticketUrl'] ?? null;
+
+                    // Price parsing
+                    $priceData = $this->parsePrice($cardPrice);
+
+                    // Location resolution
+                    $venueInfo = $this->resolveLocation($cardPlace, $title);
+
+                    // Category & Entertainment Type resolution adhering strictly to AGENTS.md
+                    [$canonicalCategories, $entertainmentType] = $this->resolveCategories($categories, $title, $description, $venueInfo['name']);
+
+                    $seenExternalIds[$externalId] = true;
+
+                    $events->push(new ScrapedEventDTO(
+                        title: $title,
+                        startAt: $startAt,
+                        endAt: $endAt,
+                        description: $description,
+                        shortDescription: Str::limit(strip_tags($description), 160),
+                        venueName: $venueInfo['name'],
+                        city: $venueInfo['city'],
+                        region: $venueInfo['region'],
+                        address: $venueInfo['address'],
+                        latitude: $venueInfo['latitude'],
+                        longitude: $venueInfo['longitude'],
+                        placeType: $venueInfo['place_type'],
+                        categoryNames: $canonicalCategories,
+                        entertainmentType: $entertainmentType,
+                        isFree: $priceData['is_free'],
+                        priceMin: $priceData['price_min'],
+                        priceMax: $priceData['price_max'],
+                        currency: 'EUR',
+                        ticketUrl: $ticketUrl,
+                        imageUrl: $imageUrl,
+                        sourceUrl: $cleanUrl ?: $baseUrl,
+                        sourceExternalId: $externalId,
+                        locale: 'lv',
+                        rawData: array_filter([
+                            'original_categories' => $categories,
+                            'original_place' => $cardPlace,
+                            'price_raw' => $cardPrice,
+                            'organizer' => $detailData['organizer'] ?? null,
+                        ]),
+                    ));
+                } catch (\Throwable $e) {
+                    Log::warning('JelgavasValstspilsetaScraper: Error parsing card: ' . $e->getMessage());
                 }
-
-                // Link to event
-                $linkNode = $node->filter('.events-title a');
-                $relLink = $linkNode->count() ? $linkNode->first()->attr('href') : '';
-                $cleanUrl = $this->normalizeUrl($relLink);
-
-                $slugPart = $cleanUrl ? basename(rtrim(parse_url($cleanUrl, PHP_URL_PATH), '/')) : Str::slug($title);
-                $externalId = 'jelgava-' . $slugPart;
-
-                if (isset($seenExternalIds[$externalId])) {
-                    return;
-                }
-
-                // Exclude administrative & council meetings
-                if ($this->isExcludedEvent([], $title)) {
-                    return;
-                }
-
-                // Dates & times from card
-                $dateStr = $node->filter('.events-dates')->count() ? trim($node->filter('.events-dates')->text()) : '';
-                $timeStr = $node->filter('.events-times')->count() ? trim($node->filter('.events-times')->text()) : '';
-
-                [$startAt, $endAt, $allDay] = $this->parseLatvianDates($dateStr, $timeStr);
-
-                if (!$startAt) {
-                    return;
-                }
-
-                // Strict AGENTS.md rule: Do not process past events
-                if ($endAt && $endAt->lt($today)) {
-                    return;
-                }
-                if (!$endAt && $startAt->lt($today)) {
-                    return;
-                }
-
-                $allPageEventsPast = false;
-
-                // Card image
-                $cardImgNode = $node->filter('.event-image-wrap img');
-                $cardImg = $cardImgNode->count() ? $cardImgNode->first()->attr('src') : null;
-
-                // Card venue
-                $cardPlace = $node->filter('.events-places')->count() ? $this->cleanText($node->filter('.events-places')->text()) : '';
-
-                // Card price
-                $cardPrice = $node->filter('.events-price')->count() ? $this->cleanText($node->filter('.events-price')->text()) : '';
-
-                // Fetch detail page for full rich description, large image, categories, tickets
-                $detailData = $cleanUrl ? $this->fetchDetailPage($cleanUrl) : [];
-
-                // Description: full text from detail page, fallback to title
-                $description = !empty($detailData['description']) ? $detailData['description'] : $title;
-
-                // Image: prefer detail page high-res image, fallback to card image
-                $imageUrl = !empty($detailData['imageUrl']) ? $detailData['imageUrl'] : $cardImg;
-
-                // Categories from detail page
-                $categories = $detailData['categories'] ?? [];
-
-                // Ticket URL
-                $ticketUrl = $detailData['ticketUrl'] ?? null;
-
-                // Price parsing
-                $priceData = $this->parsePrice($cardPrice);
-
-                // Location resolution
-                $venueInfo = $this->resolveLocation($cardPlace, $title);
-
-                // Category & Entertainment Type resolution adhering strictly to AGENTS.md
-                [$canonicalCategories, $entertainmentType] = $this->resolveCategories($categories, $title, $description, $venueInfo['name']);
-
-                $seenExternalIds[$externalId] = true;
-
-                $events->push(new ScrapedEventDTO(
-                    title: $title,
-                    startAt: $startAt,
-                    endAt: $endAt,
-                    description: $description,
-                    shortDescription: Str::limit(strip_tags($description), 160),
-                    venueName: $venueInfo['name'],
-                    city: $venueInfo['city'],
-                    region: $venueInfo['region'],
-                    address: $venueInfo['address'],
-                    latitude: $venueInfo['latitude'],
-                    longitude: $venueInfo['longitude'],
-                    placeType: $venueInfo['place_type'],
-                    categoryNames: $canonicalCategories,
-                    entertainmentType: $entertainmentType,
-                    isFree: $priceData['is_free'],
-                    priceMin: $priceData['price_min'],
-                    priceMax: $priceData['price_max'],
-                    currency: 'EUR',
-                    ticketUrl: $ticketUrl,
-                    imageUrl: $imageUrl,
-                    sourceUrl: $cleanUrl ?: $baseUrl,
-                    sourceExternalId: $externalId,
-                    locale: 'lv',
-                    rawData: array_filter([
-                        'original_categories' => $categories,
-                        'original_place' => $cardPlace,
-                        'price_raw' => $cardPrice,
-                        'organizer' => $detailData['organizer'] ?? null,
-                    ]),
-                ));
             });
 
             // If an entire page contains only past events, break pagination
@@ -492,81 +496,83 @@ class JelgavasValstspilsetaScraper extends BaseScraper
      */
     public function fetchDetailPage(string $url): array
     {
-        $crawler = $this->fetchCrawler($url);
-        if (!$crawler) {
+        try {
+            $crawler = $this->fetchCrawler($url);
+            if (!$crawler) {
+                return [];
+            }
+
+            // Full description
+            $desc = '';
+            $descNode = $crawler->filter('.block-article-open .row .col-24.col-md-14 .block-content-padding');
+            if (!$descNode->count()) {
+                $descNode = $crawler->filter('.block-article-open .block-content-padding');
+            }
+
+            if ($descNode->count()) {
+                $rawHtml = $descNode->first()->html();
+                // Safely remove scripts, styles, and back buttons without mutating DOM crawler
+                $cleanHtml = preg_replace('/<(script|style)\b[^>]*>.*?<\/\1>/is', '', $rawHtml);
+                $cleanHtml = preg_replace('/<a\b[^>]*class=["\'][^"\']*button[^"\']*["\'][^>]*>.*?<\/a>/is', '', $cleanHtml);
+                $desc = $this->cleanText($cleanHtml);
+            }
+
+            // Categories from meta links & breadcrumbs
+            $categories = [];
+            $crawler->filter('.article-open-meta a, .block-breadcrumbs a.events-categories, .block-breadcrumbs span[property="name"]')
+                ->each(function (Crawler $c) use (&$categories) {
+                    if ($c->count() === 0) return;
+                    $txt = trim($c->text(''));
+                    if (!empty($txt) && !in_array($txt, ['Sākumlapa', 'Pasākumi', 'LV'], true)) {
+                        $categories[] = $txt;
+                    }
+                });
+            $categories = array_values(array_unique($categories));
+
+            // Featured large image
+            $imageUrl = null;
+            $imgNode = $crawler->filter('.block-article-open img');
+            if ($imgNode->count()) {
+                $imageUrl = $imgNode->first()->attr('src');
+            }
+
+            // Ticket link (check for BP, Biļešu serviss, Ticketshop, Bezrindas, Fienta or any buy link)
+            $ticketUrl = null;
+            $crawler->filter('.block-article-open a')->each(function (Crawler $link) use (&$ticketUrl) {
+                if ($ticketUrl || $link->count() === 0) {
+                    return;
+                }
+                $href = $link->attr('href');
+                $txt = mb_strtolower($link->text(''), 'UTF-8');
+                if (empty($href) || str_starts_with($href, 'javascript:') || str_contains($href, 'jelgava.lv/pasakumu-kategorija')) {
+                    return;
+                }
+
+                if (preg_match('/bilesuparadize\.lv|bilesuserviss\.lv|ticketshop\.lv|bezrindas\.lv|fienta\.com/i', $href)) {
+                    $ticketUrl = $href;
+                } elseif (str_contains($txt, 'biļet') || str_contains($txt, 'pirkt') || str_contains($txt, 'iegādāt')) {
+                    $ticketUrl = $href;
+                }
+            });
+
+            // Organizer
+            $organizer = null;
+            $orgNode = $crawler->filter('.event-organizer');
+            if ($orgNode->count()) {
+                $organizer = $this->cleanText($orgNode->first()->text(''));
+            }
+
+            return [
+                'description' => $desc,
+                'categories' => $categories,
+                'imageUrl' => $imageUrl,
+                'ticketUrl' => $ticketUrl,
+                'organizer' => $organizer,
+            ];
+        } catch (\Throwable $e) {
+            Log::warning("JelgavasValstspilsetaScraper: Error fetching detail page {$url}: " . $e->getMessage());
             return [];
         }
-
-        // Full description
-        $desc = '';
-        $descNode = $crawler->filter('.block-article-open .row .col-24.col-md-14 .block-content-padding');
-        if (!$descNode->count()) {
-            $descNode = $crawler->filter('.block-article-open .block-content-padding');
-        }
-
-        if ($descNode->count()) {
-            // Remove back buttons or script tags
-            $descCrawler = new Crawler($descNode->first()->html());
-            $descCrawler->filter('a.button, script, style')->each(function (Crawler $crawler) {
-                foreach ($crawler as $node) {
-                    $node->parentNode?->removeChild($node);
-                }
-            });
-
-            $desc = $this->cleanText($descCrawler->html());
-        }
-
-        // Categories from meta links & breadcrumbs
-        $categories = [];
-        $crawler->filter('.article-open-meta a, .block-breadcrumbs a.events-categories, .block-breadcrumbs span[property="name"]')
-            ->each(function (Crawler $c) use (&$categories) {
-                $txt = trim($c->text());
-                if (!empty($txt) && !in_array($txt, ['Sākumlapa', 'Pasākumi', 'LV'], true)) {
-                    $categories[] = $txt;
-                }
-            });
-        $categories = array_values(array_unique($categories));
-
-        // Featured large image
-        $imageUrl = null;
-        $imgNode = $crawler->filter('.block-article-open img');
-        if ($imgNode->count()) {
-            $imageUrl = $imgNode->first()->attr('src');
-        }
-
-        // Ticket link (check for BP, Biļešu serviss, Ticketshop, Bezrindas, Fienta or any buy link)
-        $ticketUrl = null;
-        $crawler->filter('.block-article-open a')->each(function (Crawler $link) use (&$ticketUrl) {
-            if ($ticketUrl) {
-                return;
-            }
-            $href = $link->attr('href');
-            $txt = mb_strtolower($link->text(), 'UTF-8');
-            if (empty($href) || str_starts_with($href, 'javascript:') || str_contains($href, 'jelgava.lv/pasakumu-kategorija')) {
-                return;
-            }
-
-            if (preg_match('/bilesuparadize\.lv|bilesuserviss\.lv|ticketshop\.lv|bezrindas\.lv|fienta\.com/i', $href)) {
-                $ticketUrl = $href;
-            } elseif (str_contains($txt, 'biļet') || str_contains($txt, 'pirkt') || str_contains($txt, 'iegādāt')) {
-                $ticketUrl = $href;
-            }
-        });
-
-        // Organizer
-        $organizer = null;
-        $orgNode = $crawler->filter('.event-organizer');
-        if ($orgNode->count()) {
-            $organizer = $this->cleanText($orgNode->first()->text());
-        }
-
-        return [
-            'description' => $desc,
-            'categories' => $categories,
-            'imageUrl' => $imageUrl,
-            'ticketUrl' => $ticketUrl,
-            'organizer' => $organizer,
-        ];
     }
 
     /**
