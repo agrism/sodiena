@@ -12,6 +12,10 @@ use Symfony\Component\DomCrawler\Crawler;
 class HandballLvScraper extends BaseScraper
 {
     public const DEFAULT_IMAGE = 'https://sodiena.hel1.your-objectstorage.com/leagues/handball.webp';
+    public const DEFAULT_IMAGE_VIRSLIGA = 'https://sodiena.hel1.your-objectstorage.com/leagues/handball.webp';
+    public const DEFAULT_IMAGE_KAUSS = 'https://sodiena.hel1.your-objectstorage.com/leagues/handball_kauss.webp';
+    public const DEFAULT_IMAGE_BALTIC = 'https://sodiena.hel1.your-objectstorage.com/leagues/handball_baltic.webp';
+    public const DEFAULT_IMAGE_SIEVĪTES = 'https://sodiena.hel1.your-objectstorage.com/leagues/handball_sievietes.webp';
 
     public function getSlug(): string
     {
@@ -21,6 +25,25 @@ class HandballLvScraper extends BaseScraper
     public function getName(): string
     {
         return 'Latvijas Handbola Federācija';
+    }
+
+    public function resolveImageForLeague(string $league): string
+    {
+        $lower = mb_strtolower($league);
+
+        if (str_contains($lower, 'kauss')) {
+            return self::DEFAULT_IMAGE_KAUSS;
+        }
+
+        if (str_contains($lower, 'baltic')) {
+            return self::DEFAULT_IMAGE_BALTIC;
+        }
+
+        if (str_contains($lower, 'sievie') || str_contains($lower, 'women')) {
+            return self::DEFAULT_IMAGE_SIEVĪTES;
+        }
+
+        return self::DEFAULT_IMAGE_VIRSLIGA;
     }
 
     /**
@@ -139,6 +162,112 @@ class HandballLvScraper extends BaseScraper
             'lat' => 56.50652,
             'lon' => 25.88886,
         ],
+        // Igaunijas arēnas
+        'Tabasalu Kooli spordihoone' => [
+            'venue' => 'Tabasalu Kooli spordihoone',
+            'city' => 'Tabasalu',
+            'region' => 'Igaunija',
+            'address' => 'Kooli 1, Tabasalu, Igaunija',
+            'lat' => 59.43120,
+            'lon' => 24.54920,
+        ],
+        'Tapa Spordihoone' => [
+            'venue' => 'Tapa Spordihoone',
+            'city' => 'Tapa',
+            'region' => 'Igaunija',
+            'address' => 'Pargi tn 12, Tapa, Igaunija',
+            'lat' => 59.26120,
+            'lon' => 25.96140,
+        ],
+        'Tapa Valla Spordikeskus' => [
+            'venue' => 'Tapa Spordihoone',
+            'city' => 'Tapa',
+            'region' => 'Igaunija',
+            'address' => 'Pargi tn 12, Tapa, Igaunija',
+            'lat' => 59.26120,
+            'lon' => 25.96140,
+        ],
+        'Raasiku Spordihoone' => [
+            'venue' => 'Raasiku Spordihoone',
+            'city' => 'Raasiku',
+            'region' => 'Igaunija',
+            'address' => 'Meierei t. 27, Raasiku, Igaunija',
+            'lat' => 59.36850,
+            'lon' => 25.17640,
+        ],
+        'Mesikäpa Hall' => [
+            'venue' => 'Mesikäpa Hall',
+            'city' => 'Põlva',
+            'region' => 'Igaunija',
+            'address' => 'Kesk 10, Põlva, Igaunija',
+            'lat' => 58.05380,
+            'lon' => 27.05830,
+        ],
+        'Kristiine Spordihall' => [
+            'venue' => 'Kristiine Spordihall',
+            'city' => 'Tallina',
+            'region' => 'Igaunija',
+            'address' => 'Forelli 12, Tallinn, Igaunija',
+            'lat' => 59.42310,
+            'lon' => 24.69830,
+        ],
+        'Kristiine Sport' => [
+            'venue' => 'Kristiine Spordihall',
+            'city' => 'Tallina',
+            'region' => 'Igaunija',
+            'address' => 'Forelli 12, Tallinn, Igaunija',
+            'lat' => 59.42310,
+            'lon' => 24.69830,
+        ],
+        'Viljandi Spordikeskus' => [
+            'venue' => 'Viljandi Spordikeskus',
+            'city' => 'Viljandi',
+            'region' => 'Igaunija',
+            'address' => 'Vaksali tn 4, Viljandi, Igaunija',
+            'lat' => 58.36150,
+            'lon' => 25.59010,
+        ],
+        // Lietuvas arēnas
+        'VMSM Sostines Tauras' => [
+            'venue' => 'VMSM Sostines Tauras',
+            'city' => 'Viļņa',
+            'region' => 'Lietuva',
+            'address' => 'Žygio g. 46, Vilnius, Lietuva',
+            'lat' => 54.71180,
+            'lon' => 25.29360,
+        ],
+        'LSMU Sporto Centras' => [
+            'venue' => 'LSMU Sporto Centras',
+            'city' => 'Kauņa',
+            'region' => 'Lietuva',
+            'address' => 'Tilžės g. 18, Kaunas, Lietuva',
+            'lat' => 54.90820,
+            'lon' => 23.88710,
+        ],
+        'BI baziu valdymo sporto sale' => [
+            'venue' => 'BI baziu valdymo sporto sale',
+            'city' => 'Klaipēda',
+            'region' => 'Lietuva',
+            'address' => 'Taikos pr. 61a, Klaipėda, Lietuva',
+            'lat' => 55.69080,
+            'lon' => 21.16110,
+        ],
+        'Pieno Žvaigždžių arena' => [
+            'venue' => 'Pieno Žvaigždžių arena',
+            'city' => 'Pasvale',
+            'region' => 'Lietuva',
+            'address' => 'Taikos g. 22, Pasvalys, Lietuva',
+            'lat' => 56.06420,
+            'lon' => 24.40780,
+        ],
+        'MOLĖTŲ SPORTO CENTRAS' => [
+            'venue' => 'Molėtų sporto centras',
+            'city' => 'Molēti',
+            'region' => 'Lietuva',
+            'address' => 'Ąžuolų g. 10, Molėtai, Lietuva',
+            'lat' => 55.23190,
+            'lon' => 25.42160,
+        ],
     ];
 
     /**
@@ -147,31 +276,61 @@ class HandballLvScraper extends BaseScraper
     protected array $teamCities = [
         'ZRHK TENAX Dobele' => ['city' => 'Dobele', 'region' => 'Zemgale'],
         'Tenax Dobele' => ['city' => 'Dobele', 'region' => 'Zemgale'],
+        'ZRHK Dobele/DSS' => ['city' => 'Dobele', 'region' => 'Zemgale'],
         'ASK/MSĢ' => ['city' => 'Rīga', 'region' => 'Rīga un Pierīga'],
+        'ASK/MSĢ II' => ['city' => 'Rīga', 'region' => 'Rīga un Pierīga'],
         'ASK Zemessardze/LSPA' => ['city' => 'Rīga', 'region' => 'Rīga un Pierīga'],
+        'RSU' => ['city' => 'Rīga', 'region' => 'Rīga un Pierīga'],
         'HK Ogre/RSU' => ['city' => 'Ogre', 'region' => 'Vidzeme'],
         'HK Ogre' => ['city' => 'Ogre', 'region' => 'Vidzeme'],
+        'ONSC/HK Ogre' => ['city' => 'Ogre', 'region' => 'Vidzeme'],
         'Salaspils SS' => ['city' => 'Salaspils', 'region' => 'Rīga un Pierīga'],
         'Salaspils' => ['city' => 'Salaspils', 'region' => 'Rīga un Pierīga'],
         'SK Latgols' => ['city' => 'Ludza', 'region' => 'Latgale'],
+        'SK Latgols juniori' => ['city' => 'Ludza', 'region' => 'Latgale'],
         'Ludza' => ['city' => 'Ludza', 'region' => 'Latgale'],
         'HK Vaiņode' => ['city' => 'Vaiņode', 'region' => 'Kurzeme'],
         'Stopiņu PHK' => ['city' => 'Saurieši', 'region' => 'Rīga un Pierīga'],
+        'Ulbrokas SK' => ['city' => 'Ulbroka', 'region' => 'Rīga un Pierīga'],
+        'HK S&A' => ['city' => 'Aizkraukle', 'region' => 'Zemgale'],
         'Jēkabpils SS' => ['city' => 'Jēkabpils', 'region' => 'Latgale'],
+        'Jūrmala II' => ['city' => 'Jūrmala', 'region' => 'Rīga un Pierīga'],
+        'HK Jūrmala' => ['city' => 'Jūrmala', 'region' => 'Rīga un Pierīga'],
+        // Igaunijas komandas
+        'HC Tabasalu' => ['city' => 'Tabasalu', 'region' => 'Igaunija'],
+        'SK Tapa' => ['city' => 'Tapa', 'region' => 'Igaunija'],
+        'Mistra' => ['city' => 'Raasiku', 'region' => 'Igaunija'],
+        'Tallinna Mistra' => ['city' => 'Tallina', 'region' => 'Igaunija'],
+        'KPK Mella' => ['city' => 'Tallina', 'region' => 'Igaunija'],
+        'Põlva Serviti' => ['city' => 'Põlva', 'region' => 'Igaunija'],
+        'Viljandi HC/LEONHARD WEISS' => ['city' => 'Viljandi', 'region' => 'Igaunija'],
+        'HC Cocks' => ['city' => 'Riihimäki', 'region' => 'Somija'],
+        // Lietuvas komandas
+        'VHC Šviesa' => ['city' => 'Viļņa', 'region' => 'Lietuva'],
+        'HC Dragunas Klaipeda' => ['city' => 'Klaipēda', 'region' => 'Lietuva'],
+        'Granitas-Karys' => ['city' => 'Kauņa', 'region' => 'Lietuva'],
+        'HC Vilnius' => ['city' => 'Viļņa', 'region' => 'Lietuva'],
+        'Pasvalio Pieno žvaigždės' => ['city' => 'Pasvale', 'region' => 'Lietuva'],
     ];
 
     public function scrape(Source $source): Collection
     {
-        $url = $source->url ?: 'https://handball.lv/league/1278/calendar';
+        $url = $source->url ?: 'https://handball.lv/calendar';
         $crawler = $this->fetchCrawler($url);
 
         if (!$crawler) {
             return collect();
         }
 
-        $seasonText = $crawler->filter('p:contains("Season")')->count()
-            ? $crawler->filter('p:contains("Season")')->text()
-            : '';
+        $seasonText = '';
+        if ($crawler->filter('p:contains("Season")')->count()) {
+            $seasonText = $crawler->filter('p:contains("Season")')->text();
+        } elseif ($crawler->filter('#season option[selected]')->count()) {
+            $seasonText = $crawler->filter('#season option[selected]')->text();
+        } elseif ($crawler->filter('#season option')->count()) {
+            $seasonText = $crawler->filter('#season option')->first()->text();
+        }
+
         $seasonStartYear = (int) date('Y');
         if (preg_match('/Season\s+(\d{4})\/(\d{4})/', $seasonText, $sm)) {
             $seasonStartYear = (int) $sm[1];
@@ -336,7 +495,7 @@ class HandballLvScraper extends BaseScraper
             priceMax: null,
             currency: 'EUR',
             ticketUrl: null,
-            imageUrl: self::DEFAULT_IMAGE,
+            imageUrl: $this->resolveImageForLeague($league),
             sourceUrl: $link,
             sourceExternalId: $matchId ? (string) $matchId : null,
             locale: 'lv',
@@ -374,6 +533,29 @@ class HandballLvScraper extends BaseScraper
                 'city' => $teamInfo['city'],
                 'region' => $teamInfo['region'],
                 'address' => null,
+                'lat' => null,
+                'lon' => null,
+            ];
+        }
+
+        // 3. Fallback for foreign venues if country name detected in raw string
+        if (preg_match('/Estonia|Igaunij/i', $trimmed)) {
+            return [
+                'venue' => !empty($trimmed) ? $trimmed : 'Handbola halle Igaunijā',
+                'city' => 'Igaunija',
+                'region' => 'Igaunija',
+                'address' => $trimmed,
+                'lat' => null,
+                'lon' => null,
+            ];
+        }
+
+        if (preg_match('/Lithuania|Lietuv/i', $trimmed)) {
+            return [
+                'venue' => !empty($trimmed) ? $trimmed : 'Handbola halle Lietuvā',
+                'city' => 'Lietuva',
+                'region' => 'Lietuva',
+                'address' => $trimmed,
                 'lat' => null,
                 'lon' => null,
             ];

@@ -193,13 +193,15 @@ class VisitJurmalaScraperTest extends TestCase
 
     public function test_scrape_mock_html(): void
     {
-        $mockHtml = <<<'HTML'
+        $futureDate = now()->addDays(5)->format('Y-m-d');
+        $futureDay = now()->addDays(5)->format('j');
+        $mockHtml = <<<HTML
 <!DOCTYPE html>
 <html>
 <body>
-    <div class="event-list-item" id="event-2026-11-20-10435">
+    <div class="event-list-item" id="event-{$futureDate}-10435">
         <div class="event-date">
-            <div>Piektdiena, 20.novembris</div>
+            <div>Piektdiena, {$futureDay}.novembris</div>
             19:00 - 21:00
         </div>
         <div class="event-list-image">
@@ -212,7 +214,7 @@ class VisitJurmalaScraperTest extends TestCase
             <div class="event-more-descr">
                 <div class="event-details">
                     <ul class="contacts">
-                        <li class="col-100"><label>Datums</label> Piektdiena, 20.novembris</li>
+                        <li class="col-100"><label>Datums</label> Piektdiena, {$futureDay}.novembris</li>
                         <li class="col-100"><label>Norises vieta</label> <ul><li><a href="https://visitjurmala.lv/dzintari/">Dzintaru koncertzāle</a></li></ul></li>
                         <li class="col-100"><label>Adrese</label> Turaidas iela 1</li>
                         <li class="col-100"><label>Mājas lapa</label> <a href="https://www.dzintarukoncertzale.lv/">https://www.dzintarukoncertzale.lv/</a></li>
@@ -253,10 +255,10 @@ HTML;
         $this->assertEquals('Jūrmala', $dto->city);
         $this->assertEquals('Rīga un Pierīga', $dto->region);
         $this->assertEquals('concert_hall', $dto->placeType);
-        $this->assertEquals('2026-11-20 19:00:00', $dto->startAt->format('Y-m-d H:i:s'));
-        $this->assertEquals('2026-11-20 21:00:00', $dto->endAt->format('Y-m-d H:i:s'));
+        $this->assertEquals("{$futureDate} 19:00:00", $dto->startAt->format('Y-m-d H:i:s'));
+        $this->assertEquals("{$futureDate} 21:00:00", $dto->endAt->format('Y-m-d H:i:s'));
         $this->assertEquals('https://visitjurmala.lv/images/events/test_s1.jpg', $dto->imageUrl);
-        $this->assertEquals('vj-2026-11-20-10435', $dto->sourceExternalId);
+        $this->assertEquals("vj-{$futureDate}-10435", $dto->sourceExternalId);
         $this->assertContains('Mūzika', $dto->categoryNames);
         $this->assertEquals('concert', $dto->entertainmentType);
         $this->assertFalse($dto->isFree);

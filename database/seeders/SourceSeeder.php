@@ -301,7 +301,7 @@ class SourceSeeder extends Seeder
             [
                 'name' => 'Latvijas Handbola Federācija',
                 'slug' => 'handball-lv',
-                'url' => 'https://handball.lv/league/1278/calendar',
+                'url' => 'https://handball.lv/calendar',
                 'scraper_class' => HandballLvScraper::class,
                 'type' => SourceType::SPORTS->value,
                 'is_active' => true,
