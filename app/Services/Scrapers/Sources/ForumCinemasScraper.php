@@ -2,6 +2,7 @@
 
 namespace App\Services\Scrapers\Sources;
 
+use App\Models\Event;
 use App\Models\Source;
 use App\Services\Scrapers\BaseScraper;
 use App\Services\Scrapers\DTO\ScrapedEventDTO;
@@ -9,6 +10,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Symfony\Component\DomCrawler\Crawler;
 
 class ForumCinemasScraper extends BaseScraper
 {
@@ -19,7 +21,7 @@ class ForumCinemasScraper extends BaseScraper
     public function __construct()
     {
         parent::__construct();
-        $this->httpClient = new \GuzzleHttp\Client([
+        $options = [
             'timeout' => 30,
             'connect_timeout' => 20,
             'headers' => [
@@ -28,7 +30,13 @@ class ForumCinemasScraper extends BaseScraper
                 'Accept-Language' => 'lv,en-US;q=0.7,en;q=0.3',
             ],
             'verify' => false,
-        ]);
+        ];
+
+        if ($proxy = env('SCRAPER_PROXY')) {
+            $options['proxy'] = $proxy;
+        }
+
+        $this->httpClient = new \GuzzleHttp\Client($options);
     }
 
     /**
@@ -45,6 +53,7 @@ class ForumCinemasScraper extends BaseScraper
             }
 
             if (str_starts_with(trim($body), '<?xml') || str_starts_with(trim($body), '<')) {
+                libxml_use_internal_errors(true);
                 $xml = simplexml_load_string($body, 'SimpleXMLElement', LIBXML_NOCDATA);
                 if ($xml !== false) {
                     return json_decode(json_encode($xml), true);
@@ -81,8 +90,8 @@ class ForumCinemasScraper extends BaseScraper
         $moviesCatalog = $this->fetchMoviesCatalog();
         Log::info(sprintf("Loaded %d movies from Forum Cinemas catalogue", count($moviesCatalog)));
 
-        // 2. Fetch 7-day schedule from /xml/Schedule
-        $scheduleUrl = self::SCHEDULE_API . '?nrOfDays=7';
+        // 2. Fetch 14-day schedule from /xml/Schedule for all areas (1013)
+        $scheduleUrl = self::SCHEDULE_API . '?area=1013&nrOfDays=14';
         $scheduleData = $this->fetchXml($scheduleUrl);
 
         if (empty($scheduleData) || !isset($scheduleData['Shows'])) {
@@ -102,7 +111,19 @@ class ForumCinemasScraper extends BaseScraper
 
         $todayStart = now()->startOfDay();
 
-        Log::info(sprintf("Processing %d shows from Forum Cinemas schedule...", count($shows)));
+        // 3. Preload known show prices from database to avoid re-fetching already known prices
+        $existingPrices = Event::where('source_external_id', 'LIKE', 'show_%')
+            ->whereNotNull('price_min')
+            ->get(['source_external_id', 'price_min', 'price_max'])
+            ->keyBy('source_external_id');
+
+        Log::info(sprintf(
+            "Processing %d shows from Forum Cinemas schedule (known prices in DB: %d)...",
+            count($shows),
+            $existingPrices->count()
+        ));
+
+        $priceFetchCount = 0;
 
         foreach ($shows as $show) {
             $showId = $show['ID'] ?? null;
@@ -200,6 +221,23 @@ class ForumCinemasScraper extends BaseScraper
                 : (!empty($show['EventURL']) ? trim($show['EventURL']) : sprintf('%s/event/%d', self::BASE_URL, $eventId));
             $sourceUrl = str_replace('http://', 'https://', $sourceUrl);
 
+            // Resolve ticket prices (reuse from database if already known, otherwise fetch from websales)
+            $priceMin = null;
+            $priceMax = null;
+
+            if ($existingPrices->has($externalId)) {
+                $existing = $existingPrices->get($externalId);
+                $priceMin = (float) $existing->price_min;
+                $priceMax = $existing->price_max !== null ? (float) $existing->price_max : $priceMin;
+            } elseif (!empty($ticketUrl)) {
+                [$priceMin, $priceMax] = $this->fetchShowPrices($ticketUrl);
+                $priceFetchCount++;
+                if ($priceFetchCount % 25 === 0) {
+                    Log::info(sprintf("Forum Cinemas price fetching progress: %d newly fetched...", $priceFetchCount));
+                }
+                $this->sleepPolitely();
+            }
+
             $seenExternalIds[$externalId] = true;
 
             $events->push(new ScrapedEventDTO(
@@ -218,8 +256,8 @@ class ForumCinemasScraper extends BaseScraper
                 categoryNames: $categoryNames,
                 entertainmentType: $entertainmentType,
                 isFree: false,
-                priceMin: null,
-                priceMax: null,
+                priceMin: $priceMin,
+                priceMax: $priceMax,
                 currency: 'EUR',
                 ticketUrl: $ticketUrl,
                 imageUrl: $imageUrl,
@@ -239,11 +277,20 @@ class ForumCinemasScraper extends BaseScraper
                     'rating_label' => $show['RatingLabel'] ?? $movie['ratingLabel'] ?? null,
                     'length_minutes' => $show['LengthInMinutes'] ?? $movie['lengthInMinutes'] ?? null,
                     'production_year' => $show['ProductionYear'] ?? $movie['productionYear'] ?? null,
+                    'price_min' => $priceMin,
+                    'price_max' => $priceMax,
+                    'trailer_url' => $movie['trailerUrl'] ?? null,
+                    'youtube_url' => $movie['trailerUrl'] ?? null,
                 ]),
             ));
         }
 
-        Log::info(sprintf("Forum Cinemas scraping completed: %d upcoming shows prepared", $events->count()));
+        Log::info(sprintf(
+            "Forum Cinemas scraping completed: %d upcoming shows prepared (newly fetched prices: %d, reused from DB: %d)",
+            $events->count(),
+            $priceFetchCount,
+            $events->count() - $priceFetchCount
+        ));
 
         return $events;
     }
@@ -307,6 +354,29 @@ class ForumCinemasScraper extends BaseScraper
                 }
             }
 
+            // Extract trailer video (YouTube)
+            $trailerUrl = null;
+            $videoNodes = $m['Videos']['EventVideo'] ?? $m['Videos'] ?? [];
+            if (isset($videoNodes['Location'])) {
+                $videoNodes = [$videoNodes];
+            }
+            if (is_array($videoNodes)) {
+                foreach ($videoNodes as $v) {
+                    if (!is_array($v)) {
+                        continue;
+                    }
+                    $loc = trim($v['Location'] ?? '');
+                    if (!empty($loc)) {
+                        if (str_starts_with($loc, 'http://') || str_starts_with($loc, 'https://')) {
+                            $trailerUrl = str_replace('http://', 'https://', $loc);
+                        } else {
+                            $trailerUrl = 'https://www.youtube.com/watch?v=' . $loc;
+                        }
+                        break;
+                    }
+                }
+            }
+
             $img = $m['Images']['EventLargeImagePortrait']
                 ?? $m['Images']['EventMediumImagePortrait']
                 ?? $m['Images']['EventSmallImagePortrait']
@@ -333,6 +403,7 @@ class ForumCinemasScraper extends BaseScraper
                 'imageUrl' => $img,
                 'directors' => $directors,
                 'cast' => $cast,
+                'trailerUrl' => $trailerUrl,
             ];
         }
 
@@ -460,6 +531,10 @@ class ForumCinemasScraper extends BaseScraper
             $metaDetails[] = "Lomās: " . implode(', ', array_slice($movie['cast'], 0, 8));
         }
 
+        if (!empty($movie['trailerUrl'])) {
+            $metaDetails[] = "Treileris: {$movie['trailerUrl']}";
+        }
+
         if (!empty($metaDetails)) {
             $sections[] = implode("\n", $metaDetails);
         }
@@ -530,6 +605,70 @@ class ForumCinemasScraper extends BaseScraper
             return trim($val['Name']);
         }
         return null;
+    }
+
+    /**
+     * Fetch ticket price range (min/max) from show websales page
+     *
+     * @return array{0: ?float, 1: ?float}
+     */
+    public function fetchShowPrices(string $ticketUrl): array
+    {
+        try {
+            $response = $this->httpClient->get($ticketUrl);
+            $html = (string) $response->getBody();
+
+            if (empty(trim($html))) {
+                return [null, null];
+            }
+
+            $crawler = new Crawler($html);
+            $prices = [];
+
+            // 1. Look for .showPrices-table-price
+            foreach ($crawler->filter('.showPrices-table-price') as $node) {
+                if (preg_match('/([0-9]+(?:[.,][0-9]{1,2})?)\s*€/u', $node->textContent, $matches)) {
+                    $val = (float) str_replace(',', '.', $matches[1]);
+                    if ($val > 0) {
+                        $prices[] = $val;
+                    }
+                }
+            }
+
+            // 2. Fallback: look for .ticket-row
+            if (empty($prices)) {
+                foreach ($crawler->filter('.ticket-row') as $node) {
+                    if (preg_match('/([0-9]+(?:[.,][0-9]{1,2})?)\s*€/u', $node->textContent, $matches)) {
+                        $val = (float) str_replace(',', '.', $matches[1]);
+                        if ($val > 0) {
+                            $prices[] = $val;
+                        }
+                    }
+                }
+            }
+
+            if (empty($prices)) {
+                return [null, null];
+            }
+
+            return [min($prices), max($prices)];
+        } catch (\Throwable $e) {
+            Log::debug("Forum Cinemas price fetch error for {$ticketUrl}: " . $e->getMessage());
+            return [null, null];
+        }
+    }
+
+    /**
+     * Polite rate limiting with jitter between HTTP requests (1000ms + 0-400ms jitter)
+     */
+    protected function sleepPolitely(): void
+    {
+        if (app()->environment('testing')) {
+            return;
+        }
+
+        $us = 1000000 + random_int(0, 400000);
+        usleep($us);
     }
 
     protected function cleanText(?string $text): string

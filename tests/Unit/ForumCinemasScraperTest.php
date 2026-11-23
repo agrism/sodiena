@@ -122,6 +122,7 @@ class ForumCinemasScraperTest extends TestCase
             'synopsis' => 'Pols Atreids turpina savu ceļojumu ar čani un frīmeniem.',
             'directors' => ['Denis Villeneuve'],
             'cast' => ['Timothée Chalamet', 'Zendaya'],
+            'trailerUrl' => 'https://www.youtube.com/watch?v=oOKHVtgPJ00',
         ];
 
         $show = [
@@ -143,6 +144,7 @@ class ForumCinemasScraperTest extends TestCase
         $this->assertStringContainsString('Oriģinālnosaukums: Dune: Part Two', $desc);
         $this->assertStringContainsString('Režisors: Denis Villeneuve', $desc);
         $this->assertStringContainsString('Lomās: Timothée Chalamet, Zendaya', $desc);
+        $this->assertStringContainsString('Treileris: https://www.youtube.com/watch?v=oOKHVtgPJ00', $desc);
         $this->assertStringContainsString('Kinoteātris: Kino Citadele', $desc);
         $this->assertStringContainsString('Zāle: Auditorija 1 (ISENSE)', $desc);
         $this->assertStringContainsString('Formāts: 2D, Dolby Atmos', $desc);
@@ -180,6 +182,12 @@ class ForumCinemasScraperTest extends TestCase
                 <Images>
                     <EventLargeImagePortrait>http://forumcinemaslv.blob.core.windows.net/Event_11592/poster.jpg</EventLargeImagePortrait>
                 </Images>
+                <Videos>
+                    <EventVideo>
+                        <Title>Trailer</Title>
+                        <Location>oOKHVtgPJ00</Location>
+                    </EventVideo>
+                </Videos>
                 <Directors>
                     <Director><FirstName>Denis</FirstName><LastName>Villeneuve</LastName></Director>
                 </Directors>
@@ -213,9 +221,19 @@ class ForumCinemasScraperTest extends TestCase
             </Shows>
         </Schedule>';
 
+        $mockTicketHtml = '<table class="showPrices-table">
+            <tr class="ticket-row">
+                <td class="showPrices-table-price"><span>8,20 €</span></td>
+            </tr>
+            <tr class="ticket-row">
+                <td class="showPrices-table-price"><span>4,50 €</span></td>
+            </tr>
+        </table>';
+
         $mock = new MockHandler([
             new Response(200, ['Content-Type' => 'text/xml; charset=UTF-8'], $mockEventsXml),
             new Response(200, ['Content-Type' => 'text/xml; charset=UTF-8'], $mockScheduleXml),
+            new Response(200, ['Content-Type' => 'text/html; charset=UTF-8'], $mockTicketHtml),
         ]);
 
         $handlerStack = HandlerStack::create($mock);
@@ -251,6 +269,13 @@ class ForumCinemasScraperTest extends TestCase
         $this->assertEquals('https://www.forumcinemas.lv/websales/show/444008/', $dto->ticketUrl);
         $this->assertEquals('https://forumcinemaslv.blob.core.windows.net/Event_11592/poster.jpg', $dto->imageUrl);
         $this->assertEquals('show_444008', $dto->sourceExternalId);
+        $this->assertEquals(4.50, $dto->priceMin);
+        $this->assertEquals(8.20, $dto->priceMax);
+        $this->assertEquals(4.50, $dto->rawData['price_min']);
+        $this->assertEquals(8.20, $dto->rawData['price_max']);
+        $this->assertEquals('https://www.youtube.com/watch?v=oOKHVtgPJ00', $dto->rawData['trailer_url']);
+        $this->assertEquals('https://www.youtube.com/watch?v=oOKHVtgPJ00', $dto->rawData['youtube_url']);
+        $this->assertStringContainsString('Treileris: https://www.youtube.com/watch?v=oOKHVtgPJ00', $dto->description);
     }
 
     public function test_forum_cinemas_event_ingestion(): void
@@ -311,5 +336,102 @@ class ForumCinemasScraperTest extends TestCase
         $this->assertNotNull($location);
         $this->assertEquals('Forum Cinemas Alfa', $location->name);
         $this->assertEquals('Rīga', $location->city);
+    }
+
+    public function test_fetch_show_prices_parses_min_and_max(): void
+    {
+        $mockHtml = '<table class="showPrices-table">
+            <tr class="ticket-row">
+                <td class="showPrices-table-ticketCategory">Pieaugušo</td>
+                <td class="showPrices-table-price"><span>12,90 €</span></td>
+            </tr>
+            <tr class="ticket-row">
+                <td class="showPrices-table-ticketCategory">Bērniem</td>
+                <td class="showPrices-table-price"><span>6,30 €</span></td>
+            </tr>
+            <tr class="ticket-row">
+                <td class="showPrices-table-ticketCategory">Skolēnu</td>
+                <td class="showPrices-table-price"><span>10,97 €</span></td>
+            </tr>
+        </table>';
+
+        $mock = new MockHandler([
+            new Response(200, ['Content-Type' => 'text/html; charset=UTF-8'], $mockHtml),
+        ]);
+
+        $client = new Client(['handler' => HandlerStack::create($mock)]);
+        $scraper = new ForumCinemasScraper();
+        $scraper->setClient($client);
+
+        [$min, $max] = $scraper->fetchShowPrices('https://www.forumcinemas.lv/websales/show/444606/');
+
+        $this->assertEquals(6.30, $min);
+        $this->assertEquals(12.90, $max);
+    }
+
+    public function test_scrape_reuses_existing_prices_from_database(): void
+    {
+        // Pre-create an event in database with known prices
+        \App\Models\Event::create([
+            'title' => 'Kāpa: Otrā daļa',
+            'slug' => 'kapa-otra-dala-price-test',
+            'start_at' => now()->addDays(2)->setTime(19, 0),
+            'source_external_id' => 'show_444008',
+            'price_min' => 4.50,
+            'price_max' => 8.20,
+            'status' => 'published',
+            'fingerprint' => 'test_fingerprint_price_444008',
+            'all_day' => false,
+            'is_free' => false,
+            'currency' => 'EUR',
+        ]);
+
+        $futureTime = now()->addDays(2)->setTime(19, 0)->format('Y-m-d\TH:i:s');
+        $futureEndTime = now()->addDays(2)->setTime(21, 46)->format('Y-m-d\TH:i:s');
+
+        $mockEventsXml = '<?xml version="1.0"?><Events><Event><ID>305000</ID><Title>Kāpa: Otrā daļa</Title></Event></Events>';
+        $mockScheduleXml = '<?xml version="1.0"?>
+        <Schedule>
+            <Shows>
+                <Show>
+                    <ID>444008</ID>
+                    <EventID>305000</EventID>
+                    <Title>Kāpa: Otrā daļa</Title>
+                    <dttmShowStart>' . $futureTime . '</dttmShowStart>
+                    <dttmShowEnd>' . $futureEndTime . '</dttmShowEnd>
+                    <TheatreID>1032</TheatreID>
+                    <Theatre>Forum Cinemas Centrs</Theatre>
+                    <ShowURL>http://www.forumcinemas.lv/websales/show/444008/</ShowURL>
+                </Show>
+            </Shows>
+        </Schedule>';
+
+        // NOTE: ONLY 2 responses provided (Events and Schedule). If scraper tried to make a 3rd HTTP call to fetch price, it would throw OutOfBoundsException!
+        $mock = new MockHandler([
+            new Response(200, ['Content-Type' => 'text/xml; charset=UTF-8'], $mockEventsXml),
+            new Response(200, ['Content-Type' => 'text/xml; charset=UTF-8'], $mockScheduleXml),
+        ]);
+
+        $client = new Client(['handler' => HandlerStack::create($mock)]);
+        $scraper = new ForumCinemasScraper();
+        $scraper->setClient($client);
+
+        $source = Source::firstOrCreate(
+            ['slug' => 'forum-cinemas'],
+            [
+                'name' => 'Forum Cinemas',
+                'url' => 'https://www.forumcinemas.lv',
+                'scraper_class' => ForumCinemasScraper::class,
+                'type' => 'venue',
+                'is_active' => true,
+            ]
+        );
+
+        $results = $scraper->scrape($source);
+        $this->assertCount(1, $results);
+        $dto = $results->first();
+
+        $this->assertEquals(4.50, $dto->priceMin);
+        $this->assertEquals(8.20, $dto->priceMax);
     }
 }
