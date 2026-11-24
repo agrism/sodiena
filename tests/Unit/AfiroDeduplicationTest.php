@@ -583,5 +583,80 @@ class AfiroDeduplicationTest extends TestCase
 
         $this->assertNull($sibling, 'Sibling finder must reject candidates with completely unrelated titles');
     }
+
+    public function test_cinema_movie_and_patriotic_concert_sharing_stem_zem_never_merge(): void
+    {
+        $sourceAfiro = Source::create([
+            'name' => 'Afiro Pasākumu API',
+            'slug' => 'afiro-api',
+            'type' => \App\Enums\SourceType::AGGREGATOR,
+            'url' => 'https://api.afiro.lv',
+            'scraper_class' => 'App\Services\Scrapers\Sources\AfiroApiScraper',
+            'is_active' => true,
+        ]);
+
+        $sourceLiveRiga = Source::create([
+            'name' => 'Live Riga',
+            'slug' => 'live-riga',
+            'type' => \App\Enums\SourceType::MUNICIPALITY,
+            'url' => 'https://www.liveriga.com',
+            'scraper_class' => 'App\Services\Scrapers\Sources\LiveRigaScraper',
+            'is_active' => true,
+        ]);
+
+        $ingestionService = app(EventIngestionService::class);
+
+        // 1. Hollywood movie in cinema on 2026-11-18 ("Skarbās zemes sirdī")
+        $dtoMovie = new ScrapedEventDTO(
+            title: 'Skarbās zemes sirdī',
+            startAt: Carbon::parse('2026-11-18 10:00:00'),
+            endAt: Carbon::parse('2026-11-18 22:00:00'),
+            description: 'Bijušais armijas specvienības virsnieks Džeimss Belmonts (Breds Pits) un viņa kaujas suns Odins.',
+            shortDescription: 'Breds Pits Aļaskā.',
+            venueName: 'Apollo Kino',
+            city: 'Rīga',
+            categoryNames: ['Kino'],
+            ticketUrl: 'https://www.apollokino.lv/event/304183/skarb%C4%81s_zemes_sird%C4%AB',
+            sourceExternalId: 'tb03pldcednnivq4l5fxwuc2',
+            locale: 'lv',
+        );
+
+        $res1 = $ingestionService->ingestDTO($dtoMovie, $sourceAfiro);
+        $this->assertEquals('created', $res1);
+        $this->assertEquals(1, Event::count());
+
+        // 2. Patriotic concert in Riga on same date 2026-11-18 ("Koncerts “Dievs, Tava zeme deg!”")
+        // Both share stem "zem" and same date 2026-11-18
+        $dtoConcert = new ScrapedEventDTO(
+            title: 'Koncerts “Dievs, Tava zeme deg!”',
+            startAt: Carbon::parse('2026-11-18 18:00:00'),
+            endAt: Carbon::parse('2026-11-18 20:00:00'),
+            description: 'Četru koru izpildījumā skanēs leģendārā Lūcijas Garūtas kantāte „Dievs, Tava zeme deg!”.',
+            shortDescription: 'Lūcijas Garūtas kantāte Rīgas Lutera baznīcā.',
+            venueName: 'Rīgas Lutera baznīca',
+            city: 'Rīga',
+            categoryNames: ['Mūzika'],
+            sourceUrl: 'https://www.liveriga.com/lv/apmekle/pasakumi/koncerti-klasika/koncerts-dievs-tava-zeme-deg',
+            sourceExternalId: 'liveriga-koncerts-dievs-tava-zeme-deg-2026-11-18',
+            locale: 'lv',
+        );
+
+        $res2 = $ingestionService->ingestDTO($dtoConcert, $sourceLiveRiga);
+        $this->assertEquals('created', $res2, 'Cinema movie and choir concert must NEVER merge even if sharing stem "zem" on same date');
+        $this->assertEquals(2, Event::count());
+
+        // Verify movie remained clean
+        $movie = Event::where('source_external_id', 'tb03pldcednnivq4l5fxwuc2')->first();
+        $this->assertEquals('Skarbās zemes sirdī', $movie->title);
+        $this->assertStringContainsString('Breds Pits', $movie->description);
+        $this->assertStringNotContainsString('Lūcijas Garūtas', $movie->description);
+        $this->assertStringNotContainsString('dievs-tava-zeme-deg', $movie->source_url ?? '');
+
+        // Verify concert was created cleanly
+        $concert = Event::where('source_external_id', 'liveriga-koncerts-dievs-tava-zeme-deg-2026-11-18')->first();
+        $this->assertEquals('Koncerts “Dievs, Tava zeme deg!”', $concert->title);
+        $this->assertStringContainsString('Lūcijas Garūtas kantāte', $concert->description);
+        $this->assertEquals('https://www.liveriga.com/lv/apmekle/pasakumi/koncerti-klasika/koncerts-dievs-tava-zeme-deg', $concert->source_url);
+    }
 }
 
