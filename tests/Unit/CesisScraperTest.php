@@ -216,6 +216,8 @@ class CesisScraperTest extends TestCase
     {
         $upcomingDate = \Carbon\Carbon::today('Europe/Riga')->addDays(3)->format('d.m.Y');
         $expectedStart = \Carbon\Carbon::today('Europe/Riga')->addDays(3)->format('Y-m-d') . ' 17:00:00';
+        $upcomingDate2 = \Carbon\Carbon::today('Europe/Riga')->addDays(5)->format('d.m.Y');
+        $expectedStart2 = \Carbon\Carbon::today('Europe/Riga')->addDays(5)->format('Y-m-d') . ' 19:00:00';
         $mockHtml = <<<HTML
 <!DOCTYPE html>
 <html lang="lv">
@@ -242,7 +244,7 @@ class CesisScraperTest extends TestCase
             <div class="col-md-1 col-sm-1 col-xs-6 buy-wrap"><a target="_blank" href="https://www.bilesuparadize.lv/lv/event/170001" class="buy-button">Pirkt</a></div>
         </div>
         <div class="row results-event">
-            <div class="col-md-1 col-sm-2 col-xs-4"><span class="date">20.11.2026</span></div>
+            <div class="col-md-1 col-sm-2 col-xs-4"><span class="date">{$upcomingDate2}</span></div>
             <div class="col-md-1 col-sm-1 col-xs-6"><span class="time">19:00</span></div>
             <div class="col-md-5 col-sm-4 col-xs-12"><a class="title" href="https://pasakumi.cesis.lv/pasakums/filma-tumsas-robeza/">Režisora Andreja Ēķa filma “Tumšā robeža”</a></div>
             <div class="col-md-3 col-sm-3 col-xs-12"><span class="location">Picērija "Muiža"</span></div>
@@ -299,7 +301,7 @@ HTML;
         $this->assertEquals('cesis-filma-tumsas-robeza', $dto2->sourceExternalId);
         $this->assertEquals('Picērija "Muiža"', $dto2->venueName);
         $this->assertEquals('Cēsis', $dto2->city);
-        $this->assertEquals('2026-11-20 19:00:00', $dto2->startAt->format('Y-m-d H:i:s'));
+        $this->assertEquals($expectedStart2, $dto2->startAt->format('Y-m-d H:i:s'));
         $this->assertEquals(['Kino'], $dto2->categoryNames);
         $this->assertEquals('movie', $dto2->entertainmentType);
         $this->assertTrue($dto2->isFree);

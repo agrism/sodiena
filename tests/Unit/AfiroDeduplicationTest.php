@@ -326,5 +326,262 @@ class AfiroDeduplicationTest extends TestCase
         // Merged external ID recorded
         $this->assertEquals('afiro-odiseja-999', $event->raw_data['merged_external_ids']['afiro-api'] ?? null);
     }
+
+    public function test_cinema_session_never_merges_with_multiday_exhibition_on_same_end_date(): void
+    {
+        $sourceLiveRiga = Source::create([
+            'name' => 'Live Riga',
+            'slug' => 'live-riga',
+            'type' => \App\Enums\SourceType::MUNICIPALITY,
+            'url' => 'https://www.liveriga.com',
+            'scraper_class' => 'App\Services\Scrapers\Sources\LiveRigaScraper',
+            'is_active' => true,
+        ]);
+
+        $sourceApollo = Source::create([
+            'name' => 'Apollo Kino',
+            'slug' => 'apollo-kino',
+            'type' => \App\Enums\SourceType::VENUE,
+            'url' => 'https://www.apollokino.lv',
+            'scraper_class' => 'App\Services\Scrapers\Sources\ApolloKinoScraper',
+            'is_active' => true,
+        ]);
+
+        $ingestionService = app(EventIngestionService::class);
+
+        // 1. Multi-day art exhibition ending 2026-11-27 (contains word "zemē")
+        $dtoExhibition = new ScrapedEventDTO(
+            title: 'Mākslinieka Denija Berkovska izstāde "Svētā Iļa piedzīvojumi bērnu sapņu zemē"',
+            startAt: Carbon::parse('2026-09-24 10:00:00'),
+            endAt: Carbon::parse('2026-11-27 23:59:59'),
+            description: 'Mākslas izstāde par bērnības atmiņām galerijā MuseumLV.',
+            venueName: 'Mākslas galerija MuseumLV',
+            city: 'Rīga',
+            categoryNames: ['Cits'],
+            sourceUrl: 'https://www.liveriga.com/lv/apmekle/pasakumi/makslas-izstades-ekspozicijas/makslinieka-denija-berkovska-izstade',
+            sourceExternalId: 'liveriga-berkovskis-2026-09-24',
+            locale: 'lv',
+        );
+
+        $res1 = $ingestionService->ingestDTO($dtoExhibition, $sourceLiveRiga);
+        $this->assertEquals('created', $res1);
+        $this->assertEquals(1, Event::count());
+
+        // 2. Hollywood movie in Apollo Kino Domina on 2026-11-27 (contains word "zemes")
+        $dtoMovie = new ScrapedEventDTO(
+            title: 'Skarbās zemes sirdī',
+            startAt: Carbon::parse('2026-11-27 11:15:00'),
+            endAt: Carbon::parse('2026-11-27 13:15:00'),
+            description: 'Bijušais armijas specvienības virsnieks Džeimss Belmonts (Breds Pits) avarē Aļaskā.',
+            shortDescription: 'Breds Pits Aļaskas mežonīgajos plašumos.',
+            venueName: 'Apollo Kino Domina',
+            city: 'Rīga',
+            categoryNames: ['Kino'],
+            ticketUrl: 'https://www.apollokino.lv/websales/show/535311',
+            sourceUrl: 'https://www.apollokino.lv/event/304183/skarbas-zemes-sirdi',
+            sourceExternalId: 'apollo-show-535311',
+            locale: 'lv',
+        );
+
+        $res2 = $ingestionService->ingestDTO($dtoMovie, $sourceApollo);
+        $this->assertEquals('created', $res2, 'Cinema movie session must NOT merge with multi-day art exhibition');
+        $this->assertEquals(2, Event::count());
+
+        // Verify exhibition remains unchanged
+        $exhibition = Event::where('source_external_id', 'liveriga-berkovskis-2026-09-24')->first();
+        $this->assertNotNull($exhibition);
+        $this->assertStringContainsString('Denija Berkovska izstāde', $exhibition->title);
+        $this->assertStringContainsString('MuseumLV', $exhibition->description);
+
+        // Verify movie is created cleanly with correct title, description, and category
+        $movie = Event::where('source_external_id', 'apollo-show-535311')->first();
+        $this->assertNotNull($movie);
+        $this->assertEquals('Skarbās zemes sirdī', $movie->title);
+        $this->assertStringContainsString('Breds Pits', $movie->description);
+        $this->assertEquals('kino', $movie->categories->first()->slug);
+    }
+
+    public function test_generic_stem_on_same_end_date_does_not_merge_unrelated_events(): void
+    {
+        $sourceLiveRiga = Source::create([
+            'name' => 'Live Riga',
+            'slug' => 'live-riga',
+            'type' => \App\Enums\SourceType::MUNICIPALITY,
+            'url' => 'https://www.liveriga.com',
+            'scraper_class' => 'App\Services\Scrapers\Sources\LiveRigaScraper',
+            'is_active' => true,
+        ]);
+
+        $sourceBezRindas = Source::create([
+            'name' => 'BezRindas.lv',
+            'slug' => 'bezrindas',
+            'type' => \App\Enums\SourceType::TICKETING,
+            'url' => 'https://www.bezrindas.lv',
+            'scraper_class' => 'App\Services\Scrapers\Sources\BezRindasScraper',
+            'is_active' => true,
+        ]);
+
+        $ingestionService = app(EventIngestionService::class);
+
+        // 1. Art exhibition ending 2026-11-27 (starts in September)
+        $dtoExhibition = new ScrapedEventDTO(
+            title: 'Mākslinieka Denija Berkovska personālizstāde',
+            startAt: Carbon::parse('2026-09-24 10:00:00'),
+            endAt: Carbon::parse('2026-11-27 18:00:00'),
+            description: 'Mākslas izstāde par bērnības atmiņām.',
+            venueName: 'Mākslas galerija MuseumLV',
+            city: 'Rīga',
+            categoryNames: ['Cits'],
+            sourceUrl: 'https://www.liveriga.com/lv/izstade-1',
+            sourceExternalId: 'lr-exhibition-1',
+            locale: 'lv',
+        );
+
+        $res1 = $ingestionService->ingestDTO($dtoExhibition, $sourceLiveRiga);
+        $this->assertEquals('created', $res1);
+
+        // 2. Metalworking trade fair ending 2026-11-27 (starts 2026-11-26) - both contain word "izstāde"
+        $dtoTech = new ScrapedEventDTO(
+            title: 'Starptautiskā rūpnieciskās ražošanas izstāde "Tech Industry 2026"',
+            startAt: Carbon::parse('2026-11-26 10:00:00'),
+            endAt: Carbon::parse('2026-11-27 18:00:00'),
+            description: 'Metālapstrādes un mašīnbūves izstāde Ķīpsalā.',
+            venueName: 'Starptautiskais izstāžu centrs Ķīpsala',
+            city: 'Rīga',
+            categoryNames: ['Cits'],
+            ticketUrl: 'https://www.bezrindas.lv/lv/tech-industry-2026/16330/',
+            sourceUrl: 'https://www.bezrindas.lv/lv/tech-industry-2026/16330/',
+            sourceExternalId: 'bezrindas-16330-97875',
+            locale: 'lv',
+        );
+
+        $res2 = $ingestionService->ingestDTO($dtoTech, $sourceBezRindas);
+        $this->assertEquals('created', $res2, 'Unrelated events sharing only generic stem "izstāde" must NOT merge');
+        $this->assertEquals(2, Event::count());
+    }
+
+    public function test_afiro_external_id_preserved_when_promoted_by_municipality(): void
+    {
+        $sourceAfiro = Source::create([
+            'name' => 'Afiro Pasākumu API',
+            'slug' => 'afiro-api',
+            'type' => \App\Enums\SourceType::AGGREGATOR,
+            'url' => 'https://api.afiro.lv',
+            'scraper_class' => 'App\Services\Scrapers\Sources\AfiroApiScraper',
+            'is_active' => true,
+        ]);
+
+        $sourceLiveRiga = Source::create([
+            'name' => 'Live Riga',
+            'slug' => 'live-riga',
+            'type' => \App\Enums\SourceType::MUNICIPALITY,
+            'url' => 'https://www.liveriga.com',
+            'scraper_class' => 'App\Services\Scrapers\Sources\LiveRigaScraper',
+            'is_active' => true,
+        ]);
+
+        $ingestionService = app(EventIngestionService::class);
+
+        // 1. Event created by Afiro
+        $dtoAfiro1 = new ScrapedEventDTO(
+            title: 'Mākslinieka izstāde Galerijā',
+            startAt: Carbon::parse('2026-12-01 10:00:00'),
+            endAt: Carbon::parse('2026-12-15 18:00:00'),
+            description: 'Sākotnējais Afiro apraksts.',
+            venueName: 'Galerija Rīgā',
+            city: 'Rīga',
+            sourceExternalId: 'du2kpgmf02uibjw34s9yrkfl',
+            locale: 'lv',
+        );
+
+        $res1 = $ingestionService->ingestDTO($dtoAfiro1, $sourceAfiro);
+        $this->assertEquals('created', $res1);
+        $this->assertEquals(1, Event::count());
+
+        // 2. Municipality (Live Riga) updates it and becomes authoritative
+        $dtoLiveRiga = new ScrapedEventDTO(
+            title: 'Mākslinieka izstāde Galerijā',
+            startAt: Carbon::parse('2026-12-01 10:00:00'),
+            endAt: Carbon::parse('2026-12-15 18:00:00'),
+            description: 'Paplašināts Live Riga apraksts.',
+            venueName: 'Galerija Rīgā',
+            city: 'Rīga',
+            sourceUrl: 'https://www.liveriga.com/lv/izstade-galerija',
+            sourceExternalId: 'liveriga-izstade-galerija-2026-12-01',
+            locale: 'lv',
+        );
+
+        $res2 = $ingestionService->ingestDTO($dtoLiveRiga, $sourceLiveRiga);
+        $this->assertEquals('updated', $res2);
+        $this->assertEquals(1, Event::count());
+
+        $event = Event::first();
+        $this->assertEquals('live-riga', $event->source_slug);
+        // Verify Afiro ID was preserved in merged_external_ids
+        $this->assertEquals('du2kpgmf02uibjw34s9yrkfl', $event->raw_data['merged_external_ids']['afiro-api'] ?? null);
+
+        // 3. Afiro scraper runs again with same Afiro ID: MUST NOT create duplicate!
+        $dtoAfiro2 = new ScrapedEventDTO(
+            title: 'Mākslinieka izstāde Galerijā',
+            startAt: Carbon::parse('2026-12-01 10:00:00'),
+            endAt: Carbon::parse('2026-12-15 18:00:00'),
+            description: 'Atjaunināts Afiro apraksts.',
+            venueName: 'Galerija Rīgā',
+            city: 'Rīga',
+            sourceExternalId: 'du2kpgmf02uibjw34s9yrkfl',
+            locale: 'lv',
+        );
+
+        $res3 = $ingestionService->ingestDTO($dtoAfiro2, $sourceAfiro);
+        $this->assertEquals('deduplicated', $res3);
+        $this->assertEquals(1, Event::count(), 'Afiro must find the event via merged_external_ids and avoid duplicate creation');
+    }
+
+    public function test_find_sibling_with_translations_guards_against_unrelated_titles(): void
+    {
+        $source = Source::create([
+            'name' => 'Live Riga',
+            'slug' => 'live-riga',
+            'type' => \App\Enums\SourceType::MUNICIPALITY,
+            'url' => 'https://www.liveriga.com',
+            'scraper_class' => 'App\Services\Scrapers\Sources\LiveRigaScraper',
+            'is_active' => true,
+        ]);
+
+        // Event A: Exhibition
+        $eventA = Event::create([
+            'title' => 'Mākslinieka Denija Berkovska personālizstāde',
+            'slug' => 'makslinieka-denija-berkovska-personalizstade-abc123',
+            'source_id' => $source->id,
+            'source_slug' => $source->slug,
+            'source_external_id' => 'du2kpgmf02uibjw34s9yrkfl',
+            'start_at' => Carbon::parse('2026-11-20 10:00:00'),
+            'description' => 'Apraksts par izstādi.',
+        ]);
+
+        \App\Models\EventTranslation::create([
+            'event_id' => $eventA->id,
+            'locale' => 'lv',
+            'title' => $eventA->title,
+            'slug' => 'makslinieka-denija-berkovska-personalizstade-lv1234',
+            'description' => 'Apraksts par izstādi.',
+        ]);
+
+        // Event B: Completely unrelated event (e.g. cinema movie) that somehow shares same external id
+        $eventB = Event::create([
+            'title' => 'Skarbās zemes sirdī',
+            'slug' => 'skarbas-zemes-sirdi-xyz789',
+            'source_id' => $source->id,
+            'source_slug' => $source->slug,
+            'source_external_id' => 'du2kpgmf02uibjw34s9yrkfl',
+            'start_at' => Carbon::parse('2026-11-27 11:15:00'),
+            'description' => '',
+        ]);
+
+        $ingestionService = app(EventIngestionService::class);
+        $sibling = $ingestionService->findSiblingWithTranslations($eventB);
+
+        $this->assertNull($sibling, 'Sibling finder must reject candidates with completely unrelated titles');
+    }
 }
 

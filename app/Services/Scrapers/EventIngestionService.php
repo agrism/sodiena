@@ -407,9 +407,27 @@ class EventIngestionService
                         $q->where(function ($sq) use ($source, $dto) {
                             $sq->where('source_id', $source->id)
                                ->where('source_external_id', $dto->sourceExternalId);
-                        })->orWhere("raw_data->merged_external_ids->{$source->slug}", $dto->sourceExternalId);
+                        })
+                        ->orWhere("raw_data->merged_external_ids->{$source->slug}", $dto->sourceExternalId)
+                        ->orWhere(function ($sq) use ($source, $dto) {
+                            $sq->where('source_external_id', $dto->sourceExternalId)
+                               ->where(function ($sub) use ($source) {
+                                   $sub->where('source_slug', $source->slug)
+                                       ->orWhere('raw_data->original_source_slug', $source->slug);
+                               });
+                        });
                     })
                     ->first();
+
+                // If not found yet and source is Afiro API (where external IDs are unique 24-char alphanumeric strings):
+                if (!$existingEvent && $source->slug === 'afiro-api' && strlen($dto->sourceExternalId) === 24 && ctype_alnum($dto->sourceExternalId)) {
+                    $legacyAfiroEvent = Event::withTrashed()
+                        ->where('source_external_id', $dto->sourceExternalId)
+                        ->first();
+                    if ($legacyAfiroEvent) {
+                        $existingEvent = $legacyAfiroEvent;
+                    }
+                }
             }
 
             if (!$existingEvent) {
@@ -585,8 +603,28 @@ class EventIngestionService
                         }
                     }
 
+                    // 2.5. Cinema and Category Guard:
+                    // A cinema screening / movie can NEVER fuzzy-match a non-cinema event (e.g. exhibition, concert, festival, seminar)
+                    $candIsCinema = self::isCinemaEvent($candidate->title, $candidate->location?->name, $candidate->categories->pluck('name')->all());
+                    $dtoIsCinema = self::isCinemaEvent($dto->title, $dto->venueName, $dto->categoryNames);
+                    if ($candIsCinema !== $dtoIsCinema) {
+                        continue;
+                    }
+
                     $isCandidateMultiDay = $candidate->end_at && $candidate->start_at && $candidate->start_at->toDateString() !== $candidate->end_at->toDateString();
                     $isDtoMultiDay = $dto->endAt && $dto->startAt && $dto->startAt->toDateString() !== $dto->endAt->toDateString();
+
+                    // Multi-day exhibition/festival vs Single-day session guard:
+                    // A single-day event / session (duration <= 24h) cannot fuzzy-match an extended multi-day event (running > 2 days)
+                    $candDays = ($candidate->start_at && $candidate->end_at) ? $candidate->start_at->diffInDays($candidate->end_at) : 0;
+                    $dtoDays = ($dto->startAt && $dto->endAt) ? $dto->startAt->diffInDays($dto->endAt) : 0;
+                    if (($candDays >= 2 && $dtoDays == 0) || ($dtoDays >= 2 && $candDays == 0)) {
+                        similar_text(mb_strtolower($candidate->title, 'UTF-8'), mb_strtolower($dto->title, 'UTF-8'), $formatTitleSim);
+                        $sameLoc = (!empty($locationId) && $candidate->location_id && $locationId === $candidate->location_id);
+                        if (!($formatTitleSim >= 85 && $sameLoc)) {
+                            continue;
+                        }
+                    }
 
                     // If both are single-day sessions with specific start times that differ by >= 45 min, they are distinct sessions
                     if (!$isCandidateMultiDay && !$isDtoMultiDay && $candidate->start_at && $dto->startAt) {
@@ -937,9 +975,17 @@ class EventIngestionService
                         }
                     }
 
-                    // 6. Same date range (start_at + end_at) with at least 1 significant stem matching
-                    if ($dto->endAt && $candidate->end_at && $dto->endAt->toDateString() === $candidate->end_at->toDateString()) {
-                        if (count($commonStems) >= 1) {
+                    // 6. Same date range: BOTH start_at and end_at must match, same format (multi-day or single-day), and share multiple or non-generic stems
+                    if ($dto->startAt && $candidate->start_at && $dto->endAt && $candidate->end_at &&
+                        $dto->startAt->toDateString() === $candidate->start_at->toDateString() &&
+                        $dto->endAt->toDateString() === $candidate->end_at->toDateString() &&
+                        $isCandidateMultiDay === $isDtoMultiDay
+                    ) {
+                        $genericStems = ['izstād', 'festivāl', 'koncert', 'pasākum', 'dien', 'svētk', 'spēl', 'teātr', 'rīg', 'latvij', 'zem', 'sezon', 'gads', 'atklāšan', 'noslēgum'];
+                        $nonGenericCommon = array_diff($commonStems, $genericStems);
+                        $sameLoc = (!empty($locationId) && $candidate->location_id && $locationId === $candidate->location_id);
+
+                        if (count($nonGenericCommon) >= 2 || (count($nonGenericCommon) >= 1 && ($sameLoc || ($percent ?? 0) >= 60 || ($normPercent ?? 0) >= 60))) {
                             $existingEvent = $candidate;
                             break;
                         }
@@ -1060,8 +1106,15 @@ class EventIngestionService
 
                 $shouldAdoptAuthoritativeSource = ($dtoSourceType->priority() > $existingSourceType->priority());
 
-                $finalDescription = self::mergeDescriptions($existingEvent->description, $dto->description);
-                $finalShortDesc = ($shouldAdoptAuthoritativeSource || ($existingEvent->source_id === $source->id && !empty($dto->shortDescription)))
+                $isTitleRadicallyDifferent = false;
+                if (!empty($finalTitle) && !empty($existingEvent->title)) {
+                    similar_text(mb_strtolower($finalTitle, 'UTF-8'), mb_strtolower($existingEvent->title, 'UTF-8'), $tSim);
+                    $isTitleRadicallyDifferent = ($tSim < 50);
+                }
+
+                $preferNewDesc = ($shouldAdoptAuthoritativeSource || $isTitleRadicallyDifferent) && !empty($dto->description);
+                $finalDescription = self::mergeDescriptions($existingEvent->description, $dto->description, $preferNewDesc);
+                $finalShortDesc = ($preferNewDesc || ($existingEvent->source_id === $source->id && !empty($dto->shortDescription)))
                     ? ($dto->shortDescription ?: $existingEvent->short_description)
                     : ($existingEvent->short_description ?: $dto->shortDescription);
 
@@ -1071,20 +1124,27 @@ class EventIngestionService
                 }
 
                 $mergedRaw = array_merge($existingEvent->raw_data ?? [], $dto->rawData);
-                if ($dto->sourceExternalId) {
-                    $mergedIds = $mergedRaw['merged_external_ids'] ?? [];
-                    $mergedIds[$source->slug] = $dto->sourceExternalId;
-                    $mergedRaw['merged_external_ids'] = $mergedIds;
+                $mergedIds = $mergedRaw['merged_external_ids'] ?? [];
+                if ($existingEvent->source_slug && $existingEvent->source_external_id) {
+                    $mergedIds[$existingEvent->source_slug] = $existingEvent->source_external_id;
                 }
+                if ($source->slug && $dto->sourceExternalId) {
+                    $mergedIds[$source->slug] = $dto->sourceExternalId;
+                }
+                $mergedRaw['merged_external_ids'] = $mergedIds;
 
                 $finalStartAt = $existingEvent->start_at;
                 $finalEndAt = $existingEvent->end_at;
+
+                $isPostponed = str_contains(mb_strtolower($dto->description ?? '', 'UTF-8'), 'pārcelt') ||
+                    str_contains(mb_strtolower($existingEvent->description ?? '', 'UTF-8'), 'pārcelt') ||
+                    ($dto->rawData['is_postponed'] ?? false);
 
                 if ($dto->startAt) {
                     if (empty($finalStartAt)) {
                         $finalStartAt = $dto->startAt;
                         $finalEndAt = $dto->endAt ?: $finalEndAt;
-                    } elseif ($shouldAdoptAuthoritativeSource) {
+                    } elseif ($shouldAdoptAuthoritativeSource || $isPostponed) {
                         $finalStartAt = $dto->startAt;
                         $finalEndAt = $dto->endAt ?: $finalEndAt;
                     } elseif ($existingEvent->source_id === $source->id) {
@@ -1097,6 +1157,7 @@ class EventIngestionService
                 $updateData = [
                     'source_id' => $shouldAdoptAuthoritativeSource ? $source->id : ($existingEvent->source_id ?: $source->id),
                     'source_slug' => $shouldAdoptAuthoritativeSource ? $source->slug : ($existingEvent->source_slug ?: $source->slug),
+                    'source_external_id' => $shouldAdoptAuthoritativeSource ? ($dto->sourceExternalId ?: $existingEvent->source_external_id) : ($existingEvent->source_external_id ?: $dto->sourceExternalId),
                     'source_url' => $finalSourceUrl,
                     'location_id' => $finalLocationId,
                     'start_at' => $finalStartAt,
@@ -1186,6 +1247,7 @@ class EventIngestionService
             }
 
             $initialRawData = $dto->rawData;
+            $initialRawData['original_source_slug'] = $source->slug;
             if ($dto->sourceExternalId) {
                 $initialRawData['merged_external_ids'] = [
                     $source->slug => $dto->sourceExternalId,
@@ -1680,8 +1742,23 @@ class EventIngestionService
                 ->get()
                 ->sortByDesc(fn ($c) => $this->calculateCandidateQualityScore($c));
 
-            $topTicket = $ticketCandidates->first();
-            if ($topTicket && $this->calculateCandidateQualityScore($topTicket) >= 10.0) {
+            $topTicket = $ticketCandidates->first(function ($cand) use ($event) {
+                if ($this->calculateCandidateQualityScore($cand) < 10.0) {
+                    return false;
+                }
+                // Verify basic title compatibility so an unrelated event with a colliding URL/external ID never injects its description
+                similar_text(mb_strtolower($cand->title, 'UTF-8'), mb_strtolower($event->title, 'UTF-8'), $siblingTitleSim);
+                if ($siblingTitleSim >= 50) {
+                    return true;
+                }
+                $targetStems = $this->getLatvianWordStems($event->title);
+                $candStems = $this->getLatvianWordStems($cand->title);
+                $common = array_intersect($targetStems, $candStems);
+                $genericStems = ['izstād', 'festivāl', 'koncert', 'pasākum', 'dien', 'svētk', 'spēl', 'teātr', 'rīg', 'latvij', 'zem', 'sezon', 'gads'];
+                $nonGeneric = array_diff($common, $genericStems);
+                return count($nonGeneric) >= 1 || count($common) >= 2;
+            });
+            if ($topTicket) {
                 return $topTicket;
             }
         }
@@ -1957,7 +2034,7 @@ class EventIngestionService
             || str_contains($clean, 'meistarsacīkst') || str_contains($clean, 'meistarsacikst');
     }
 
-    public static function mergeDescriptions(?string $existingDesc, ?string $newDesc): ?string
+    public static function mergeDescriptions(?string $existingDesc, ?string $newDesc, bool $preferNew = false): ?string
     {
         $d1 = trim((string) $existingDesc);
         $d2 = trim((string) $newDesc);
@@ -1966,8 +2043,13 @@ class EventIngestionService
         if (empty($d2)) return $d1 ?: null;
         if ($d1 === $d2) return $d1;
 
-        $baseDesc = (mb_strlen($d1, 'UTF-8') >= mb_strlen($d2, 'UTF-8')) ? $d1 : $d2;
-        $addonDesc = ($baseDesc === $d1) ? $d2 : $d1;
+        if ($preferNew) {
+            $baseDesc = $d2;
+            $addonDesc = $d1;
+        } else {
+            $baseDesc = (mb_strlen($d1, 'UTF-8') >= mb_strlen($d2, 'UTF-8')) ? $d1 : $d2;
+            $addonDesc = ($baseDesc === $d1) ? $d2 : $d1;
+        }
 
         $lines = explode("\n", $addonDesc);
         $uniqueAddons = [];
