@@ -117,8 +117,8 @@ class AfiroApiScraper extends BaseScraper
         $extractedUrls = $this->extractRealUrls($description, $item);
 
         // Filter out floorball league calendar stubs (FloorballLvScraper handles actual matches directly from floorball.lv)
-        $titleLower = mb_strtolower($title);
-        $descLower = mb_strtolower($description);
+        $titleLower = mb_strtolower($title, 'UTF-8');
+        $descLower = mb_strtolower($description, 'UTF-8');
         $sourceLower = strtolower($extractedUrls['sourceUrl'] ?? '');
         $ticketLower = strtolower($extractedUrls['ticketUrl'] ?? '');
 
@@ -128,6 +128,51 @@ class AfiroApiScraper extends BaseScraper
             str_contains($ticketLower, 'floorball.lv') ||
             preg_match('/\b(?:florbola\s+čempionāts|elvi\s+florbola|latvijas\s+florbola)\b/ui', $titleLower)
         ) {
+            return null;
+        }
+
+        // Filter out multiplex cinema stubs (ApolloKinoScraper and ForumCinemasScraper handle all shows directly with exact schedules, halls and prices)
+        $isCinema = EventIngestionService::isCinemaEvent($title, $venueName, $categories) ||
+            in_array('kino', $categories, true) ||
+            in_array('cinema', $item['categories'] ?? [], true) ||
+            in_array('movies', $item['categories'] ?? [], true) ||
+            preg_match('/\b(?:filma|filmas|filmā|kinoseanss|kinoteātr|kinofestivāls|animācijas\s+filma|dokumentālā\s+filma|spēlfilma)\b/ui', $titleLower . ' ' . $descLower);
+
+        $multiplexDomains = ['apollokino.lv', 'forumcinemas.lv'];
+        $hasApolloOrForum = false;
+
+        foreach ($multiplexDomains as $domain) {
+            if (str_contains($sourceLower, $domain) || str_contains($ticketLower, $domain)) {
+                $hasApolloOrForum = true;
+                break;
+            }
+        }
+
+        if (!$hasApolloOrForum && !empty($item['cta']['links']) && is_array($item['cta']['links'])) {
+            foreach ($item['cta']['links'] as $ctaLink) {
+                $linkUrl = strtolower($ctaLink['url'] ?? '');
+                foreach ($multiplexDomains as $domain) {
+                    if (str_contains($linkUrl, $domain)) {
+                        $hasApolloOrForum = true;
+                        break 2;
+                    }
+                }
+            }
+        }
+
+        $organizerName = mb_strtolower($item['organizer']['name'] ?? $item['user']['fullName'] ?? '', 'UTF-8');
+        if (!$hasApolloOrForum) {
+            if (str_contains($organizerName, 'apollo kino') || str_contains($organizerName, 'forum cinemas')) {
+                $hasApolloOrForum = true;
+            }
+        }
+
+        if (!$hasApolloOrForum && (str_contains($descLower, 'apollokino.lv') || str_contains($descLower, 'forumcinemas.lv'))) {
+            $hasApolloOrForum = true;
+        }
+
+        if ($isCinema && $hasApolloOrForum) {
+            Log::info("Skipping Afiro multiplex cinema stub for '{$title}' (covered by dedicated cinema scraper)");
             return null;
         }
 
@@ -162,15 +207,13 @@ class AfiroApiScraper extends BaseScraper
                 'cta' => $item['cta'] ?? null,
                 'organizer' => $item['organizer'] ?? null,
                 'contacts' => $item['contacts'] ?? [],
+                'ticket_links' => $extractedUrls['ticketLinks'] ?? [],
             ])
         );
     }
 
     private function extractRealUrls(string $description, array $item): array
     {
-        $textToSearch = $description . ' ' . ($item['location']['onlineUrl'] ?? '') . ' ' . json_encode($item['slots'] ?? []) . ' ' . json_encode($item['cta'] ?? []) . ' ' . json_encode($item['contacts'] ?? []) . ' ' . json_encode($item['organizer'] ?? []);
-        preg_match_all('/https?:\/\/[^\s\)\"\'<>]+/i', $textToSearch, $matches);
-
         $ticketPlatforms = [
             'bilesuparadize.lv', 'bilesuserviss.lv', 'bezrindas.lv', 'ticketshop.lv',
             'aula.lv', 'fienta.com', 'apollokino.lv', 'forumcinemas.lv', 'splendidpalace.lv',
@@ -178,31 +221,107 @@ class AfiroApiScraper extends BaseScraper
             'forms.gle', 'docs.google.com/forms', 'tally.so', 'distantrace.com', 'play.fiba3x3.com', 'cuescore.com'
         ];
 
-        $foundTicket = null;
-        $foundOfficial = null;
+        // 1. Collect candidate URLs in order of priority:
+        // First: CTA links (explicit user actions chosen by event creator)
+        $rawCandidateUrls = [];
+        $ticketLinks = [];
 
+        if (!empty($item['cta']['links']) && is_array($item['cta']['links'])) {
+            foreach ($item['cta']['links'] as $link) {
+                if (!empty($link['url']) && is_string($link['url'])) {
+                    $rawCandidateUrls[] = [
+                        'url' => trim($link['url']),
+                        'title' => $link['title'] ?? null,
+                        'is_cta' => true,
+                    ];
+                }
+            }
+        }
+
+        // Second: onlineUrl
+        if (!empty($item['location']['onlineUrl'])) {
+            $rawCandidateUrls[] = [
+                'url' => trim($item['location']['onlineUrl']),
+                'title' => null,
+                'is_cta' => false,
+            ];
+        }
+
+        // Third: URLs from description and other text
+        $textToSearch = $description . ' ' . json_encode($item['slots'] ?? []) . ' ' . json_encode($item['contacts'] ?? []) . ' ' . json_encode($item['organizer'] ?? []);
+        preg_match_all('/https?:\/\/[^\s\)\"\'<>]+/i', $textToSearch, $matches);
         foreach ($matches[0] as $rawUrl) {
+            $rawCandidateUrls[] = [
+                'url' => $rawUrl,
+                'title' => null,
+                'is_cta' => false,
+            ];
+        }
+
+        $allTicketUrls = [];
+        $neutralOfficialUrls = [];
+
+        foreach ($rawCandidateUrls as $candidate) {
+            $rawUrl = $candidate['url'];
             $cleanUrl = EventIngestionService::canonicalizeTicketUrl($rawUrl) ?? rtrim($rawUrl, '?&.,;:\'\"');
 
-            if (str_contains($cleanUrl, 'afiro.lv') || str_contains($cleanUrl, 'imagekit.io')) {
+            if (empty($cleanUrl) || str_contains($cleanUrl, 'afiro.lv') || str_contains($cleanUrl, 'imagekit.io')) {
                 continue;
             }
 
+            if (str_contains($cleanUrl, 'youtube.com') || str_contains($cleanUrl, 'youtu.be') || str_contains($cleanUrl, 'tiktok.com')) {
+                continue;
+            }
+
+            $matchedPlatform = null;
             foreach ($ticketPlatforms as $platform) {
                 if (str_contains($cleanUrl, $platform)) {
-                    $foundTicket = EventIngestionService::canonicalizeTicketUrl($cleanUrl) ?: $cleanUrl;
+                    $matchedPlatform = $platform;
                     break;
                 }
             }
 
-            if (!$foundOfficial && !str_contains($cleanUrl, 'youtube.com') && !str_contains($cleanUrl, 'youtu.be') && !str_contains($cleanUrl, 'tiktok.com')) {
-                $foundOfficial = $cleanUrl;
+            if ($matchedPlatform) {
+                $canonicalTicket = EventIngestionService::canonicalizeTicketUrl($cleanUrl) ?: $cleanUrl;
+                if (!in_array($canonicalTicket, array_column($allTicketUrls, 'url'), true)) {
+                    $allTicketUrls[] = [
+                        'url' => $canonicalTicket,
+                        'platform' => $matchedPlatform,
+                        'title' => $candidate['title'],
+                    ];
+                    $ticketLinks[] = [
+                        'url' => $canonicalTicket,
+                        'title' => $candidate['title'] ?? $matchedPlatform,
+                    ];
+                }
+            } else {
+                if (!in_array($cleanUrl, $neutralOfficialUrls, true)) {
+                    $neutralOfficialUrls[] = $cleanUrl;
+                }
             }
+        }
+
+        $foundTicket = null;
+        $foundOfficial = null;
+
+        if (!empty($allTicketUrls)) {
+            // First ticket link in priority order
+            $primaryTicket = $allTicketUrls[0];
+            $foundTicket = $primaryTicket['url'];
+
+            // For official source URL:
+            // If there's a neutral official site (e.g. liveriga.com, festival homepage), use it.
+            // If not, or if all candidates are ticketing platforms, sourceUrl MUST be from the SAME platform as ticketUrl.
+            // NEVER pair competing ticketing/cinema platforms (e.g. Apollo Kino ticket with Forum Cinemas source)!
+            $foundOfficial = $neutralOfficialUrls[0] ?? $foundTicket;
+        } else {
+            $foundOfficial = $neutralOfficialUrls[0] ?? null;
         }
 
         return [
             'ticketUrl' => $foundTicket ?: null,
             'sourceUrl' => $foundOfficial ?: ($foundTicket ?: null),
+            'ticketLinks' => $ticketLinks,
         ];
     }
 

@@ -416,12 +416,13 @@ class EventIngestionService
                 $existingEvent = Event::withTrashed()->where('fingerprint', $fingerprint)->first();
             }
 
-            // Match by unique ticketing URL or platform event ID (e.g. Biļešu Paradīze, Biļešu Serviss, Aula, BezRindas)
+            // Match by unique ticketing URL or platform event ID (e.g. Biļešu Paradīze, Biļešu Serviss, Aula, BezRindas, Apollo Kino, Forum Cinemas)
             $dtoTicketUrls = array_values(array_unique(array_filter(array_merge(
                 [$dto->ticketUrl],
                 !empty($dto->rawData['ticket_links']) && is_array($dto->rawData['ticket_links'])
                     ? array_column($dto->rawData['ticket_links'], 'url')
-                    : []
+                    : [],
+                self::isTicketingSource($source->slug, $dto->sourceUrl, $source->type) ? [$dto->sourceUrl] : []
             ))));
 
             if (!$existingEvent && !empty($dtoTicketUrls)) {
@@ -439,6 +440,10 @@ class EventIngestionService
                               ->orWhere('ticket_url', $cleanTicketUrl)
                               ->orWhere('ticket_url', $cleanTicketUrl . '/')
                               ->orWhere('ticket_url', 'like', $cleanTicketUrl . '?%')
+                              ->orWhere('source_url', $currentTicketUrl)
+                              ->orWhere('source_url', $cleanTicketUrl)
+                              ->orWhere('source_url', $cleanTicketUrl . '/')
+                              ->orWhere('source_url', 'like', $cleanTicketUrl . '?%')
                               ->orWhere('raw_data', 'like', '%' . $cleanTicketUrl . '%');
 
                             if ($dtoTicketMeta && !empty($dtoTicketMeta['event_id'])) {
@@ -457,11 +462,35 @@ class EventIngestionService
                                     $q->orWhere('ticket_url', 'like', '%/' . $dtoTicketMeta['event_id'] . '%')
                                       ->orWhere('description', 'like', '%/' . $dtoTicketMeta['event_id'] . '%')
                                       ->orWhere('raw_data', 'like', '%' . $dtoTicketMeta['event_id'] . '%');
+                                } elseif ($dtoTicketMeta['platform'] === 'ticketshop') {
+                                    $q->orWhere('ticket_url', 'like', '%/events/' . $dtoTicketMeta['event_id'] . '%')
+                                      ->orWhere('source_url', 'like', '%/events/' . $dtoTicketMeta['event_id'] . '%')
+                                      ->orWhere('raw_data', 'like', '%' . $dtoTicketMeta['event_id'] . '%');
+                                } elseif ($dtoTicketMeta['platform'] === 'apollokino') {
+                                    $q->orWhere('ticket_url', 'like', '%/event/' . $dtoTicketMeta['event_id'] . '%')
+                                      ->orWhere('source_url', 'like', '%/event/' . $dtoTicketMeta['event_id'] . '%')
+                                      ->orWhere('raw_data', 'like', '%' . $dtoTicketMeta['event_id'] . '%');
+                                } elseif ($dtoTicketMeta['platform'] === 'forumcinemas') {
+                                    $q->orWhere('ticket_url', 'like', '%/event/' . $dtoTicketMeta['event_id'] . '%')
+                                      ->orWhere('source_url', 'like', '%/event/' . $dtoTicketMeta['event_id'] . '%')
+                                      ->orWhere('raw_data', 'like', '%' . $dtoTicketMeta['event_id'] . '%');
                                 }
-                            } elseif ($dtoTicketMeta && $dtoTicketMeta['platform'] === 'bilesuserviss' && !empty($dtoTicketMeta['slug'])) {
-                                $q->orWhere('ticket_url', 'like', '%/' . $dtoTicketMeta['slug'] . '%')
-                                  ->orWhere('description', 'like', '%/' . $dtoTicketMeta['slug'] . '%')
-                                  ->orWhere('raw_data', 'like', '%' . $dtoTicketMeta['slug'] . '%');
+                            } elseif ($dtoTicketMeta && !empty($dtoTicketMeta['show_id'])) {
+                                if ($dtoTicketMeta['platform'] === 'apollokino' || $dtoTicketMeta['platform'] === 'forumcinemas') {
+                                    $q->orWhere('ticket_url', 'like', '%/websales/show/' . $dtoTicketMeta['show_id'] . '%')
+                                      ->orWhere('source_url', 'like', '%/websales/show/' . $dtoTicketMeta['show_id'] . '%')
+                                      ->orWhere('raw_data', 'like', '%' . $dtoTicketMeta['show_id'] . '%');
+                                }
+                            } elseif ($dtoTicketMeta && !empty($dtoTicketMeta['slug'])) {
+                                if ($dtoTicketMeta['platform'] === 'bilesuserviss') {
+                                    $q->orWhere('ticket_url', 'like', '%/' . $dtoTicketMeta['slug'] . '%')
+                                      ->orWhere('description', 'like', '%/' . $dtoTicketMeta['slug'] . '%')
+                                      ->orWhere('raw_data', 'like', '%' . $dtoTicketMeta['slug'] . '%');
+                                } elseif (in_array($dtoTicketMeta['platform'], ['aula', 'passportix', 'ticketbest', 'fienta'], true)) {
+                                    $q->orWhere('ticket_url', 'like', '%/' . $dtoTicketMeta['slug'] . '%')
+                                      ->orWhere('source_url', 'like', '%/' . $dtoTicketMeta['slug'] . '%')
+                                      ->orWhere('raw_data', 'like', '%' . $dtoTicketMeta['slug'] . '%');
+                                }
                             }
                         })
                         ->get();
@@ -473,7 +502,14 @@ class EventIngestionService
                                 $candMinutes = $candidateByTicket->start_at->hour * 60 + $candidateByTicket->start_at->minute;
                                 $dtoMinutes = $dto->startAt->hour * 60 + $dto->startAt->minute;
                                 if (abs($candMinutes - $dtoMinutes) >= 45) {
-                                    $isDifferentSessionSameDay = true;
+                                    $candSourceType = $candidateByTicket->source?->type ?? SourceType::OTHER;
+                                    $dtoSourceType = $source->type ?? SourceType::OTHER;
+                                    // If one of the sources is an AGGREGATOR with a dummy/all-day time (e.g. 10:00:00 or 00:00:00),
+                                    // or both match the exact platform event/show ID, do not treat as different session!
+                                    $isAggregatorInvolved = ($dtoSourceType === SourceType::AGGREGATOR || $candSourceType === SourceType::AGGREGATOR);
+                                    if (!$isAggregatorInvolved) {
+                                        $isDifferentSessionSameDay = true;
+                                    }
                                 }
                             } else {
                                 // Different date: verify it's a postponed event or matches titles
@@ -1041,14 +1077,30 @@ class EventIngestionService
                     $mergedRaw['merged_external_ids'] = $mergedIds;
                 }
 
+                $finalStartAt = $existingEvent->start_at;
+                $finalEndAt = $existingEvent->end_at;
+
+                if ($dto->startAt) {
+                    if (empty($finalStartAt)) {
+                        $finalStartAt = $dto->startAt;
+                        $finalEndAt = $dto->endAt ?: $finalEndAt;
+                    } elseif ($shouldAdoptAuthoritativeSource) {
+                        $finalStartAt = $dto->startAt;
+                        $finalEndAt = $dto->endAt ?: $finalEndAt;
+                    } elseif ($existingEvent->source_id === $source->id) {
+                        $finalStartAt = $dto->startAt;
+                        $finalEndAt = $dto->endAt ?: $finalEndAt;
+                    }
+                }
+
                 // Update existing event details
                 $updateData = [
                     'source_id' => $shouldAdoptAuthoritativeSource ? $source->id : ($existingEvent->source_id ?: $source->id),
                     'source_slug' => $shouldAdoptAuthoritativeSource ? $source->slug : ($existingEvent->source_slug ?: $source->slug),
                     'source_url' => $finalSourceUrl,
                     'location_id' => $finalLocationId,
-                    'start_at' => $dto->startAt ?: $existingEvent->start_at,
-                    'end_at' => $dto->endAt ?: $existingEvent->end_at,
+                    'start_at' => $finalStartAt,
+                    'end_at' => $finalEndAt,
                     'image_url' => $finalImageUrl,
                     'ticket_url' => self::canonicalizeTicketUrl($finalTicketUrl) ?: $finalTicketUrl,
                     'is_free' => ($pMin !== null && (float)$pMin > 0) ? false : ($dto->isFree && $existingEvent->is_free !== false),
