@@ -14,6 +14,8 @@ use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Psr7\Response;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -219,6 +221,9 @@ class ApolloKinoScraperTest extends TestCase
                 'Images' => [
                     'EventLargeImagePortrait' => 'https://mcswebsites.blob.core.windows.net/posters/skrudzs.jpg',
                 ],
+                'Videos' => [
+                    ['Location' => 'vwN9rfJ1Pr4'],
+                ],
                 'Directors' => [['FirstName' => 'Režisors', 'LastName' => 'Bērziņš']],
                 'Cast' => [['FirstName' => 'Aktieris', 'LastName' => 'Ozols']],
             ],
@@ -294,6 +299,13 @@ class ApolloKinoScraperTest extends TestCase
         $this->assertEquals('kino', $dto->entertainmentType);
         $this->assertEquals('https://www.apollokino.lv/websales/show/534330', $dto->ticketUrl);
         $this->assertEquals('show_534330', $dto->sourceExternalId);
+        $this->assertNotNull($dto->priceMin);
+        $this->assertNotNull($dto->priceMax);
+        $this->assertGreaterThan(0, $dto->priceMin);
+        $this->assertGreaterThanOrEqual($dto->priceMin, $dto->priceMax);
+        $this->assertEquals('https://www.youtube.com/watch?v=vwN9rfJ1Pr4', $dto->rawData['trailer_url']);
+        $this->assertEquals('https://www.youtube.com/watch?v=vwN9rfJ1Pr4', $dto->rawData['youtube_url']);
+        $this->assertStringContainsString('Treileris: https://www.youtube.com/watch?v=vwN9rfJ1Pr4', $dto->description);
         $this->assertStringContainsString('Skrūdža piedzīvojumiem', $dto->description);
         $this->assertStringContainsString('Kinozāle: 6. Zvaigžņu zāle', $dto->description);
     }
@@ -360,5 +372,156 @@ class ApolloKinoScraperTest extends TestCase
         $this->assertEquals('Maskavas iela 257, Rīga', $location->address);
         $this->assertEquals('Rīga', $location->city);
         $this->assertEquals('cinema', $location->place_type);
+    }
+
+    public function test_calculate_show_prices_for_various_theatres_and_halls(): void
+    {
+        $scraper = new ApolloKinoScraper();
+
+        $wednesdayNoon = Carbon::parse('2026-11-25 14:00:00'); // Wednesday 14:00 (weekday)
+        $fridayNight = Carbon::parse('2026-11-27 19:30:00');   // Friday 19:30 (weekend rates)
+        $saturdayNight = Carbon::parse('2026-11-28 20:00:00'); // Saturday 20:00 (weekend rates)
+
+        // 1. Akropole Rīga (1035) - Standarta 2D weekday vs weekend
+        [$min1, $max1] = $scraper->calculateShowPrices(1035, '2. zāle', '2D', $wednesdayNoon);
+        $this->assertEquals(5.49, $min1);
+        $this->assertEquals(8.88, $max1);
+
+        [$min2, $max2] = $scraper->calculateShowPrices(1035, '2. zāle', '2D', $saturdayNight);
+        $this->assertEquals(6.19, $min2);
+        $this->assertEquals(9.99, $max2);
+
+        // 2. Akropole Rīga (1035) - IMAX 2D and 3D
+        [$minImax2D, $maxImax2D] = $scraper->calculateShowPrices(1035, '1. IMAX zāle', 'IMAX 2D', $wednesdayNoon);
+        $this->assertEquals(7.49, $minImax2D);
+        $this->assertEquals(10.88, $maxImax2D);
+
+        [$minImax3D, $maxImax3D] = $scraper->calculateShowPrices(1035, '1. IMAX zāle', 'IMAX 3D', $fridayNight);
+        $this->assertEquals(9.19, $minImax3D);
+        $this->assertEquals(12.99, $maxImax3D);
+
+        // 3. Akropole Rīga (1035) - Restorāna zāle
+        [$minRest, $maxRest] = $scraper->calculateShowPrices(1035, '7. zāle Restorāns', '2D', $wednesdayNoon);
+        $this->assertEquals(8.05, $minRest);
+        $this->assertEquals(11.44, $maxRest);
+
+        // 4. Rīga Plaza (1037) - Vintage zāle & Divāns
+        [$minVint, $maxVint] = $scraper->calculateShowPrices(1037, '8. Vintage zāle', '2D', $saturdayNight);
+        $this->assertEquals(13.19, $minVint);
+        $this->assertEquals(16.99, $maxVint);
+
+        [$minDiv, $maxDiv] = $scraper->calculateShowPrices(1037, '2. zāle Dīvāns', '2D', $wednesdayNoon);
+        $this->assertEquals(7.69, $minDiv);
+        $this->assertEquals(11.08, $maxDiv);
+
+        // 5. Domina (1038) - Standarta 2D weekday vs weekend
+        [$minDom1, $maxDom1] = $scraper->calculateShowPrices(1038, '1. zāle', '2D', $wednesdayNoon);
+        $this->assertEquals(4.99, $minDom1);
+        $this->assertEquals(8.21, $maxDom1);
+
+        [$minDom2, $maxDom2] = $scraper->calculateShowPrices(1038, '1. zāle', '2D', $saturdayNight);
+        $this->assertEquals(5.69, $minDom2);
+        $this->assertEquals(9.32, $maxDom2);
+    }
+
+    public function test_get_price_matrix_defaults_to_default_matrix(): void
+    {
+        $scraper = new ApolloKinoScraper();
+        $matrix = $scraper->getPriceMatrix();
+
+        $this->assertEquals(ApolloKinoScraper::DEFAULT_PRICE_MATRIX, $matrix);
+        $this->assertArrayHasKey(1035, $matrix);
+        $this->assertArrayHasKey(1037, $matrix);
+        $this->assertArrayHasKey(1038, $matrix);
+    }
+
+    public function test_parse_cinema_pricing_html(): void
+    {
+        $scraper = new ApolloKinoScraper();
+
+        $html = '
+        <div class="price-slider">
+            <div class="price-slider__cell"></div>
+            <div class="price-slider__cell">No pirmdienas līdz ceturtdienai Piektdienās līdz 16:59</div>
+            <div class="price-slider__cell">Piektdienās no 17:00 Brīvdienās un svētku dienās</div>
+            <div class="price-slider__cell">Apollo Klubabiedra cena</div>
+            <div class="price-slider__cell">2D-filma 7,99 € Standarta cena 8,88 € 3D-filma 8,89 € Standarta cena 9,88 €</div>
+            <div class="price-slider__cell">2D-filma 8,99 € Standarta cena 9,99 € 3D-filma 9,89 € Standarta cena 10,99 €</div>
+            <div class="price-slider__cell">Bērnu biļetes cena</div>
+            <div class="price-slider__cell">2D-filma 5,49 € 3D-filma 6,49 €</div>
+            <div class="price-slider__cell">2D-filma 6,19 € 3D-filma 7,19 €</div>
+        </div>';
+
+        $parsed = $scraper->parseCinemaPricingHtml($html);
+
+        $this->assertArrayHasKey('standarta', $parsed);
+        $this->assertEquals([5.49, 8.88], $parsed['standarta']['2D']['weekday']);
+        $this->assertEquals([6.19, 9.99], $parsed['standarta']['2D']['weekend']);
+        $this->assertEquals([6.49, 9.88], $parsed['standarta']['3D']['weekday']);
+        $this->assertEquals([7.19, 10.99], $parsed['standarta']['3D']['weekend']);
+    }
+
+    public function test_get_price_matrix_dynamic_refresh_on_web_success(): void
+    {
+        $mockHtml = '
+        <div class="price-slider">
+            <div class="price-slider__cell"></div>
+            <div class="price-slider__cell">No pirmdienas līdz ceturtdienai Piektdienās līdz 16:59</div>
+            <div class="price-slider__cell">Piektdienās no 17:00 Brīvdienās un svētku dienās</div>
+            <div class="price-slider__cell">Apollo Klubabiedra cena</div>
+            <div class="price-slider__cell">2D-filma 8,00 € Standarta cena 9.50 €</div>
+            <div class="price-slider__cell">2D-filma 9,00 € Standarta cena 10.50 €</div>
+            <div class="price-slider__cell">Bērnu biļetes cena</div>
+            <div class="price-slider__cell">2D-filma 6.00 €</div>
+            <div class="price-slider__cell">2D-filma 7.00 €</div>
+        </div>';
+
+        $mock = new MockHandler([
+            new Response(200, ['Content-Type' => 'text/html'], $mockHtml), // Akropole
+            new Response(200, ['Content-Type' => 'text/html'], $mockHtml), // Plaza
+            new Response(200, ['Content-Type' => 'text/html'], $mockHtml), // Domina
+        ]);
+
+        $handlerStack = HandlerStack::create($mock);
+        $client = new Client(['handler' => $handlerStack]);
+
+        $scraper = new ApolloKinoScraper();
+        $scraper->setClient($client);
+
+        Cache::flush();
+        $matrix = $scraper->getPriceMatrix(forceRefresh: true);
+
+        $this->assertIsArray($matrix);
+        $this->assertEquals([6.00, 9.50], $matrix[1035]['standarta']['2D']['weekday']);
+        $this->assertEquals([7.00, 10.50], $matrix[1035]['standarta']['2D']['weekend']);
+    }
+
+    public function test_get_price_matrix_fallback_on_web_failure_and_logs_error(): void
+    {
+        Log::spy();
+
+        // Simulate 500 error from Apollo web server
+        $mock = new MockHandler([
+            new Response(500, [], 'Internal Server Error'),
+            new Response(500, [], 'Internal Server Error'),
+            new Response(500, [], 'Internal Server Error'),
+        ]);
+
+        $handlerStack = HandlerStack::create($mock);
+        $client = new Client(['handler' => $handlerStack]);
+
+        $scraper = new ApolloKinoScraper();
+        $scraper->setClient($client);
+
+        Cache::flush();
+
+        // Must not throw an exception, must return default matrix fallback
+        $matrix = $scraper->getPriceMatrix(forceRefresh: true);
+
+        $this->assertEquals(ApolloKinoScraper::DEFAULT_PRICE_MATRIX, $matrix);
+
+        // Error must be logged as required
+        Log::shouldHaveReceived('error')
+            ->atLeast()->once();
     }
 }
