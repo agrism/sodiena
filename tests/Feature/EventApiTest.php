@@ -382,4 +382,40 @@ class EventApiTest extends TestCase
         ]);
         $this->assertEquals('testa-halle-riga-2', $loc2->slug);
     }
+
+    public function test_api_returns_structured_cinema_fields_for_cinema_event(): void
+    {
+        $cinemaEvent = Event::create([
+            'title' => 'Gladiators II (3D)',
+            'start_at' => now()->addDays(2),
+            'status' => 'published',
+            'published_at' => now(),
+            'entertainment_type' => 'kino',
+            'source_slug' => 'apollo-kino',
+            'raw_data' => [
+                'event_id' => 304183,
+                'show_id' => 991234,
+                'original_title' => 'Gladiator II',
+                'theatre_id' => 1035,
+                'theatre' => 'Apollo Kino Akropole Rīga',
+                'auditorium' => '1. Auditorija',
+                'presentation_method' => '3D',
+                'spoken_language' => 'Angļu',
+                'subtitles' => ['Latviešu', 'Krievu'],
+                'rating_label' => '16+',
+                'length_minutes' => 148,
+                'production_year' => 2024,
+            ],
+        ]);
+
+        $response = $this->withToken($this->token)->getJson("/api/v1/events/{$cinemaEvent->id}");
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.movie_id', '304183')
+            ->assertJsonPath('data.session_id', '991234')
+            ->assertJsonPath('data.cinema.original_title', 'Gladiator II')
+            ->assertJsonPath('data.cinema.theatre_id', 1035)
+            ->assertJsonPath('data.cinema.presentation_method', '3D')
+            ->assertJsonPath('data.cinema.subtitles.0', 'Latviešu');
+    }
 }

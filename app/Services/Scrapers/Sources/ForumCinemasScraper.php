@@ -267,6 +267,7 @@ class ForumCinemasScraper extends BaseScraper
                 rawData: array_filter([
                     'show_id' => $showId,
                     'event_id' => $eventId,
+                    'original_title' => $movie['originalTitle'] ?? null,
                     'theatre_id' => $theatreId,
                     'theatre' => $theatreName,
                     'auditorium' => $auditorium,
