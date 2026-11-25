@@ -61,9 +61,6 @@ return new class extends Migration
                     // Clean raw_data merged_external_ids so foreign IDs are not trapped
                     if (!empty($raw['merged_external_ids']) && is_array($raw['merged_external_ids'])) {
                         $cleanedMerged = ['apollo-kino' => $showId];
-                        if (isset($raw['merged_external_ids']['forum-cinemas'])) {
-                            $cleanedMerged['forum-cinemas'] = $raw['merged_external_ids']['forum-cinemas'];
-                        }
                         if ($raw['merged_external_ids'] !== $cleanedMerged) {
                             $raw['merged_external_ids'] = $cleanedMerged;
                             $rawChanged = true;
@@ -87,15 +84,26 @@ return new class extends Migration
 
                     if (!empty($raw['merged_external_ids']) && is_array($raw['merged_external_ids'])) {
                         $cleanedMerged = ['forum-cinemas' => $showId];
-                        if (isset($raw['merged_external_ids']['apollo-kino'])) {
-                            $cleanedMerged['apollo-kino'] = $raw['merged_external_ids']['apollo-kino'];
-                        }
                         if ($raw['merged_external_ids'] !== $cleanedMerged) {
                             $raw['merged_external_ids'] = $cleanedMerged;
                             $rawChanged = true;
                         }
                     }
                 }
+            }
+
+            // Clean description if Forum Cinemas session info leaked into Apollo Kino event
+            if (($event->source_slug === 'apollo-kino' || str_contains($ticketUrl, 'apollokino.lv')) && str_contains($event->description ?? '', 'Kinoteātris: Forum Cinemas')) {
+                $cleanedDesc = preg_replace("/\n*--- Seansa informācija ---\nKinoteātris: Forum Cinemas[^\n]*\n.*$/s", '', $event->description);
+                $update['description'] = trim($cleanedDesc);
+
+                DB::table('event_translations')
+                    ->where('event_id', $event->id)
+                    ->where('locale', 'lv')
+                    ->update([
+                        'description' => trim($cleanedDesc),
+                        'updated_at' => now(),
+                    ]);
             }
 
             // Clean description if it contains exhibition/museum keywords and no movie keywords,

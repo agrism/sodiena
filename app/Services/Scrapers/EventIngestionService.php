@@ -432,6 +432,19 @@ class EventIngestionService
 
             if (!$existingEvent) {
                 $existingEvent = Event::withTrashed()->where('fingerprint', $fingerprint)->first();
+                if ($existingEvent) {
+                    $candIsCinema = self::isCinemaEvent($existingEvent->title, $existingEvent->location?->name, $existingEvent->categories->pluck('name')->all());
+                    $dtoIsCinema = self::isCinemaEvent($dto->title, $dto->venueName, $dto->categoryNames);
+                    if ($candIsCinema && $dtoIsCinema) {
+                        $candVenue = mb_strtolower(trim($existingEvent->location?->name ?? ''), 'UTF-8');
+                        $dtoVenue = mb_strtolower(trim($dto->venueName ?? ''), 'UTF-8');
+                        $sameCinemaVenue = (!empty($locationId) && $existingEvent->location_id && $locationId === $existingEvent->location_id)
+                            || (!empty($candVenue) && !empty($dtoVenue) && ($candVenue === $dtoVenue || str_contains($candVenue, $dtoVenue) || str_contains($dtoVenue, $candVenue)));
+                        if (!$sameCinemaVenue) {
+                            $existingEvent = null; // Different cinema theatres must NEVER match by generic city fingerprint!
+                        }
+                    }
+                }
             }
 
             // Match by unique ticketing URL or platform event ID (e.g. Biļešu Paradīze, Biļešu Serviss, Aula, BezRindas, Apollo Kino, Forum Cinemas)
@@ -485,19 +498,19 @@ class EventIngestionService
                                       ->orWhere('source_url', 'like', '%/events/' . $dtoTicketMeta['event_id'] . '%')
                                       ->orWhere('raw_data', 'like', '%' . $dtoTicketMeta['event_id'] . '%');
                                 } elseif ($dtoTicketMeta['platform'] === 'apollokino') {
-                                    $q->orWhere('ticket_url', 'like', '%/event/' . $dtoTicketMeta['event_id'] . '%')
-                                      ->orWhere('source_url', 'like', '%/event/' . $dtoTicketMeta['event_id'] . '%')
-                                      ->orWhere('raw_data', 'like', '%' . $dtoTicketMeta['event_id'] . '%');
+                                    $q->orWhere('ticket_url', 'like', '%apollokino.lv/event/' . $dtoTicketMeta['event_id'] . '%')
+                                      ->orWhere('source_url', 'like', '%apollokino.lv/event/' . $dtoTicketMeta['event_id'] . '%');
                                 } elseif ($dtoTicketMeta['platform'] === 'forumcinemas') {
-                                    $q->orWhere('ticket_url', 'like', '%/event/' . $dtoTicketMeta['event_id'] . '%')
-                                      ->orWhere('source_url', 'like', '%/event/' . $dtoTicketMeta['event_id'] . '%')
-                                      ->orWhere('raw_data', 'like', '%' . $dtoTicketMeta['event_id'] . '%');
+                                    $q->orWhere('ticket_url', 'like', '%forumcinemas.lv/event/' . $dtoTicketMeta['event_id'] . '%')
+                                      ->orWhere('source_url', 'like', '%forumcinemas.lv/event/' . $dtoTicketMeta['event_id'] . '%');
                                 }
                             } elseif ($dtoTicketMeta && !empty($dtoTicketMeta['show_id'])) {
-                                if ($dtoTicketMeta['platform'] === 'apollokino' || $dtoTicketMeta['platform'] === 'forumcinemas') {
-                                    $q->orWhere('ticket_url', 'like', '%/websales/show/' . $dtoTicketMeta['show_id'] . '%')
-                                      ->orWhere('source_url', 'like', '%/websales/show/' . $dtoTicketMeta['show_id'] . '%')
-                                      ->orWhere('raw_data', 'like', '%' . $dtoTicketMeta['show_id'] . '%');
+                                if ($dtoTicketMeta['platform'] === 'apollokino') {
+                                    $q->orWhere('ticket_url', 'like', '%apollokino.lv/websales/show/' . $dtoTicketMeta['show_id'] . '%')
+                                      ->orWhere('source_url', 'like', '%apollokino.lv/websales/show/' . $dtoTicketMeta['show_id'] . '%');
+                                } elseif ($dtoTicketMeta['platform'] === 'forumcinemas') {
+                                    $q->orWhere('ticket_url', 'like', '%forumcinemas.lv/websales/show/' . $dtoTicketMeta['show_id'] . '%')
+                                      ->orWhere('source_url', 'like', '%forumcinemas.lv/websales/show/' . $dtoTicketMeta['show_id'] . '%');
                                 }
                             } elseif ($dtoTicketMeta && !empty($dtoTicketMeta['slug'])) {
                                 if ($dtoTicketMeta['platform'] === 'bilesuserviss') {
@@ -514,6 +527,18 @@ class EventIngestionService
                         ->get();
 
                     foreach ($ticketCandidates as $candidateByTicket) {
+                        $candIsCinema = self::isCinemaEvent($candidateByTicket->title, $candidateByTicket->location?->name, $candidateByTicket->categories->pluck('name')->all());
+                        $dtoIsCinema = self::isCinemaEvent($dto->title, $dto->venueName, $dto->categoryNames);
+                        if ($candIsCinema && $dtoIsCinema) {
+                            $candVenue = mb_strtolower(trim($candidateByTicket->location?->name ?? ''), 'UTF-8');
+                            $dtoVenue = mb_strtolower(trim($dto->venueName ?? ''), 'UTF-8');
+                            $sameCinemaVenue = (!empty($locationId) && $candidateByTicket->location_id && $locationId === $candidateByTicket->location_id)
+                                || (!empty($candVenue) && !empty($dtoVenue) && ($candVenue === $dtoVenue || str_contains($candVenue, $dtoVenue) || str_contains($dtoVenue, $candVenue)));
+                            if (!$sameCinemaVenue) {
+                                continue;
+                            }
+                        }
+
                         $isDifferentSessionSameDay = false;
                         if ($candidateByTicket->start_at && $dto->startAt) {
                             if ($candidateByTicket->start_at->toDateString() === $dto->startAt->toDateString()) {
@@ -609,6 +634,19 @@ class EventIngestionService
                     $dtoIsCinema = self::isCinemaEvent($dto->title, $dto->venueName, $dto->categoryNames);
                     if ($candIsCinema !== $dtoIsCinema) {
                         continue;
+                    }
+
+                    // Cinema Venue Guard:
+                    // Screenings of the same movie at DIFFERENT cinema theatres
+                    // (e.g. Apollo Kino Plaza vs Forum Cinemas Alfa vs Apollo Kino Akropole) can NEVER merge!
+                    if ($candIsCinema && $dtoIsCinema) {
+                        $candVenue = mb_strtolower(trim($candidate->location?->name ?? ''), 'UTF-8');
+                        $dtoVenue = mb_strtolower(trim($dto->venueName ?? ''), 'UTF-8');
+                        $sameCinemaVenue = (!empty($locationId) && $candidate->location_id && $locationId === $candidate->location_id)
+                            || (!empty($candVenue) && !empty($dtoVenue) && ($candVenue === $dtoVenue || str_contains($candVenue, $dtoVenue) || str_contains($dtoVenue, $candVenue)));
+                        if (!$sameCinemaVenue) {
+                            continue;
+                        }
                     }
 
                     $isCandidateMultiDay = $candidate->end_at && $candidate->start_at && $candidate->start_at->toDateString() !== $candidate->end_at->toDateString();

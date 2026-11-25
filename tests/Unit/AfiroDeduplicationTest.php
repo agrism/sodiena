@@ -854,6 +854,25 @@ class AfiroDeduplicationTest extends TestCase
             'short_description' => 'Короткое описание.',
         ]);
 
+        // Also test Apollo Kino event with leaked Forum Cinemas section
+        $apolloPolluted = Event::create([
+            'title' => 'Rallijs: No Parīzes līdz piramīdām',
+            'slug' => 'rallijs-no-parizes-lidz-piramidam-DNgCCv',
+            'start_at' => Carbon::now()->addDays(1),
+            'end_at' => Carbon::now()->addDays(1)->addMinutes(82),
+            'source_id' => $sourceApollo->id,
+            'source_slug' => 'apollo-kino',
+            'source_external_id' => 'show_535297',
+            'ticket_url' => 'https://www.apollokino.lv/websales/show/535297',
+            'description' => "Trīs negaidīti draugi cenšas uzvarēt leģendārajā rallijā.\n\nTreileris: https://www.youtube.com/watch?v=a81B4Mq7mLc\n\n--- Seansa informācija ---\nKinoteātris: Forum Cinemas Alfa\nZāle: 6. aud.\nFormāts: 2D\nValoda: Latviešu",
+            'raw_data' => [
+                'merged_external_ids' => [
+                    'apollo-kino' => 'show_535297',
+                    'forum-cinemas' => 'show_444666',
+                ],
+            ],
+        ]);
+
         // Run migration
         $migration = require database_path('migrations/2026_11_25_160000_repair_corrupted_cinema_and_merged_events.php');
         $migration->up();
@@ -869,6 +888,76 @@ class AfiroDeduplicationTest extends TestCase
         $this->assertEquals('Breds Pits asa sižeta drāmā.', $lvTrans->description);
         $ruTrans = \App\Models\EventTranslation::where('event_id', $cinemaEvent->id)->where('locale', 'ru')->first();
         $this->assertNull($ruTrans, 'Stale foreign translations must be purged');
+
+        // Verify polluted Apollo event had Forum Cinemas section stripped and merged IDs cleaned
+        $apolloPolluted->refresh();
+        $this->assertStringNotContainsString('Forum Cinemas Alfa', $apolloPolluted->description);
+        $this->assertStringContainsString('Trīs negaidīti draugi', $apolloPolluted->description);
+        $this->assertEquals(['apollo-kino' => 'show_535297'], $apolloPolluted->raw_data['merged_external_ids']);
+    }
+
+    public function test_cinema_sessions_at_different_theatres_on_same_time_never_merge(): void
+    {
+        $ingestionService = app(EventIngestionService::class);
+
+        $sourceApollo = Source::firstOrCreate(
+            ['slug' => 'apollo-kino'],
+            ['name' => 'Apollo Kino', 'url' => 'https://www.apollokino.lv', 'scraper_class' => \App\Services\Scrapers\Sources\ApolloKinoScraper::class, 'is_active' => true]
+        );
+
+        $sourceForum = Source::firstOrCreate(
+            ['slug' => 'forum-cinemas'],
+            ['name' => 'Forum Cinemas', 'url' => 'https://www.forumcinemas.lv', 'scraper_class' => \App\Services\Scrapers\Sources\ForumCinemasScraper::class, 'is_active' => true]
+        );
+
+        // 1. Forum Cinemas show at 11:00 in Forum Cinemas Alfa
+        $dtoForum = new ScrapedEventDTO(
+            title: 'Rallijs: No Parīzes līdz piramīdām',
+            startAt: Carbon::parse('2026-11-28 11:00:00'),
+            endAt: Carbon::parse('2026-11-28 12:22:00'),
+            description: "Filmas sižets.\n\n--- Seansa informācija ---\nKinoteātris: Forum Cinemas Alfa\nZāle: 6. aud.",
+            shortDescription: 'Filmas īss sižets',
+            venueName: 'Forum Cinemas Alfa',
+            city: 'Rīga',
+            categoryNames: ['Kino'],
+            ticketUrl: 'https://www.forumcinemas.lv/websales/show/444666',
+            sourceUrl: 'https://www.forumcinemas.lv/event/304977',
+            sourceExternalId: 'show_444666',
+            locale: 'lv',
+        );
+
+        $resForum = $ingestionService->ingestDTO($dtoForum, $sourceForum);
+        $this->assertEquals('created', $resForum);
+
+        // 2. Apollo Kino show at the EXACT SAME time (11:00) in Apollo Kino Akropole Rīga
+        $dtoApollo = new ScrapedEventDTO(
+            title: 'Rallijs: No Parīzes līdz piramīdām',
+            startAt: Carbon::parse('2026-11-28 11:00:00'),
+            endAt: Carbon::parse('2026-11-28 12:22:00'),
+            description: "Filmas sižets no Apollo Kino.",
+            shortDescription: 'Filmas īss sižets',
+            venueName: 'Apollo Kino Akropole Rīga',
+            city: 'Rīga',
+            categoryNames: ['Kino'],
+            ticketUrl: 'https://www.apollokino.lv/websales/show/535297',
+            sourceUrl: 'https://www.apollokino.lv/event/304977',
+            sourceExternalId: 'show_535297',
+            locale: 'lv',
+        );
+
+        $resApollo = $ingestionService->ingestDTO($dtoApollo, $sourceApollo);
+        $this->assertEquals('created', $resApollo, 'Different cinema theatres must create distinct events and NEVER merge');
+        $this->assertEquals(2, Event::count());
+
+        $evForum = Event::where('source_external_id', 'show_444666')->first();
+        $evApollo = Event::where('source_external_id', 'show_535297')->first();
+
+        $this->assertNotNull($evForum);
+        $this->assertNotNull($evApollo);
+        $this->assertStringContainsString('Forum Cinemas Alfa', $evForum->description);
+        $this->assertStringNotContainsString('Forum Cinemas Alfa', $evApollo->description);
+        $this->assertEquals('forum-cinemas', $evForum->source_slug);
+        $this->assertEquals('apollo-kino', $evApollo->source_slug);
     }
 }
 
