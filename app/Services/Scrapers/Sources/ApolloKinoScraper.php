@@ -496,8 +496,12 @@ class ApolloKinoScraper extends BaseScraper
             $entertainmentType = 'kids';
         }
 
-        // Check for cinema concerts / music films
-        if (str_contains($combined, 'koncert') || str_contains($combined, 'mūzik') || str_contains($combined, 'opera')) {
+        // Check for cinema concerts / music films (if title indicates concert or genre is koncertfilma)
+        if (
+            str_contains($combined, 'koncertfilma') ||
+            str_contains(mb_strtolower($title, 'UTF-8'), 'koncert') ||
+            str_contains(mb_strtolower($title, 'UTF-8'), 'concert')
+        ) {
             $canonical[] = 'Mūzika';
             $entertainmentType = 'concert';
         }

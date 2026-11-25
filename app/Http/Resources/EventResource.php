@@ -72,7 +72,11 @@ class EventResource extends JsonResource
                 'url' => $this->organizer_url,
             ],
             'location' => $this->location ? new LocationResource($this->location) : null,
-            'categories' => CategoryResource::collection($this->whenLoaded('categories', $this->categories, fn () => $this->categories)),
+            'categories' => CategoryResource::collection(
+                ($this->relationLoaded('categories') ? $this->categories : $this->categories)
+                    ->sortBy(fn ($c) => $c->slug === 'kino' ? 0 : 1)
+                    ->values()
+            ),
             'source_slug' => $this->source_slug,
             'is_featured' => (bool) $this->is_featured,
             'is_promoted' => (bool) $this->is_promoted,

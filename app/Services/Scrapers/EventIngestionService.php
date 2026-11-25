@@ -223,12 +223,17 @@ class EventIngestionService
 
             if ($isStrictCinema) {
                 $teatrisCat = $this->resolveCanonicalCategory('teatris');
+                $izstadesCat = $this->resolveCanonicalCategory('izstades');
+                $sportsCat = $this->resolveCanonicalCategory('sports');
                 $kinoCat = $this->resolveCanonicalCategory('kino');
-                if ($teatrisCat) {
-                    $categoryIds = array_diff($categoryIds, [$teatrisCat->id]);
+
+                $invalidForCinema = array_filter([$teatrisCat?->id, $izstadesCat?->id, $sportsCat?->id]);
+                if (!empty($invalidForCinema)) {
+                    $categoryIds = array_diff($categoryIds, $invalidForCinema);
                 }
-                if ($kinoCat && !in_array($kinoCat->id, $categoryIds, true)) {
-                    $categoryIds[] = $kinoCat->id;
+                if ($kinoCat) {
+                    // Ensure 'kino' is always the primary (first) category!
+                    $categoryIds = array_values(array_unique(array_merge([$kinoCat->id], $categoryIds)));
                 }
             }
 
