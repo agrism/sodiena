@@ -50,12 +50,13 @@ class AdminStatsTest extends TestCase
         $response = $this->actingAs($this->admin)->get('/admin/stats');
 
         $response->assertOk();
-        $response->assertSee('Pasākumu datubāzes');
+        $response->assertSee('Plānoto pasākumu');
         $response->assertSee('Klikšķu statistika');
         $response->assertViewHas([
             'days',
             'dateLabels',
-            'sodienaTotalSeries',
+            'sodienaPlannedSeries',
+            'sodienaArchiveSeries',
             'sodienaTrend',
             'afiroSeries',
             'afiroTrend',
@@ -112,7 +113,7 @@ class AdminStatsTest extends TestCase
         $response->assertOk();
         $this->assertEquals(30, $response->viewData('days'));
         $this->assertCount(30, $response->viewData('dateLabels'));
-        $this->assertCount(30, $response->viewData('sodienaTotalSeries'));
+        $this->assertCount(30, $response->viewData('sodienaPlannedSeries'));
         $this->assertCount(30, $response->viewData('afiroSeries'));
 
         // Check trend calculation
@@ -202,6 +203,6 @@ class AdminStatsTest extends TestCase
         $response->assertOk();
         $this->assertEquals(14, $response->viewData('days'));
         $this->assertCount(14, $response->viewData('dateLabels'));
-        $this->assertCount(14, $response->viewData('sodienaTotalSeries'));
+        $this->assertCount(14, $response->viewData('sodienaPlannedSeries'));
     }
 }

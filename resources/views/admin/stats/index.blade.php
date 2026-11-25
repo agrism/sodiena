@@ -11,14 +11,17 @@
             <div class="flex items-center gap-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
                 <a href="{{ route('admin.events.index') }}" class="hover:text-slate-800 transition-colors">Admin</a>
                 <span>/</span>
-                <span class="text-slate-700">Statistika & Klikšķi</span>
+                <span class="text-slate-700 flex items-center gap-1">
+                    <i data-lucide="trending-up" class="w-3.5 h-3.5 text-sky-600"></i>
+                    Statistika & Klikšķi
+                </span>
             </div>
             <h1 class="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2.5">
                 <i data-lucide="trending-up" class="w-7 h-7 text-sky-600"></i>
-                Pasākumu datubāzes & Klikšķu statistika
+                Plānoto pasākumu & Klikšķu statistika
             </h1>
             <p class="text-sm text-slate-600 mt-1">
-                Sodiena.lv un Afiro apjoma salīdzinājums laikā, lineārie trendi un izejošo biļešu saišu analītika
+                Sodiena.lv un Afiro plānoto (aktīvo) pasākumu salīdzinājums laikā, lineārie trendi un izejošo biļešu saišu analītika
             </p>
         </div>
 
@@ -36,22 +39,24 @@
     <!-- 4 KPI Summary Cards -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         
-        <!-- Card 1: Sodiena Total Events -->
+        <!-- Card 1: Sodiena Planned Events -->
         <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs relative overflow-hidden">
             <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-sky-500 to-blue-600"></div>
             <div class="flex items-start justify-between">
                 <div>
-                    <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Sodiena.lv Pasākumi</span>
+                    <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Sodiena.lv Plānotie</span>
                     <div class="text-2xl font-black text-slate-900 mt-1 tracking-tight">
-                        {{ number_format($latestSodienaTotal, 0, '.', ' ') }}
+                        {{ number_format($latestSodienaPlanned, 0, '.', ' ') }}
                     </div>
                 </div>
                 <div class="w-10 h-10 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center">
-                    <i data-lucide="database" class="w-5 h-5"></i>
+                    <i data-lucide="calendar-check-2" class="w-5 h-5"></i>
                 </div>
             </div>
             <div class="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-                <span class="text-slate-500 font-medium">Aktīvi: <strong>{{ number_format($latestSodienaActive, 0, '.', ' ') }}</strong></span>
+                <span class="text-slate-500 font-medium" title="Kopējais visu laiku ierakstu skaits datubāzē">
+                    Arhīvs: <strong>{{ number_format($totalEverCreated, 0, '.', ' ') }}</strong>
+                </span>
                 <span class="inline-flex items-center gap-1 font-bold {{ $sodienaTrend['daily_growth'] >= 0 ? 'text-emerald-600' : 'text-rose-600' }}">
                     <i data-lucide="{{ $sodienaTrend['daily_growth'] >= 0 ? 'trending-up' : 'trending-down' }}" class="w-3.5 h-3.5"></i>
                     {{ $sodienaTrend['daily_growth'] >= 0 ? '+' : '' }}{{ $sodienaTrend['daily_growth'] }} / dienā
@@ -59,7 +64,7 @@
             </div>
         </div>
 
-        <!-- Card 2: Afiro Total Returned -->
+        <!-- Card 2: Afiro Planned Events -->
         <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs relative overflow-hidden">
             <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 to-indigo-600"></div>
             <div class="flex items-start justify-between">
@@ -74,7 +79,7 @@
                 </div>
             </div>
             <div class="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-                <span class="text-slate-500 font-medium">Pēdējais API apjoms</span>
+                <span class="text-slate-500 font-medium">Aktīvie API pasākumi</span>
                 <span class="inline-flex items-center gap-1 font-bold {{ $afiroTrend['daily_growth'] >= 0 ? 'text-emerald-600' : 'text-slate-500' }}">
                     <i data-lucide="{{ $afiroTrend['daily_growth'] >= 0 ? 'trending-up' : 'trending-down' }}" class="w-3.5 h-3.5"></i>
                     {{ $afiroTrend['daily_growth'] >= 0 ? '+' : '' }}{{ $afiroTrend['daily_growth'] }} / dienā
@@ -82,7 +87,7 @@
             </div>
         </div>
 
-        <!-- Card 3: Volume Ratio Comparison -->
+        <!-- Card 3: Ratio Comparison -->
         <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs relative overflow-hidden">
             <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-teal-600"></div>
             <div class="flex items-start justify-between">
@@ -90,7 +95,7 @@
                     <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Apjoma Attiecība</span>
                     <div class="text-2xl font-black text-slate-900 mt-1 tracking-tight">
                         @if($ratio)
-                            {{ $ratio }}× <span class="text-sm font-semibold text-slate-500">lielāka</span>
+                            {{ $ratio }}× <span class="text-sm font-semibold text-slate-500">vairāk</span>
                         @else
                             —
                         @endif
@@ -101,7 +106,7 @@
                 </div>
             </div>
             <div class="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-                <span class="text-slate-500 font-medium">Aktīvajos: <strong>{{ $activeRatio ? $activeRatio . '×' : '—' }}</strong></span>
+                <span class="text-slate-500 font-medium">Salīdzinot plānotos</span>
                 <span class="text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-full">
                     Sodiena dominē
                 </span>
@@ -130,16 +135,16 @@
 
     </div>
 
-    <!-- MAIN CHART: Sodiena vs Afiro with Trendlines -->
+    <!-- MAIN CHART: Sodiena Planned vs Afiro Planned with Trendlines -->
     <div class="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
             <div>
                 <h2 class="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
                     <i data-lucide="line-chart" class="w-5 h-5 text-sky-600"></i>
-                    Pasākumu apjoms un lineārais trends laikā
+                    Plānoto pasākumu apjoms un lineārais trends laikā
                 </h2>
                 <p class="text-xs text-slate-500 mt-0.5">
-                    Sodiena.lv kopējais pasākumu skaits pret Afiro API atgriezto apjomu pēdējās {{ $days }} dienās ar aprēķināto trenda taisni
+                    Sodiena.lv plānotie (vēl nenobeigušies) pasākumi pret Afiro API aktīvo apjomu pēdējās {{ $days }} dienās
                 </p>
             </div>
 
@@ -160,10 +165,10 @@
                     </span>
                 </label>
                 <label class="flex items-center gap-1.5 cursor-pointer font-medium text-slate-700 hover:text-slate-900">
-                    <input type="checkbox" id="toggleActiveSeries" class="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
+                    <input type="checkbox" id="toggleArchiveSeries" class="rounded border-slate-300 text-slate-500 focus:ring-slate-500">
                     <span class="flex items-center gap-1">
-                        <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-                        Sodiena aktīvie pasākumi
+                        <span class="inline-block w-2.5 h-2.5 rounded-full bg-slate-400"></span>
+                        Visi ieraksti (arī beigušies)
                     </span>
                 </label>
             </div>
@@ -178,11 +183,11 @@
             <div class="flex items-center gap-4">
                 <span class="flex items-center gap-1.5">
                     <span class="w-3 h-3 rounded-full bg-sky-500 inline-block"></span>
-                    Sodiena.lv kopējā datubāze
+                    Sodiena.lv plānotie pasākumi
                 </span>
                 <span class="flex items-center gap-1.5">
                     <span class="w-3 h-3 rounded-full bg-purple-500 inline-block"></span>
-                    Afiro API atgrieztais apjoms
+                    Afiro API aktīvie pasākumi
                 </span>
                 <span class="flex items-center gap-1.5">
                     <span class="w-3 h-0.5 border-t-2 border-dashed border-slate-600 inline-block"></span>
@@ -190,7 +195,7 @@
                 </span>
             </div>
             <div class="text-slate-400">
-                Aprēķināts no reālajiem <code>scrape_logs</code> un <code>events</code> datiem
+                1:1 salīdzinājums: tiek rēķināti tikai pasākumi, kas konkrētajā datumā vēl nebija beigušies
             </div>
         </div>
     </div>
@@ -377,11 +382,11 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!ctx) return;
 
     const labels = @json($dateLabels);
-    const sodienaTotal = @json($sodienaTotalSeries);
-    const sodienaActive = @json($sodienaActiveSeries);
+    const sodienaPlanned = @json($sodienaPlannedSeries);
     const sodienaTrend = @json($sodienaTrend['points']);
     const afiroData = @json($afiroSeries);
     const afiroTrend = @json($afiroTrend['points']);
+    const sodienaArchive = @json($sodienaArchiveSeries);
 
     // Build Chart
     const growthChart = new Chart(ctx, {
@@ -390,8 +395,8 @@ document.addEventListener('DOMContentLoaded', function () {
             labels: labels,
             datasets: [
                 {
-                    label: 'Sodiena.lv (kopējā DB)',
-                    data: sodienaTotal,
+                    label: 'Sodiena.lv (plānotie)',
+                    data: sodienaPlanned,
                     borderColor: '#0284c7',
                     backgroundColor: 'rgba(2, 132, 199, 0.08)',
                     borderWidth: 2.5,
@@ -402,7 +407,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     pointBackgroundColor: '#0284c7',
                 },
                 {
-                    label: 'Sodiena lineārais trends',
+                    label: 'Sodiena trends',
                     data: sodienaTrend,
                     borderColor: '#002855',
                     borderWidth: 2,
@@ -412,7 +417,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     tension: 0,
                 },
                 {
-                    label: 'Afiro API atgrieztais apjoms',
+                    label: 'Afiro katalogs (plānotie)',
                     data: afiroData,
                     borderColor: '#8b5cf6',
                     backgroundColor: 'rgba(139, 92, 246, 0.05)',
@@ -424,7 +429,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     pointBackgroundColor: '#8b5cf6',
                 },
                 {
-                    label: 'Afiro lineārais trends',
+                    label: 'Afiro trends',
                     data: afiroTrend,
                     borderColor: '#c084fc',
                     borderWidth: 2,
@@ -434,13 +439,14 @@ document.addEventListener('DOMContentLoaded', function () {
                     tension: 0,
                 },
                 {
-                    label: 'Sodiena aktīvie pasākumi',
-                    data: sodienaActive,
-                    borderColor: '#10b981',
-                    borderWidth: 2,
+                    label: 'Visi ieraksti (arī beigušies)',
+                    data: sodienaArchive,
+                    borderColor: '#94a3b8',
+                    borderWidth: 1.5,
+                    borderDash: [3, 3],
                     fill: false,
-                    tension: 0.25,
-                    pointRadius: 2,
+                    tension: 0.1,
+                    pointRadius: 0,
                     hidden: true, // Hidden by default, toggled via checkbox
                 }
             ]
@@ -521,9 +527,9 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    const activeSeriesToggle = document.getElementById('toggleActiveSeries');
-    if (activeSeriesToggle) {
-        activeSeriesToggle.addEventListener('change', function () {
+    const archiveToggle = document.getElementById('toggleArchiveSeries');
+    if (archiveToggle) {
+        archiveToggle.addEventListener('change', function () {
             growthChart.setDatasetVisibility(4, this.checked);
             growthChart.update();
         });

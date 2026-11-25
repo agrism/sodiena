@@ -15,7 +15,7 @@ class StatsController extends Controller
 {
     /**
      * Display the Admin Statistics Dashboard:
-     * 1) Time-series comparison of Sodiena DB events vs Afiro catalog with linear regression trendlines.
+     * 1) Time-series comparison of Planned (active/upcoming) events: Sodiena vs Afiro with linear regression trendlines.
      * 2) Outbound click tracking metrics broken down weekly and by destination domain.
      */
     public function index(Request $request): View
@@ -26,24 +26,16 @@ class StatsController extends Controller
         }
 
         // ==========================================
-        // 1. TIME-SERIES DATA: SODIENA vs AFIRO
+        // 1. TIME-SERIES DATA: PLANNED EVENTS (SODIENA vs AFIRO)
         // ==========================================
         $startDate = now()->subDays($days - 1)->startOfDay();
 
-        // Historical cumulative Sodiena events count
-        $initialTotalEvents = Event::withTrashed()->where('created_at', '<', $startDate)->count();
-        $initialActiveEvents = Event::where('created_at', '<', $startDate)->count();
+        // Fetch minimal columns for all events (including trashed) to calculate historical planned events per day
+        $allEvents = DB::table('events')
+            ->selectRaw('created_at, COALESCE(end_at, start_at) as finish_at, deleted_at')
+            ->get();
 
-        $dailyCreated = Event::withTrashed()
-            ->where('created_at', '>=', $startDate)
-            ->selectRaw('DATE(created_at) as created_date, COUNT(*) as count')
-            ->groupBy('created_date')
-            ->pluck('count', 'created_date');
-
-        $dailyActiveCreated = Event::where('created_at', '>=', $startDate)
-            ->selectRaw('DATE(created_at) as created_date, COUNT(*) as count')
-            ->groupBy('created_date')
-            ->pluck('count', 'created_date');
+        $totalEverCreated = $allEvents->count();
 
         // Historical Afiro returned events from scrape_logs
         $afiroLogs = DB::table('scrape_logs')
@@ -55,45 +47,62 @@ class StatsController extends Controller
             ->pluck('found', 'log_date');
 
         $dateLabels = [];
-        $sodienaTotalSeries = [];
-        $sodienaActiveSeries = [];
+        $sodienaPlannedSeries = [];
+        $sodienaArchiveSeries = [];
         $afiroSeries = [];
 
-        $runningTotal = $initialTotalEvents;
-        $runningActive = $initialActiveEvents;
         $lastKnownAfiro = null;
 
-        // Build continuous daily sequence
+        // Iterate through each day in the chosen window
         for ($i = $days - 1; $i >= 0; $i--) {
             $date = now()->subDays($i)->format('Y-m-d');
             $dateFormatted = now()->subDays($i)->format('d.m');
             $dateLabels[] = $dateFormatted;
 
-            $runningTotal += ($dailyCreated[$date] ?? 0);
-            $runningActive += ($dailyActiveCreated[$date] ?? 0);
+            $startOfDay = $date . ' 00:00:00';
+            $endOfDay = $date . ' 23:59:59';
 
-            $sodienaTotalSeries[] = $runningTotal;
-            $sodienaActiveSeries[] = $runningActive;
+            $plannedCount = 0;
+            $archiveCount = 0;
 
-            if (isset($afiroLogs[$date]) && $afiroLogs[$date] > 0) {
-                $lastKnownAfiro = (int) $afiroLogs[$date];
+            foreach ($allEvents as $ev) {
+                // Was the event created on or before this day?
+                if ($ev->created_at <= $endOfDay) {
+                    $archiveCount++;
+
+                    // Was the event planned / active on date D?
+                    // (finish_at >= start of day D, and not deleted on or before date D)
+                    if ($ev->finish_at >= $startOfDay && ($ev->deleted_at === null || $ev->deleted_at > $endOfDay)) {
+                        $plannedCount++;
+                    }
+                }
+            }
+
+            $sodienaPlannedSeries[] = $plannedCount;
+            $sodienaArchiveSeries[] = $archiveCount;
+
+            // Afiro normalization:
+            // Prior to 2026-11-16 (commit faf1e5f9), AfiroApiScraper looped through 3 locales (lv, en, ru),
+            // which recorded 3x identical events (e.g. ~7200 instead of ~2400).
+            // Normalizing raw items_found by dividing by 3 recovers the true unique catalog size.
+            $rawAfiro = $afiroLogs[$date] ?? null;
+            if ($rawAfiro !== null && $rawAfiro > 0) {
+                $normalized = ($date <= '2026-11-16' || $rawAfiro > 4000) ? (int) round($rawAfiro / 3) : (int) $rawAfiro;
+                $lastKnownAfiro = $normalized;
                 $afiroSeries[] = $lastKnownAfiro;
             } else {
-                // If scraping wasn't run on that day, retain last known catalog size
                 $afiroSeries[] = $lastKnownAfiro;
             }
         }
 
-        // Calculate Linear Regression Trendlines
-        $sodienaTrend = $this->calculateLinearRegression($sodienaTotalSeries);
+        // Calculate Linear Regression Trendlines on Planned Events
+        $sodienaTrend = $this->calculateLinearRegression($sodienaPlannedSeries);
         $afiroTrend = $this->calculateLinearRegression(array_filter($afiroSeries, fn($v) => !is_null($v)));
 
         // Summary Metric Cards
-        $latestSodienaTotal = end($sodienaTotalSeries) ?: 0;
-        $latestSodienaActive = end($sodienaActiveSeries) ?: 0;
+        $latestSodienaPlanned = end($sodienaPlannedSeries) ?: 0;
         $latestAfiro = end($afiroSeries) ?: 0;
-        $ratio = $latestAfiro > 0 ? round($latestSodienaTotal / $latestAfiro, 1) : null;
-        $activeRatio = $latestAfiro > 0 ? round($latestSodienaActive / $latestAfiro, 1) : null;
+        $ratio = $latestAfiro > 0 ? round($latestSodienaPlanned / $latestAfiro, 1) : null;
 
         // ==========================================
         // 2. OUTBOUND CLICK TRACKING (WEEKLY BY DOMAIN)
@@ -110,7 +119,7 @@ class StatsController extends Controller
         $ticketClicks = $actions->where('action_type', 'ticket')->count();
         $websiteClicks = $actions->where('action_type', 'website')->count();
 
-        // Build list of recent weeks (e.g. "47. nedēļa (17.11 - 23.11)")
+        // Build list of recent weeks (e.g. "47. ned. (17.11 - 23.11)")
         $weekBuckets = [];
         $weekLabels = [];
         for ($w = $weeksBack - 1; $w >= 0; $w--) {
@@ -173,16 +182,15 @@ class StatsController extends Controller
         return view('admin.stats.index', [
             'days' => $days,
             'dateLabels' => $dateLabels,
-            'sodienaTotalSeries' => $sodienaTotalSeries,
-            'sodienaActiveSeries' => $sodienaActiveSeries,
+            'sodienaPlannedSeries' => $sodienaPlannedSeries,
+            'sodienaArchiveSeries' => $sodienaArchiveSeries,
             'sodienaTrend' => $sodienaTrend,
             'afiroSeries' => $afiroSeries,
             'afiroTrend' => $afiroTrend,
-            'latestSodienaTotal' => $latestSodienaTotal,
-            'latestSodienaActive' => $latestSodienaActive,
+            'latestSodienaPlanned' => $latestSodienaPlanned,
+            'totalEverCreated' => $totalEverCreated,
             'latestAfiro' => $latestAfiro,
             'ratio' => $ratio,
-            'activeRatio' => $activeRatio,
             // Outbound click metrics
             'totalClicks' => $totalClicks,
             'ticketClicks' => $ticketClicks,

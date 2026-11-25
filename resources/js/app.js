@@ -75,7 +75,18 @@ import {
     Wrench,
     X,
     Activity,
-    BookOpen
+    BookOpen,
+    TrendingUp,
+    TrendingDown,
+    BarChart2,
+    BarChart3,
+    LineChart,
+    Database,
+    Layers,
+    Scale,
+    MousePointerClick,
+    CalendarCheck2,
+    Navigation
 } from 'lucide';
 import flatpickr from 'flatpickr';
 import { Latvian } from 'flatpickr/dist/l10n/lv.js';
@@ -156,7 +167,18 @@ const appIcons = {
     Wrench,
     X,
     Activity,
-    BookOpen
+    BookOpen,
+    TrendingUp,
+    TrendingDown,
+    BarChart2,
+    BarChart3,
+    LineChart,
+    Database,
+    Layers,
+    Scale,
+    MousePointerClick,
+    CalendarCheck2,
+    Navigation
 };
 
 window.htmx = htmx;
