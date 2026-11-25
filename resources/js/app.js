@@ -175,11 +175,15 @@ function renderIcons() {
     createIcons({ icons: appIcons });
 }
 
+import { initActionTracker } from './action-tracker';
+
 // Initialize Lucide icons on page load and on every HTMX content swap
 document.addEventListener('DOMContentLoaded', () => {
     requestAnimationFrame(renderIcons);
+    initActionTracker();
 });
 document.addEventListener('htmx:afterSwap', renderIcons);
 document.addEventListener('htmx:afterSettle', renderIcons);
+
 
 

@@ -97,6 +97,9 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::post('/admin/events/{event}/category', [\App\Http\Controllers\Admin\EventController::class, 'updateCategory'])->name('admin.events.update-category');
     Route::post('/admin/events/bulk-publish', [\App\Http\Controllers\Admin\EventController::class, 'bulkPublish'])->name('admin.events.bulk-publish');
 
+    // Administrator Statistics & Outbound Clicks Dashboard
+    Route::get('/admin/stats', [\App\Http\Controllers\Admin\StatsController::class, 'index'])->name('admin.stats.index');
+
     // User & Permissions Registry
     Route::get('/admin/users', [AdminUserController::class, 'index'])->name('admin.users.index');
     Route::post('/admin/users', [AdminUserController::class, 'store'])->name('admin.users.store');

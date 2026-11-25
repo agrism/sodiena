@@ -41,3 +41,8 @@ Route::middleware('auth.bearer')->group(function () {
     Route::match(['post', 'patch'], '/events/{id}/unpromote', [EventApiController::class, 'unpromote'])->name('api.events.unpromote');
     Route::patch('/events/{id}', [EventApiController::class, 'setPromoted'])->name('api.events.patch');
 });
+
+// Public outbound action logging endpoints (neutral names to avoid adblock filters)
+Route::post('/act', [\App\Http\Controllers\Api\EventActionController::class, 'store'])->name('api.act');
+Route::post('/go', [\App\Http\Controllers\Api\EventActionController::class, 'store'])->name('api.go');
+

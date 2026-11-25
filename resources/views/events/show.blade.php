@@ -263,7 +263,7 @@
                 <!-- Direct External Action Buttons -->
                 <div class="pt-2 flex flex-col gap-3">
                     @php
-                        $ticketLinks = $event->ticket_links;
+                        $ticketLinks = $event->tracked_ticket_links;
                     @endphp
 
                     @if(count($ticketLinks) > 1)
@@ -276,6 +276,8 @@
                                 @foreach($ticketLinks as $tLink)
                                     <a 
                                         href="{{ $tLink['url'] }}" 
+                                        data-act="ticket"
+                                        data-event-id="{{ $event->id }}"
                                         target="_blank" 
                                         rel="noopener noreferrer"
                                         class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-extrabold text-xs sm:text-sm flex items-center justify-between gap-2 hover:from-emerald-700 hover:to-teal-700 transition-all shadow-md shadow-emerald-600/20">
@@ -288,6 +290,8 @@
                     @elseif(count($ticketLinks) === 1)
                         <a 
                             href="{{ $ticketLinks[0]['url'] }}" 
+                            data-act="ticket"
+                            data-event-id="{{ $event->id }}"
                             target="_blank" 
                             rel="noopener noreferrer"
                             class="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-extrabold text-sm flex items-center justify-center gap-2 hover:from-emerald-700 hover:to-teal-700 transition-all shadow-md shadow-emerald-600/20">
@@ -296,7 +300,9 @@
                         </a>
                     @elseif($event->ticket_url)
                         <a 
-                            href="{{ $event->ticket_url }}" 
+                            href="{{ $event->getTrackedTicketUrl() }}" 
+                            data-act="ticket"
+                            data-event-id="{{ $event->id }}"
                             target="_blank" 
                             rel="noopener noreferrer"
                             class="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-extrabold text-sm flex items-center justify-center gap-2 hover:from-emerald-700 hover:to-teal-700 transition-all shadow-md shadow-emerald-600/20">
@@ -305,9 +311,11 @@
                         </a>
                     @endif
 
-                    @if($event->source_url && $event->source_url !== $event->ticket_url && !in_array($event->source_url, array_column($ticketLinks, 'url')))
+                    @if($event->source_url && $event->source_url !== $event->ticket_url && !in_array($event->source_url, array_column($ticketLinks, 'original_url', 'url')))
                         <a 
-                            href="{{ $event->source_url }}" 
+                            href="{{ $event->getTrackedSourceUrl() }}" 
+                            data-act="website"
+                            data-event-id="{{ $event->id }}"
                             target="_blank" 
                             rel="noopener noreferrer"
                             class="w-full py-3.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-sm flex items-center justify-center gap-2 border border-slate-200 transition-all">

@@ -101,6 +101,17 @@
                     </a>
                 </li>
 
+                <!-- Statistics & Outbound Clicks -->
+                <li>
+                    <a href="{{ route('admin.stats.index') }}" 
+                       class="eds-menu-link flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all {{ request()->routeIs('admin.stats.*') ? 'bg-[#002855] text-white shadow-sm' : 'text-slate-700 hover:bg-slate-100 hover:text-[#002855]' }}">
+                        <div class="flex items-center gap-2.5">
+                            <i data-lucide="trending-up" class="w-4 h-4 {{ request()->routeIs('admin.stats.*') ? 'text-cyan-300' : 'text-slate-500' }}"></i>
+                            <span>Statistika & Klikšķi</span>
+                        </div>
+                    </a>
+                </li>
+
             </ul>
 
             <div class="my-3 border-t border-slate-200 mx-3"></div>

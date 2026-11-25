@@ -228,6 +228,84 @@ class Event extends Model
         return $this->extractRealOfficialUrl();
     }
 
+    /**
+     * Append or replace standard Sodiena.lv UTM parameters on outbound URLs.
+     */
+    public static function appendUtm(?string $url, string $content = 'ticket_button'): ?string
+    {
+        if (empty($url) || !is_string($url)) {
+            return $url;
+        }
+
+        $parsed = parse_url($url);
+        if (!$parsed || empty($parsed['host'])) {
+            return $url;
+        }
+
+        $queryParams = [];
+        if (!empty($parsed['query'])) {
+            parse_str($parsed['query'], $queryParams);
+        }
+
+        // Strip stale/alien utm_* or tracking parameters
+        foreach (array_keys($queryParams) as $key) {
+            if (str_starts_with($key, 'utm_') || in_array(strtolower($key), ['ref', 'source', 'afiro'], true)) {
+                unset($queryParams[$key]);
+            }
+        }
+
+        // Append Sodiena.lv tracking parameters
+        $queryParams['utm_source'] = 'sodiena.lv';
+        $queryParams['utm_medium'] = 'referral';
+        $queryParams['utm_campaign'] = 'event_detail';
+        $queryParams['utm_content'] = $content;
+
+        $scheme = isset($parsed['scheme']) ? $parsed['scheme'] . '://' : '';
+        $user = $parsed['user'] ?? '';
+        $pass = isset($parsed['pass']) ? ':' . $parsed['pass'] : '';
+        $pass = ($user || $pass) ? "$pass@" : '';
+        $host = $parsed['host'] ?? '';
+        $port = isset($parsed['port']) ? ':' . $parsed['port'] : '';
+        $path = $parsed['path'] ?? '';
+        $query = '?' . http_build_query($queryParams);
+        $fragment = isset($parsed['fragment']) ? '#' . $parsed['fragment'] : '';
+
+        return "{$scheme}{$user}{$pass}{$host}{$port}{$path}{$query}{$fragment}";
+    }
+
+    /**
+     * Get ticket URL with Sodiena.lv UTM parameters.
+     */
+    public function getTrackedTicketUrl(?string $url = null): ?string
+    {
+        $target = $url ?: $this->ticket_url;
+        return $target ? self::appendUtm($target, 'ticket_button') : null;
+    }
+
+    /**
+     * Get official website URL with Sodiena.lv UTM parameters.
+     */
+    public function getTrackedSourceUrl(): ?string
+    {
+        $target = $this->source_url;
+        return $target ? self::appendUtm($target, 'website_button') : null;
+    }
+
+    /**
+     * Get ticket links with Sodiena.lv UTM parameters.
+     *
+     * @return array<array{url: string, original_url: string, title: string, label: string, platform: string}>
+     */
+    public function getTrackedTicketLinksAttribute(): array
+    {
+        $links = $this->ticket_links;
+        return array_map(function ($link) {
+            $link['original_url'] = $link['url'];
+            $link['url'] = self::appendUtm($link['url'], 'ticket_button');
+            return $link;
+        }, $links);
+    }
+
     public function extractRealTicketUrl(): ?string
     {
         $links = $this->ticket_links;
