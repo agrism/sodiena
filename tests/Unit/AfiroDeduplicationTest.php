@@ -658,5 +658,217 @@ class AfiroDeduplicationTest extends TestCase
         $this->assertStringContainsString('Lūcijas Garūtas kantāte', $concert->description);
         $this->assertEquals('https://www.liveriga.com/lv/apmekle/pasakumi/koncerti-klasika/koncerts-dievs-tava-zeme-deg', $concert->source_url);
     }
+
+    public function test_higher_priority_source_description_always_overwrites_even_if_shorter(): void
+    {
+        $ingestionService = app(EventIngestionService::class);
+
+        $sourceAggregator = Source::firstOrCreate(
+            ['slug' => 'afiro-api'],
+            [
+                'name' => 'Afiro Pasākumu API',
+                'url' => 'https://api.afiro.eu',
+                'scraper_class' => \App\Services\Scrapers\Sources\AfiroApiScraper::class,
+                'type' => \App\Enums\SourceType::AGGREGATOR->value,
+                'is_active' => true,
+            ]
+        );
+
+        $sourceVenue = Source::firstOrCreate(
+            ['slug' => 'apollo-kino'],
+            [
+                'name' => 'Apollo Kino',
+                'url' => 'https://www.apollokino.lv',
+                'scraper_class' => \App\Services\Scrapers\Sources\ApolloKinoScraper::class,
+                'type' => \App\Enums\SourceType::VENUE->value,
+                'is_active' => true,
+            ]
+        );
+
+        // 1. Initial event from aggregator with long verbose text (1000 chars)
+        $longExhibitionText = str_repeat('Mākslas izstādes biogrāfija un vēsturiskais konteksts ar daudziem vārdiem. ', 15);
+        $dtoLowPriority = new ScrapedEventDTO(
+            title: 'Skarbās zemes sirdī',
+            startAt: Carbon::parse('2026-11-27 13:40:00'),
+            endAt: Carbon::parse('2026-11-27 15:31:00'),
+            description: $longExhibitionText,
+            shortDescription: 'Vecais neprecīzais īsais apraksts',
+            venueName: 'Apollo Kino Rīga Plaza',
+            city: 'Rīga',
+            categoryNames: ['Kino'],
+            ticketUrl: 'https://www.apollokino.lv/websales/show/535356',
+            sourceUrl: 'https://afiro.lv/event/12345',
+            sourceExternalId: 'afiro_event_12345',
+            locale: 'lv',
+        );
+
+        $ingestionService->ingestDTO($dtoLowPriority, $sourceAggregator);
+        $event = Event::first();
+        $this->assertEquals($longExhibitionText, $event->description);
+
+        // Also add a foreign translation in English from the old event
+        \App\Models\EventTranslation::create([
+            'event_id' => $event->id,
+            'locale' => 'en',
+            'title' => 'Old Exhibition in English',
+            'slug' => 'old-exhibition-en',
+            'description' => 'Old exhibition description in English',
+            'short_description' => 'Old exhibition short description in English',
+        ]);
+        $this->assertCount(2, $event->translations);
+
+        // 2. Authoritative source updates with concise (300 chars) official movie description
+        $officialMovieSynopsis = 'Bijušais armijas specvienības virsnieks Džeimss Belmonts (Breds Pits) un viņa kaujas suns Odins avarē Aļaskas mežonīgajos plašumos. Kopā viņiem būs jāstājas pretī skarbākajam dabas izaicinājumam.';
+        $dtoHighPriority = new ScrapedEventDTO(
+            title: 'Skarbās zemes sirdī',
+            startAt: Carbon::parse('2026-11-27 13:40:00'),
+            endAt: Carbon::parse('2026-11-27 15:31:00'),
+            description: $officialMovieSynopsis . "\n\nTreileris: https://www.youtube.com/watch?v=y3c0U-on6bc",
+            shortDescription: 'Breds Pits asa sižeta piedzīvojumu drāmā.',
+            venueName: 'Apollo Kino Rīga Plaza',
+            city: 'Rīga',
+            categoryNames: ['Kino'],
+            ticketUrl: 'https://www.apollokino.lv/websales/show/535356',
+            sourceUrl: 'https://www.apollokino.lv/event/304183',
+            sourceExternalId: 'show_535356',
+            locale: 'lv',
+        );
+
+        $res = $ingestionService->ingestDTO($dtoHighPriority, $sourceVenue);
+        $this->assertEquals('updated', $res);
+
+        $event->refresh();
+        // Description MUST be overwritten by authoritative source even though new text is much shorter
+        $this->assertStringContainsString('Breds Pits', $event->description);
+        $this->assertStringNotContainsString('Mākslas izstādes biogrāfija', $event->description);
+        $this->assertEquals('Breds Pits asa sižeta piedzīvojumu drāmā.', $event->short_description);
+        $this->assertStringContainsString('Breds Pits', $event->seo_description);
+
+        // Foreign translation of superseded event must be purged
+        $this->assertNull(\App\Models\EventTranslation::where('event_id', $event->id)->where('locale', 'en')->first());
+    }
+
+    public function test_same_source_update_always_overwrites_description(): void
+    {
+        $ingestionService = app(EventIngestionService::class);
+
+        $sourceVenue = Source::firstOrCreate(
+            ['slug' => 'apollo-kino'],
+            [
+                'name' => 'Apollo Kino',
+                'url' => 'https://www.apollokino.lv',
+                'scraper_class' => \App\Services\Scrapers\Sources\ApolloKinoScraper::class,
+                'type' => \App\Enums\SourceType::VENUE->value,
+                'is_active' => true,
+            ]
+        );
+
+        $dtoV1 = new ScrapedEventDTO(
+            title: 'Gladiators II',
+            startAt: Carbon::parse('2026-11-28 18:00:00'),
+            description: 'Sākotnējais apraksts no Apollo Kino ar daudzām liekām detaļām un rindkopām.',
+            shortDescription: 'Vecais īsais apraksts',
+            venueName: 'Apollo Kino Akropole Rīga',
+            city: 'Rīga',
+            categoryNames: ['Kino'],
+            sourceExternalId: 'show_99881',
+            locale: 'lv',
+        );
+
+        $ingestionService->ingestDTO($dtoV1, $sourceVenue);
+        $event = Event::first();
+
+        // New shorter official update from Apollo Kino
+        $dtoV2 = new ScrapedEventDTO(
+            title: 'Gladiators II',
+            startAt: Carbon::parse('2026-11-28 18:00:00'),
+            description: 'Jauns, oficiāls filmas sižets.',
+            shortDescription: 'Jauns īsais apraksts',
+            venueName: 'Apollo Kino Akropole Rīga',
+            city: 'Rīga',
+            categoryNames: ['Kino'],
+            sourceExternalId: 'show_99881',
+            locale: 'lv',
+        );
+
+        $ingestionService->ingestDTO($dtoV2, $sourceVenue);
+        $event->refresh();
+
+        $this->assertEquals('Jauns, oficiāls filmas sižets.', $event->description);
+        $this->assertEquals('Jauns īsais apraksts', $event->short_description);
+    }
+
+    public function test_repair_corrupted_cinema_and_merged_events_migration(): void
+    {
+        $sourceLiveRiga = Source::firstOrCreate(
+            ['slug' => 'live-riga'],
+            ['name' => 'Live Riga', 'url' => 'https://www.liveriga.com', 'scraper_class' => 'App\Services\Scrapers\Sources\LiveRigaScraper', 'is_active' => true]
+        );
+
+        $sourceApollo = Source::firstOrCreate(
+            ['slug' => 'apollo-kino'],
+            ['name' => 'Apollo Kino', 'url' => 'https://www.apollokino.lv', 'scraper_class' => \App\Services\Scrapers\Sources\ApolloKinoScraper::class, 'is_active' => true]
+        );
+
+        $sourceBilesuServiss = Source::firstOrCreate(
+            ['slug' => 'bilesu-serviss'],
+            ['name' => 'Biļešu Serviss', 'url' => 'https://www.bilesuserviss.lv', 'scraper_class' => 'App\Services\Scrapers\Sources\BilesuServissScraper', 'is_active' => true]
+        );
+
+        // 1. Create a cinema event corrupted like 14614
+        $cinemaEvent = Event::create([
+            'title' => 'Skarbās zemes sirdī',
+            'slug' => 'skarbas-zemes-sirdi-abc123',
+            'start_at' => Carbon::now()->addDays(2),
+            'end_at' => Carbon::now()->addDays(2)->addHours(2),
+            'source_id' => $sourceApollo->id,
+            'source_slug' => 'apollo-kino',
+            'source_external_id' => 'liveriga-makslinieka-denija-berkovska-izstade',
+            'ticket_url' => 'https://www.apollokino.lv/websales/show/535356',
+            'description' => 'Mākslinieka Denija Berkovska izstāde MuseumLV.',
+            'short_description' => 'Breds Pits asa sižeta drāmā.',
+            'entertainment_type' => 'exhibition',
+            'raw_data' => [
+                'merged_external_ids' => [
+                    'live-riga' => 'liveriga-makslinieka-denija-berkovska-izstade',
+                    'apollo-kino' => 'liveriga-makslinieka-denija-berkovska-izstade',
+                ],
+            ],
+        ]);
+
+        \App\Models\EventTranslation::create([
+            'event_id' => $cinemaEvent->id,
+            'locale' => 'lv',
+            'title' => 'Skarbās zemes sirdī',
+            'slug' => 'skarbas-zemes-sirdi-lv',
+            'description' => 'Mākslinieka Denija Berkovska izstāde MuseumLV.',
+            'short_description' => 'Breds Pits asa sižeta drāmā.',
+        ]);
+
+        \App\Models\EventTranslation::create([
+            'event_id' => $cinemaEvent->id,
+            'locale' => 'ru',
+            'title' => 'Старая выставка',
+            'slug' => 'staraja-vystavka-ru',
+            'description' => 'Описание выставки на русском.',
+            'short_description' => 'Короткое описание.',
+        ]);
+
+        // Run migration
+        $migration = require database_path('migrations/2026_11_25_160000_repair_corrupted_cinema_and_merged_events.php');
+        $migration->up();
+
+        $cinemaEvent->refresh();
+        $this->assertEquals('show_535356', $cinemaEvent->source_external_id);
+        $this->assertEquals('Breds Pits asa sižeta drāmā.', $cinemaEvent->description);
+        $this->assertNull($cinemaEvent->entertainment_type);
+        $this->assertEquals(['apollo-kino' => 'show_535356'], $cinemaEvent->raw_data['merged_external_ids']);
+
+        // Check translations
+        $lvTrans = \App\Models\EventTranslation::where('event_id', $cinemaEvent->id)->where('locale', 'lv')->first();
+        $this->assertEquals('Breds Pits asa sižeta drāmā.', $lvTrans->description);
+        $ruTrans = \App\Models\EventTranslation::where('event_id', $cinemaEvent->id)->where('locale', 'ru')->first();
+        $this->assertNull($ruTrans, 'Stale foreign translations must be purged');
+    }
 }
 

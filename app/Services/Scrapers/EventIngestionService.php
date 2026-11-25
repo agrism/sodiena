@@ -1112,11 +1112,29 @@ class EventIngestionService
                     $isTitleRadicallyDifferent = ($tSim < 50);
                 }
 
-                $preferNewDesc = ($shouldAdoptAuthoritativeSource || $isTitleRadicallyDifferent) && !empty($dto->description);
-                $finalDescription = self::mergeDescriptions($existingEvent->description, $dto->description, $preferNewDesc);
-                $finalShortDesc = ($preferNewDesc || ($existingEvent->source_id === $source->id && !empty($dto->shortDescription)))
-                    ? ($dto->shortDescription ?: $existingEvent->short_description)
-                    : ($existingEvent->short_description ?: $dto->shortDescription);
+                $isSameSource = ($existingEvent->source_id === $source->id);
+
+                // Source Authority Rule:
+                // If incoming source has HIGHER priority OR it is the SAME source updating its own event,
+                // OR if the title was radically different:
+                // The new description and short_description ALWAYS overwrite the old ones, regardless of text length!
+                if (($shouldAdoptAuthoritativeSource || $isSameSource || $isTitleRadicallyDifferent) && !empty($dto->description)) {
+                    $finalDescription = $dto->description;
+                    $finalShortDesc = !empty($dto->shortDescription)
+                        ? $dto->shortDescription
+                        : Str::limit(strip_tags($dto->description), 160);
+                } else {
+                    $preferNewDesc = false;
+                    $finalDescription = self::mergeDescriptions($existingEvent->description, $dto->description, $preferNewDesc);
+                    $finalShortDesc = $existingEvent->short_description ?: $dto->shortDescription;
+                }
+
+                if (($shouldAdoptAuthoritativeSource || $isTitleRadicallyDifferent) && !empty($finalTitle)) {
+                    // Purge stale foreign translations from the superseded event so foreign locales do not show mismatched text
+                    EventTranslation::where('event_id', $existingEvent->id)
+                        ->where('locale', '!=', $locale)
+                        ->delete();
+                }
 
                 $finalSourceUrl = $existingEvent->source_url;
                 if (empty($finalSourceUrl) || ($dtoIsTicketing && !$existingIsTicketing) || ($dtoSourceType->priority() > $existingSourceType->priority() && !empty($dto->sourceUrl))) {
