@@ -3,6 +3,7 @@
 namespace App\Services\Scrapers\Sources;
 
 use App\Models\Source;
+use App\Services\Language\MarkusCinemaLanguageParser;
 use App\Services\Scrapers\BaseScraper;
 use App\Services\Scrapers\DTO\ScrapedEventDTO;
 use Carbon\Carbon;
@@ -228,6 +229,14 @@ class ApolloKinoScraper extends BaseScraper
                 $show['SubtitleLanguage2']['Name'] ?? null,
             ]);
 
+            // Level 1 Explicit Language parsing strictly via MarkusCinemaLanguageParser
+            $parsedLanguage = MarkusCinemaLanguageParser::parseShow($show, [
+                'Synopsis' => $movie['synopsis'] ?? null,
+                'ShortSynopsis' => $movie['shortSynopsis'] ?? null,
+                'Genres' => $show['Genres'] ?? ($movie['genres'] ?? null),
+                'Title' => $title,
+            ]);
+
             // Categories & Entertainment type strictly per AGENTS.md
             $genres = trim($show['Genres'] ?? $movie['genres'] ?? '');
             [$categoryNames, $entertainmentType] = $this->resolveCategories($title, $genres, $locationData['venue_name']);
@@ -300,6 +309,18 @@ class ApolloKinoScraper extends BaseScraper
                     'genres' => $genres,
                     'spoken_language' => $spokenLang,
                     'subtitles' => $subtitles,
+                    'cinema' => [
+                        'spoken_language_raw' => $show['SpokenLanguage'] ?? null,
+                        'subtitle_languages_raw' => array_values(array_filter([
+                            $show['SubtitleLanguage1'] ?? null,
+                            $show['SubtitleLanguage2'] ?? null,
+                        ])),
+                        'presentation_method' => $presentationMethod,
+                        'auditorium' => $auditorium,
+                        'chain' => 'apollo-kino',
+                        'session_id' => $showId,
+                    ],
+                    'language' => $parsedLanguage->toScraperArray(),
                     'rating_label' => $show['RatingLabel'] ?? $movie['ratingLabel'] ?? null,
                     'length_minutes' => $show['LengthInMinutes'] ?? $movie['lengthInMinutes'] ?? null,
                     'production_year' => $show['ProductionYear'] ?? $movie['productionYear'] ?? null,

@@ -14,6 +14,7 @@ use App\Models\LocationTranslation;
 use App\Models\ScrapeLog;
 use App\Models\Source;
 use App\Services\EventLanguageService;
+use App\Services\Language\EventLanguageDetector;
 use App\Services\Scrapers\Contracts\EventScraperInterface;
 use App\Services\Scrapers\DTO\ScrapedEventDTO;
 use Illuminate\Support\Facades\DB;
@@ -1351,11 +1352,15 @@ class EventIngestionService
 
                 $existingEvent->update($updateData);
 
+                $hasExplicitLanguage = false;
                 // Apply optional language data from scraper DTO
                 if (!empty($dto->rawData['language']) && is_array($dto->rawData['language'])) {
                     $langData = EventLanguageData::fromScraperArray($dto->rawData['language']);
                     if ($langData) {
                         EventLanguageService::applyToEvent($existingEvent, $langData);
+                        if ($langData->source === \App\Enums\EventLanguageSource::Explicit || $langData->source === \App\Enums\EventLanguageSource::Manual) {
+                            $hasExplicitLanguage = true;
+                        }
                     }
                 }
 
@@ -1378,6 +1383,16 @@ class EventIngestionService
                         $existingEvent->categories()->sync($categoryIds);
                     } else {
                         $existingEvent->categories()->syncWithoutDetaching($categoryIds);
+                    }
+                }
+
+                // Automatic language detection if explicit scraper language was missing or unknown
+                if (!$hasExplicitLanguage || $existingEvent->language_mode === \App\Enums\EventLanguageMode::Unknown) {
+                    $detected = app(EventLanguageDetector::class)->detectForEvent($existingEvent);
+                    if ($detected !== null) {
+                        if (EventLanguageService::applyToEvent($existingEvent, $detected)) {
+                            $existingEvent->save();
+                        }
                     }
                 }
 
@@ -1450,16 +1465,30 @@ class EventIngestionService
                 'short_description' => $dto->shortDescription ?: (mb_strlen($dto->description ?? '') <= 220 ? $dto->description : Str::limit(strip_tags($dto->description ?? ''), 160)),
             ]);
 
+            $hasExplicitLanguage = false;
             // Apply optional language data from scraper DTO
             if (!empty($dto->rawData['language']) && is_array($dto->rawData['language'])) {
                 $langData = EventLanguageData::fromScraperArray($dto->rawData['language']);
                 if ($langData) {
                     EventLanguageService::applyToEvent($event, $langData);
+                    if ($langData->source === \App\Enums\EventLanguageSource::Explicit || $langData->source === \App\Enums\EventLanguageSource::Manual) {
+                        $hasExplicitLanguage = true;
+                    }
                 }
             }
 
             if (!empty($categoryIds)) {
                 $event->categories()->sync($categoryIds);
+            }
+
+            // Automatic language detection if explicit scraper language was missing or unknown
+            if (!$hasExplicitLanguage || $event->language_mode === \App\Enums\EventLanguageMode::Unknown) {
+                $detected = app(EventLanguageDetector::class)->detectForEvent($event);
+                if ($detected !== null) {
+                    if (EventLanguageService::applyToEvent($event, $detected)) {
+                        $event->save();
+                    }
+                }
             }
 
             $this->inheritSiblingTranslations($event);

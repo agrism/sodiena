@@ -117,4 +117,9 @@ readonly class EventLanguageData
             'source' => $this->source->value,
         ];
     }
+
+    public function toScraperArray(): array
+    {
+        return $this->toArray();
+    }
 }

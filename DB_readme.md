@@ -694,6 +694,27 @@ Pasākumu valodas dati 1:1 atbilst universālajam *Piedzivo.lv* valodu kontrakta
 * **Kanoniskais eksports:** Izsaucot `EventLanguageService::toPortableArray()`, iekšējais `manual` statuss ārējiem patērētājiem tiek eksportēts kā `explicit`, apliecinot augstāko faktu ticamību, vienlaikus saglabājot patērētājam tiesības piemērot savu iekšējo manuālo korekciju.
 * **Vaicājumu sasaiste (`Event::accessibleInLanguage($code)`):** Atlasa pasākumus, kas pieejami konkrētajā valodā (`language_free`, vai runātā/subtitru valoda satur `$code`), pilnībā izmantojot MySQL 8.0 Multi-Valued JSON indeksus (`idx_events_spoken_languages_mv`, `idx_events_subtitle_languages_mv`).
 
+**3 Līmeņu Deterministiskais Valodas Noteikšanas Dzinējs (Importa un Backfill plūsmā):**
+Pasākuma valoda tiek noteikta pilnībā deterministiski (bez ārējiem LLM izsaukumiem), izmantojot 3 līmeņu kaskādi:
+1. **1. līmenis (Eksplicītie avota lauki – `MarkusCinemaLanguageParser`, `source = 'explicit'`):**
+   * Nolasīts tieši no kino XML grafika (`<Show>` elementa `SpokenLanguage`, `SubtitleLanguage*`, `PresentationMethodAndLanguage`).
+   * Precīzi atbalsta dublētus seansus bez subtitriem (nepārrakstot tos no filmas vispārīgā apraksta), daudzvalodu seansus ar sadalītājiem (`Latviešu / krievu`), "Dažādas val." gadījumus un baleta/operas seansu `language_free` noteikšanu.
+   * Izejas lauki saglabājas `raw_data['cinema']` (`spoken_language_raw`, `subtitle_languages_raw`, `presentation_method`) pilnai izsekojamībai un 5. soļa backfill atbalstam.
+2. **2. līmenis (Kontekstuālā teksta analīze – `EventLanguageTextAnalyzer`, `source = 'inferred'`):**
+   * Analizē virsrakstu un aprakstus 5 stingros posmos:
+     * *Solis A:* Negāciju maskēšana (`bez subtitriem`, `bez titriem`) un metaforisko frāžu aizsardzība (`mūzikas valoda`, `ķermeņa valoda`, `dzimtās valodas diena`).
+     * *Solis B:* Neverbālo signālu noteikšana (`bez vārdiem`, `kustību izrāde`, `pantomīma` -> `language_free`).
+     * *Solis C:* Subtitru/titru/sinhronā tulkojuma izvilkšana un obligāta maskēšana no darba teksta (ar drukas kļūdu toleranci `subtit\w*`).
+     * *Solis D:* Runātās valodas noteikšana no atlikušā teksta (locījumos `... valodā`, konteksta apstākļa vārdos `runās latviski`, strukturētajās birkās `Valoda: LV/EN` un iekavās virsrakstā `(LV/EN)`).
+     * *Solis E:* Normalizācija caur centralizēto `LanguageDictionary` uz ISO 639-1.
+3. **3. līmenis (Kategoriju, vietu un avotu noteikumu dzinējs – `EventLanguageDetector`, `source = 'inferred'`):**
+   * Darbojas, ja 1. un 2. līmenis nav devis nepārprotamu valodu:
+     * *Bez-valodas pasākumi (`language_free`):* Sports, izstādes/muzeji, mūzika/koncerti, tirdziņi/svētki/balles, deja/balets/cirks (ar izņēmumu kontroli lekcijām, gida ekskursijām, operām un konferencēm).
+     * *Zināmie teātri (`spoken`):* Latviešu repertuāra teātri (Dailes, Nacionālais, JRT, Valmieras, Liepājas, Dirty Deal u.c. -> `['lv']`), Krievu teātris (Čehova -> `['ru']`), daudzvalodu institūcijas (Leļļu teātris, Daugavpils teātris, Opera -> `[]`, neminot vienu valodu).
+     * *Kino bez XML/teksta pazīmēm:* `mode: spoken`, `spoken: []` (nekad netiek minēts nepatiess `['lv']`).
+     * *Pašvaldību un kultūras centru pasākumi:* `spoken: ['lv']` (ar drošības pārbaudi: ja virsrakstā ir kirilica, valoda netiek minēta -> `spoken: []`).
+     * *Neskaidrie gadījumi (`citi`):* Paliek `unknown`.
+
 ---
 
 ## 5. Datu Uzturēšanas un Administrācijas Komandas
