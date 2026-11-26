@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\EventLanguageMode;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\EventResource;
 use App\Jobs\RefreshSitemapJob;
@@ -11,6 +12,7 @@ use App\Models\EventTranslation;
 use App\Models\Location;
 use App\Models\LocationTranslation;
 use App\Services\EventImageStorageService;
+use App\Services\EventLanguageService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -24,7 +26,7 @@ class EventApiController extends Controller
     /**
      * Get a paginated list of events filtered by various parameters.
      */
-    public function index(Request $request): AnonymousResourceCollection
+    public function index(Request $request): AnonymousResourceCollection|JsonResponse
     {
         $search = $request->query('search') ?: $request->query('q');
         $categorySlug = $request->query('category');
@@ -40,6 +42,8 @@ class EventApiController extends Controller
         $sourceSlug = $request->query('source');
         $isFeatured = $request->query('is_featured');
         $isPromoted = $request->query('is_promoted');
+        $language = $request->query('language');
+        $languageMode = $request->query('language_mode');
         $sort = $request->query('sort', 'date_asc');
         $perPage = min(max((int) ($request->query('per_page') ?: $request->query('limit', 20)), 1), 250);
 
@@ -86,6 +90,29 @@ class EventApiController extends Controller
             } else {
                 $query->filterByCategory($categorySlug);
             }
+        }
+
+        if ($request->has('language') && $language !== null && trim($language) !== '') {
+            $normalizedLanguage = EventLanguageService::normalizeCodes([trim($language)]);
+            if (empty($normalizedLanguage)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid language code for "language". Please use a valid ISO 639-1 code (e.g. lv, en, ru).',
+                ], 422);
+            }
+            $query->accessibleInLanguage($normalizedLanguage[0]);
+        }
+
+        if ($request->has('language_mode') && $languageMode !== null && trim($languageMode) !== '') {
+            $rawMode = strtolower(trim($languageMode));
+            $modeEnum = EventLanguageMode::tryFrom($rawMode);
+            if ($modeEnum === null) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid value for "language_mode". Allowed values: spoken, language_free, unknown.',
+                ], 422);
+            }
+            $query->where('language_mode', $modeEnum->value);
         }
 
         // City filter
@@ -157,6 +184,8 @@ class EventApiController extends Controller
         $since = $request->query('since') ?: $request->query('updated_since');
         $city = $request->query('city');
         $categorySlug = $request->query('category');
+        $language = $request->query('language');
+        $languageMode = $request->query('language_mode');
         $perPage = min(max((int) ($request->query('per_page') ?: $request->query('limit', 100)), 1), 250);
         $page = max((int) $request->query('page', 1), 1);
 
@@ -209,6 +238,29 @@ class EventApiController extends Controller
             } else {
                 $query->filterByCategory($categorySlug);
             }
+        }
+
+        if ($request->has('language') && $language !== null && trim($language) !== '') {
+            $normalizedLanguage = EventLanguageService::normalizeCodes([trim($language)]);
+            if (empty($normalizedLanguage)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid language code for "language". Please use a valid ISO 639-1 code (e.g. lv, en, ru).',
+                ], 422);
+            }
+            $query->accessibleInLanguage($normalizedLanguage[0]);
+        }
+
+        if ($request->has('language_mode') && $languageMode !== null && trim($languageMode) !== '') {
+            $rawMode = strtolower(trim($languageMode));
+            $modeEnum = EventLanguageMode::tryFrom($rawMode);
+            if ($modeEnum === null) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid value for "language_mode". Allowed values: spoken, language_free, unknown.',
+                ], 422);
+            }
+            $query->where('language_mode', $modeEnum->value);
         }
 
         // Deterministic ordering by updated_at ASC, id ASC

@@ -61,6 +61,7 @@ class EventResource extends JsonResource
             'formatted_price' => $this->formatted_price,
             'entertainment_type' => $this->entertainment_type,
             'localized_entertainment_type' => $this->localized_entertainment_type,
+            'language' => \App\Services\EventLanguageService::toPortableArray($this->resource),
             'image_url' => $this->display_image_url,
             'original_image_url' => $this->image_url,
             'ticket_url' => $this->ticket_url,

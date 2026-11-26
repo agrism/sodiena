@@ -56,6 +56,11 @@ Lai saņemtu datus vēlamajā valodā, pieprasījumam var pievienot parametru `l
 * `locale=en` — Angļu valoda
 * `locale=ru` — Krievu valoda
 
+> [!NOTE]
+> **Svarīgi: `locale` vs `language` nošķiršana:**
+> * Parametrs `locale` kontrolē **saskarnes un tekstu tulkojumu valodu** (`title`, `description`, kategoriju un pilsētu nosaukumus).
+> * Pasākuma objekts `"language"` un vaicājumu filtri `?language=...` / `?language_mode=...` kontrolē **pašas norises satura valodisko pieejamību** (runātā valoda, subtitri vai pasākums bez valodas barjeras). Abi mehānismi ir pilnībā neatkarīgi.
+
 ---
 
 ## 4. Datu Glabāšana Pie Sevis & Sinhronizācijas Arhitektūra (piedzivo.lv)
@@ -100,6 +105,8 @@ Gala punkts optimālai un ātrai datu sinhronizācijai starp Šodiena.lv un ār�
 | `upcoming_only` | `boolean` | `true` (noklusējums pilnajai sinhronizācijai bez `since`) atgriež tikai šodienas un gaidāmos pasākumus. `false` (noklusējums delta sinhronizācijai ar `since`) sinhronizē jebkuras izmaiņas. | `upcoming_only=true` |
 | `per_page` vai `limit` | `int` | Ierakstu skaits vienā lapā (noklusējums: 100, min: 1, max: 250) | `per_page=100` |
 | `page` | `int` | Lapas numurs (noklusējums: 1) | `page=1` |
+| `language` | `string` | Pasākuma pieejamības valoda (ISO 639-1 kods, piem., `lv`, `en`, `ru`). Atlasa `language_free` pasākumus un pasākumus, kuru audio vai subtitri satur šo valodu. | `language=en` |
+| `language_mode` | `string` | Pasākuma valodas režīms: `spoken`, `language_free`, `unknown`. | `language_mode=spoken` |
 | `locale` | `string` | Atbildes valoda: `lv`, `en`, `ru` (noklusējums: `lv`) | `locale=lv` |
 
 #### Pieprasījuma piemērs (Inkrementālā stundas sinhronizācija):
@@ -134,6 +141,12 @@ Authorization: Bearer sodiena_api_secret_token_change_me
       "formatted_price": "€25 - €65",
       "entertainment_type": "concert",
       "localized_entertainment_type": "Koncerts",
+      "language": {
+        "mode": "spoken",
+        "spoken": ["lv"],
+        "subtitles": ["en"],
+        "source": "explicit"
+      },
       "image_url": "https://sodienat.hel1.your-objectstorage.com/events/images/concert.webp",
       "original_image_url": "https://source.com/img.jpg",
       "ticket_url": "https://www.bilesuparadize.lv/lv/event/12345",
@@ -226,6 +239,8 @@ Atgriež publicēto pasākumu sarakstu ar pagināciju un elastīgām meklēšana
 | `is_featured` | `boolean` | Tikai izceltie pasākumi: `true` / `false` / `1` / `0` | `is_featured=true` |
 | `is_promoted` | `boolean` | Filtrēt pēc promovētiem pasākumiem: `true` / `false` / `1` / `0` | `is_promoted=true` |
 | `source` | `string` | Datu avota `slug` (piem., `bilesu-paradize`, `bilesu-serviss`, `bezrindas`, `afiro-api`) | `source=bilesu-paradize` |
+| `language` | `string` | Pasākuma pieejamības valoda (ISO 639-1 kods, piem., `lv`, `en`, `ru`). Atlasa `language_free` pasākumus un pasākumus, kuru audio vai subtitri satur šo valodu. | `language=en` |
+| `language_mode` | `string` | Pasākuma valodas režīms: `spoken`, `language_free`, `unknown`. | `language_mode=language_free` |
 | `sort` | `string` | Kārtošana: `date_asc` (noklusējums), `date_desc`, `views_desc` (vai `popular`), `newest` (vai `created_desc`), `updated_desc`, `updated_asc`, `price_asc`, `price_desc` | `sort=updated_desc` |
 | `locale` | `string` | Atbildes valoda: `lv`, `en`, `ru` (noklusējums: `lv`) | `locale=lv` |
 | `per_page` vai `limit` | `int` | Elementu skaits vienā lapā (noklusējums: 20, min: 1, max: 250) | `per_page=100` |
@@ -261,6 +276,12 @@ Authorization: Bearer sodiena_api_secret_token_change_me
       "formatted_price": "€25 - €65",
       "entertainment_type": "concert",
       "localized_entertainment_type": "Koncerts",
+      "language": {
+        "mode": "spoken",
+        "spoken": ["lv"],
+        "subtitles": ["en"],
+        "source": "explicit"
+      },
       "image_url": "https://sodienat.hel1.your-objectstorage.com/events/images/concert.webp",
       "original_image_url": "https://source.com/img.jpg",
       "ticket_url": "https://www.bilesuparadize.lv/lv/event/12345",
@@ -368,6 +389,12 @@ Authorization: Bearer sodiena_api_secret_token_change_me
     "formatted_price": "€25 - €65",
     "entertainment_type": "concert",
     "localized_entertainment_type": "Koncerts",
+    "language": {
+      "mode": "spoken",
+      "spoken": ["lv"],
+      "subtitles": ["en"],
+      "source": "explicit"
+    },
     "image_url": "https://sodienat.hel1.your-objectstorage.com/events/images/concert.webp",
     "original_image_url": "https://source.com/img.jpg",
     "ticket_url": "https://www.bilesuparadize.lv/lv/event/12345",
@@ -451,6 +478,12 @@ Authorization: Bearer sodiena_api_secret_token_change_me
       "formatted_date": "15. okt. plkst. 19:00",
       "is_free": false,
       "formatted_price": "€25 - €65",
+      "language": {
+        "mode": "spoken",
+        "spoken": ["lv"],
+        "subtitles": ["en"],
+        "source": "explicit"
+      },
       "image_url": "https://sodienat.hel1.your-objectstorage.com/events/images/concert.webp",
       "display_venue": "Arēna Rīga",
       "ticket_url": "https://www.bilesuparadize.lv/lv/event/12345",
@@ -535,11 +568,29 @@ Tiek atgriezts, ja pieprasītais pasākuma ID neeksistē vai pasākums vēl nav 
 ```
 
 ### `422 Unprocessable Content`
-Tiek atgriezts, ja padotais laika zīmogs (piem., `since`) nav derīgā formātā.
+Tiek atgriezts, ja padotais laika zīmogs (piem., `since`) vai valodas parametri (`language`, `language_mode`) nav derīgā formātā.
+
+**Piemērs nederīgam `since` parametram:**
 ```json
 {
   "success": false,
   "message": "Invalid timestamp format for \"since\". Please use ISO 8601 (e.g. 2026-10-27T14:00:00Z) or a UNIX timestamp."
+}
+```
+
+**Piemērs nederīgam `language` parametram:**
+```json
+{
+  "success": false,
+  "message": "Invalid language code for \"language\". Please use a valid ISO 639-1 code (e.g. lv, en, ru)."
+}
+```
+
+**Piemērs nederīgam `language_mode` parametram:**
+```json
+{
+  "success": false,
+  "message": "Invalid value for \"language_mode\". Allowed values: spoken, language_free, unknown."
 }
 ```
 
