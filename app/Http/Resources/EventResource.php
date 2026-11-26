@@ -30,6 +30,7 @@ class EventResource extends JsonResource
                 'theatre' => $rawData['theatre'] ?? null,
                 'auditorium' => $rawData['auditorium'] ?? null,
                 'presentation_method' => $rawData['presentation_method'] ?? null,
+                'presentation_format' => $rawData['presentation_method'] ?? null,
                 'spoken_language' => $rawData['spoken_language'] ?? null,
                 'subtitles' => !empty($rawData['subtitles']) && is_array($rawData['subtitles']) ? array_values($rawData['subtitles']) : [],
                 'rating_label' => $rawData['rating_label'] ?? null,
