@@ -56,6 +56,8 @@ class EventLanguageDetector
         );
 
         if ($textResult !== null) {
+            $wasClearedByDubbingGuard = false;
+
             // Guard against historical cinema events with ambiguous dubbing descriptions (e.g. "Filma dublēta latviešu un krievu valodā")
             $isCinemaEvent = in_array($event->source_slug, ['apollo-kino', 'forum-cinemas'], true)
                 || $event->entertainment_type === 'kino'
@@ -69,6 +71,24 @@ class EventLanguageDetector
                     subtitleLanguages: $textResult->subtitleLanguages ?? [],
                     source: EventLanguageSource::Inferred,
                 );
+                $wasClearedByDubbingGuard = true;
+            }
+
+            // 2. līmeņa papildināšana ar 3. līmeni (kad atrasti subtitri, bet nav runātās valodas)
+            if ($textResult->mode === EventLanguageMode::Spoken
+                && empty($textResult->spokenLanguages)
+                && !empty($textResult->subtitleLanguages)
+                && !$wasClearedByDubbingGuard
+            ) {
+                $level3 = $this->applyLevel3Rules($event);
+                if ($level3 !== null && $level3->mode === EventLanguageMode::Spoken && !empty($level3->spokenLanguages)) {
+                    return new EventLanguageData(
+                        mode: EventLanguageMode::Spoken,
+                        spokenLanguages: $level3->spokenLanguages,
+                        subtitleLanguages: $textResult->subtitleLanguages,
+                        source: EventLanguageSource::Inferred,
+                    );
+                }
             }
 
             return $textResult;
@@ -119,6 +139,11 @@ class EventLanguageDetector
         $title = (string) $event->title;
         $titleLower = mb_strtolower(trim($title), 'UTF-8');
 
+        // Aizsardzība pret trokšņainu events.entertainment_type
+        $hasSpokenCategory = !empty(array_intersect($catSlugs, ['teatris', 'kino', 'seminari', 'berniem']));
+        $repertoireTheatre = self::matchRepertoireTheatre($normalizedVenue);
+        $allowEntertainmentTypeFallback = !$hasSpokenCategory && $repertoireTheatre === null;
+
         // -------------------------------------------------------------
         // 3.2. Daudzkategoriju konfliktu izšķiršana
         // -------------------------------------------------------------
@@ -152,7 +177,6 @@ class EventLanguageDetector
 
             // 1b. Atbilst zināmam repertuāra teātrim UN title nesatur koncert, izstād, balet
             if (!$hasStrongSpokenSignal) {
-                $repertoireTheatre = self::matchRepertoireTheatre($normalizedVenue);
                 if ($repertoireTheatre !== null) {
                     $isNonSpokenRepertoireEvent = (bool) preg_match('/\b(?:koncert\w*|izstād\w*|balet\w*)\b/ui', $titleLower);
                     if (!$isNonSpokenRepertoireEvent) {
@@ -192,10 +216,13 @@ class EventLanguageDetector
                     }
                 }
 
-                // 2c. Entertainment type in ('concert', 'exhibition', 'sports') un nav kino un place nav theatre/cinema
+                // 2c. Entertainment type in ('concert', 'sports') un nav kino un place nav theatre/cinema
                 if (!$hasStrongLanguageFreeSignal) {
-                    $isLangFreeEntertainment = in_array($entertainmentType, ['concert', 'exhibition', 'sports'], true);
-                    $isKinoOrTheatreContext = in_array('kino', $catSlugs, true) || in_array($placeType, ['theatre', 'cinema'], true);
+                    $isLangFreeEntertainment = in_array($entertainmentType, ['concert', 'sports'], true);
+                    $isKinoOrTheatreContext = in_array('kino', $catSlugs, true)
+                        || in_array('teatris', $catSlugs, true)
+                        || in_array($placeType, ['theatre', 'cinema'], true)
+                        || $repertoireTheatre !== null;
                     if ($isLangFreeEntertainment && !$isKinoOrTheatreContext) {
                         $hasStrongLanguageFreeSignal = true;
                     }
@@ -215,7 +242,7 @@ class EventLanguageDetector
         // -------------------------------------------------------------
         if (!$blockLanguageFree) {
             // 1. Sports
-            if (in_array('sports', $catSlugs, true) || $sourceTypeStr === 'sports' || $entertainmentType === 'sports') {
+            if (in_array('sports', $catSlugs, true) || $sourceTypeStr === 'sports' || ($allowEntertainmentTypeFallback && $entertainmentType === 'sports')) {
                 $sportsExceptionPattern = '/\b(?:lekcij\w*|seminār\w*|konferenc\w*|diskusij\w*|filma\w*|kinoseans\w*|tikšanās\s+ar|stāstu\s+vakar\w*)\b/ui';
                 if (!preg_match($sportsExceptionPattern, $titleLower)) {
                     return new EventLanguageData(
@@ -228,7 +255,7 @@ class EventLanguageDetector
             }
 
             // 2. Izstādes (tikai title pārbaude!)
-            if (in_array('izstades', $catSlugs, true) || $entertainmentType === 'exhibition') {
+            if (in_array('izstades', $catSlugs, true) || ($allowEntertainmentTypeFallback && $entertainmentType === 'exhibition')) {
                 $exhibitionExceptionPattern = '/\b(?:ekskursij\w*|gida\s+pavadīb\w*|ar\s+gidu|lekcij\w*|sarun\w*|darbnīc\w*|meistarklas\w*|tikšanās\w*|diskusij\w*|lasījum\w*|prezentācij\w*|stāstījum\w*|radoš\w*\s+darbnīc\w*|seminār\w*)\b/ui';
                 if (!preg_match($exhibitionExceptionPattern, $titleLower)) {
                     return new EventLanguageData(
@@ -241,7 +268,7 @@ class EventLanguageDetector
             }
 
             // 3. Mūzika & koncerti (tikai title pārbaude!)
-            if (in_array('muzika', $catSlugs, true) || $entertainmentType === 'concert') {
+            if (in_array('muzika', $catSlugs, true) || ($allowEntertainmentTypeFallback && $entertainmentType === 'concert')) {
                 $musicExceptionPattern = '/\b(?:oper[ae]\w*|operet\w*|mūzikl\w*|koncertlekcij\w*|koncertsarun\w*|dzej\w*|stāstu\s+vakar\w*|literār\w*|stand-?up|stāvizrād\w*|komēdij\w*|izrād\w*|teātr\w*)\b/ui';
                 $hasMusicException = (bool) preg_match($musicExceptionPattern, $titleLower);
 
@@ -316,7 +343,6 @@ class EventLanguageDetector
             || $placeType === 'theatre';
 
         if ($isTheatreContext && !empty($normalizedVenue)) {
-            $repertoireTheatre = self::matchRepertoireTheatre($normalizedVenue);
             if ($repertoireTheatre !== null) {
                 // Daudzvalodu teātri -> spoken: []
                 if ($repertoireTheatre['type'] === 'multilingual') {
@@ -330,12 +356,15 @@ class EventLanguageDetector
 
                 // Krievu repertuāra teātris -> spoken: ['ru']
                 if ($repertoireTheatre['type'] === 'russian') {
-                    return new EventLanguageData(
-                        mode: EventLanguageMode::Spoken,
-                        spokenLanguages: ['ru'],
-                        subtitleLanguages: [],
-                        source: EventLanguageSource::Inferred,
-                    );
+                    $isNonSpokenRussianEvent = (bool) preg_match('/\b(?:izstād\w*|balet\w*)\b/ui', $titleLower);
+                    if (!$isNonSpokenRussianEvent) {
+                        return new EventLanguageData(
+                            mode: EventLanguageMode::Spoken,
+                            spokenLanguages: ['ru'],
+                            subtitleLanguages: [],
+                            source: EventLanguageSource::Inferred,
+                        );
+                    }
                 }
 
                 // Latviešu repertuāra teātri -> spoken: ['lv']
@@ -429,6 +458,7 @@ class EventLanguageDetector
         // 2. Krievu repertuāra teātris (spoken: ['ru'])
         $russianTheatres = [
             'mihaila čehova',
+            'm. čehova',
             'čehova rīgas krievu',
             'rīgas krievu teātr',
             'čehova teātr',

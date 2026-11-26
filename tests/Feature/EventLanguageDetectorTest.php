@@ -595,4 +595,167 @@ class EventLanguageDetectorTest extends TestCase
         $this->assertSame(EventLanguageMode::Spoken, $detectedJoriks->mode);
         $this->assertSame([], $detectedJoriks->spokenLanguages);
     }
+
+    /**
+     * 13. Step 4.2: Guard against noisy entertainment_type = 'exhibition' on theatre plays.
+     * Diagnostic cases: IDs 346, 367, 383, 425, 629.
+     */
+    public function test_noisy_entertainment_type_exhibition_on_theatre_plays(): void
+    {
+        // ID 346: Dailes teātris Lielā zāle + entertainment_type = 'exhibition' + translator note
+        $dailes = Location::create([
+            'name' => 'Dailes teātris Lielā zāle',
+            'city' => 'Rīga',
+            'region' => 'Rīga un Pierīga',
+            'place_type' => 'venue',
+        ]);
+        $event346 = $this->createEvent([
+            'title' => 'MAZLIET PAR SKAĻU',
+            'description' => 'No angļu valodas tulkojusi Justīne Kļava. Režisors Viesturs Kairišs.',
+            'entertainment_type' => 'exhibition',
+            'location_id' => $dailes->id,
+        ], ['teatris']);
+
+        $detected346 = $this->detector->detectForEvent($event346);
+        $this->assertNotNull($detected346);
+        $this->assertSame(EventLanguageMode::Spoken, $detected346->mode);
+        $this->assertSame(['lv'], $detected346->spokenLanguages);
+        $this->assertSame([], $detected346->subtitleLanguages);
+
+        // ID 367: Čehova Teātra Arkāde + entertainment_type = 'exhibition'
+        $cehovs = Location::create([
+            'name' => 'Čehova Teātra Arkāde',
+            'city' => 'Rīga',
+            'region' => 'Rīga un Pierīga',
+            'place_type' => 'venue',
+        ]);
+        $event367 = $this->createEvent([
+            'title' => 'Zvaigznāji',
+            'entertainment_type' => 'exhibition',
+            'location_id' => $cehovs->id,
+        ], ['teatris']);
+
+        $detected367 = $this->detector->detectForEvent($event367);
+        $this->assertNotNull($detected367);
+        $this->assertSame(EventLanguageMode::Spoken, $detected367->mode);
+        $this->assertSame(['ru'], $detected367->spokenLanguages);
+        $this->assertSame([], $detected367->subtitleLanguages);
+
+        // ID 383 / 629: Jaunais Rīgas teātris, Lielā zāle
+        $jrt = Location::create([
+            'name' => 'Jaunais Rīgas teātris, Lielā zāle',
+            'city' => 'Rīga',
+            'region' => 'Rīga un Pierīga',
+            'place_type' => 'venue',
+        ]);
+        $event383 = $this->createEvent([
+            'title' => 'LEDUS GARŠA',
+            'entertainment_type' => 'exhibition',
+            'location_id' => $jrt->id,
+        ], ['teatris']);
+
+        $detected383 = $this->detector->detectForEvent($event383);
+        $this->assertNotNull($detected383);
+        $this->assertSame(EventLanguageMode::Spoken, $detected383->mode);
+        $this->assertSame(['lv'], $detected383->spokenLanguages);
+
+        // ID 425: Austrumu Robeža teātra klubs
+        $austrumu = Location::create([
+            'name' => 'Austrumu Robeža teātra klubs',
+            'city' => 'Rīga',
+            'region' => 'Rīga un Pierīga',
+            'place_type' => 'venue',
+        ]);
+        $event425 = $this->createEvent([
+            'title' => 'Nav smieklīgi!',
+            'entertainment_type' => 'exhibition',
+            'location_id' => $austrumu->id,
+        ], ['teatris']);
+
+        $detected425 = $this->detector->detectForEvent($event425);
+        $this->assertNotNull($detected425);
+        $this->assertSame(EventLanguageMode::Spoken, $detected425->mode);
+        $this->assertSame(['lv'], $detected425->spokenLanguages);
+    }
+
+    /**
+     * 14. Step 4.2: Merge Level 2 subtitles with Level 3 theatre spoken language (ID 627, Čehov with LV subtitles).
+     */
+    public function test_level2_subtitles_merged_with_level3_theatre_spoken_language(): void
+    {
+        // ID 627: PIRMAVOTS @ Dailes teātris with EN and LV subtitles
+        $dailes = Location::create([
+            'name' => 'Dailes teātris Lielā zāle',
+            'city' => 'Rīga',
+            'region' => 'Rīga un Pierīga',
+            'place_type' => 'theatre',
+        ]);
+        $event627 = $this->createEvent([
+            'title' => 'PIRMAVOTS',
+            'description' => 'Izrāde ar subtitriem angļu un latviešu valodā.',
+            'entertainment_type' => 'exhibition',
+            'location_id' => $dailes->id,
+        ], ['teatris']);
+
+        $detected627 = $this->detector->detectForEvent($event627);
+        $this->assertNotNull($detected627);
+        $this->assertSame(EventLanguageMode::Spoken, $detected627->mode);
+        $this->assertSame(['lv'], $detected627->spokenLanguages);
+        $this->assertEqualsCanonicalizing(['en', 'lv'], $detected627->subtitleLanguages);
+
+        // Čehova teātris with LV subtitles in description
+        $cehovs = Location::create([
+            'name' => 'Mihaila Čehova Rīgas Krievu teātris',
+            'city' => 'Rīga',
+            'region' => 'Rīga un Pierīga',
+            'place_type' => 'theatre',
+        ]);
+        $cehovsEvent = $this->createEvent([
+            'title' => 'Luga Čehovā',
+            'description' => 'Izrāde ar titriem latviešu valodā.',
+            'location_id' => $cehovs->id,
+        ], ['teatris']);
+
+        $detectedCehovs = $this->detector->detectForEvent($cehovsEvent);
+        $this->assertNotNull($detectedCehovs);
+        $this->assertSame(EventLanguageMode::Spoken, $detectedCehovs->mode);
+        $this->assertSame(['ru'], $detectedCehovs->spokenLanguages);
+        $this->assertSame(['lv'], $detectedCehovs->subtitleLanguages);
+    }
+
+    /**
+     * 15. Step 4.2: Level 2 protection against Level 3 LanguageFree overwrite.
+     * A music event with subtitles in description must stay spoken with subtitles, not become language_free.
+     */
+    public function test_level2_protection_against_level3_language_free_overwrite(): void
+    {
+        $concert = $this->createEvent([
+            'title' => 'Simfoniskais koncerts',
+            'description' => 'Koncerts ar subtitriem angļu valodā.',
+        ], ['muzika']);
+
+        $detected = $this->detector->detectForEvent($concert);
+        $this->assertNotNull($detected);
+        $this->assertSame(EventLanguageMode::Spoken, $detected->mode);
+        $this->assertSame([], $detected->spokenLanguages);
+        $this->assertSame(['en'], $detected->subtitleLanguages);
+    }
+
+    /**
+     * 16. Step 4.2: Cinema ambiguous dubbing guard remains intact.
+     */
+    public function test_cinema_ambiguous_dubbing_guard_remains_intact(): void
+    {
+        $cinema = $this->createEvent([
+            'title' => 'Animācijas filma',
+            'description' => 'Filma dublēta latviešu un krievu valodā ar subtitriem latviešu valodā.',
+            'entertainment_type' => 'kino',
+        ], ['kino']);
+
+        $detected = $this->detector->detectForEvent($cinema);
+        $this->assertNotNull($detected);
+        $this->assertSame(EventLanguageMode::Spoken, $detected->mode);
+        $this->assertSame([], $detected->spokenLanguages);
+        $this->assertSame(['lv'], $detected->subtitleLanguages);
+    }
 }
