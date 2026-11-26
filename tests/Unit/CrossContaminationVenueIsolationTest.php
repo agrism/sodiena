@@ -224,6 +224,12 @@ class CrossContaminationVenueIsolationTest extends TestCase
             'ticket_url' => 'https://www.apollokino.lv/websales/show/535535',
             'description' => 'Apollo seanss. Biļetes: https://www.bilesuparadize.lv/lv/event/181791',
             'raw_data' => [
+                'cta' => [
+                    'kind' => 'tickets',
+                    'links' => [
+                        ['url' => 'https://www.bilesuparadize.lv/lv/event/181725?utm_source=afiro', 'title' => 'Biļešu Paradīze'],
+                    ],
+                ],
                 'ticket_links' => [
                     ['url' => 'https://www.apollokino.lv/websales/show/535535', 'title' => 'Apollo Kino'],
                     ['url' => 'https://www.bilesuparadize.lv/lv/event/181791', 'title' => 'Biļešu Paradīze Cēsis'],
@@ -256,6 +262,12 @@ class CrossContaminationVenueIsolationTest extends TestCase
             'short_description' => 'Filma stāsta par leģendāro grupu Jumprava.',
             'description' => "Organizators: Kino Lora SIA ... UZRĀDOT SIGULDAS NOVADA IEDZĪVOTĀJU KARTI, BIĻETES CENA CETURTDIENAS SEANSIEM 7,50 euro...",
             'raw_data' => [
+                'cta' => [
+                    'kind' => 'tickets',
+                    'links' => [
+                        ['id' => 'abc1', 'url' => 'https://www.bilesuparadize.lv/lv/event/181725?utm_source=afiro', 'title' => null],
+                    ],
+                ],
                 'merged_external_ids' => [
                     'apollo-kino' => '535535',
                     'bilesu-serviss' => 'bilesuserviss-I2PU3IJQ3B',
@@ -280,6 +292,13 @@ class CrossContaminationVenueIsolationTest extends TestCase
         // 2. foreign ticket_links removed from raw_data
         $this->assertCount(1, $event->raw_data['ticket_links']);
         $this->assertStringContainsString('apollokino.lv', $event->raw_data['ticket_links'][0]['url']);
+
+        // 2.2 foreign cta.links removed from raw_data
+        $this->assertEmpty($event->raw_data['cta']['links']);
+
+        // 2.3 ticket_links accessor returns only Apollo
+        $this->assertCount(1, $event->ticket_links);
+        $this->assertStringContainsString('apollokino.lv', $event->ticket_links[0]['url']);
 
         // 3. foreign merged_external_ids purged
         $this->assertArrayNotHasKey('bilesu-serviss', $event->raw_data['merged_external_ids']);

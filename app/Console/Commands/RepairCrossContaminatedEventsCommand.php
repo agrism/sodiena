@@ -93,6 +93,25 @@ class RepairCrossContaminatedEventsCommand extends Command
                 }
             }
 
+            // B.2) Clean cta.links in raw_data (remove foreign platforms like Bilesu Paradize, Bilesu Serviss, BezRindas)
+            if (!empty($rawData['cta']['links']) && is_array($rawData['cta']['links'])) {
+                $cleanCtaLinks = [];
+                $removedCtaCount = 0;
+                foreach ($rawData['cta']['links'] as $link) {
+                    $u = strtolower(is_array($link) ? ($link['url'] ?? '') : (string) $link);
+                    if (str_contains($u, 'apollokino.lv')) {
+                        $cleanCtaLinks[] = $link;
+                    } else {
+                        $removedCtaCount++;
+                    }
+                }
+                if ($removedCtaCount > 0) {
+                    $rawData['cta']['links'] = $cleanCtaLinks;
+                    $rawModified = true;
+                    $this->line("Event #{$event->id} ({$event->title}): Removed {$removedCtaCount} foreign CTA link(s).");
+                }
+            }
+
             // C) Purge foreign source slugs from merged_external_ids
             if (!empty($rawData['merged_external_ids']) && is_array($rawData['merged_external_ids'])) {
                 $foreignSlugs = [
@@ -159,6 +178,25 @@ class RepairCrossContaminatedEventsCommand extends Command
                 }
             }
 
+            // B.2) Clean cta.links in raw_data
+            if (!empty($rawData['cta']['links']) && is_array($rawData['cta']['links'])) {
+                $cleanCtaLinks = [];
+                $removedCtaCount = 0;
+                foreach ($rawData['cta']['links'] as $link) {
+                    $u = strtolower(is_array($link) ? ($link['url'] ?? '') : (string) $link);
+                    if (str_contains($u, 'forumcinemas.lv')) {
+                        $cleanCtaLinks[] = $link;
+                    } else {
+                        $removedCtaCount++;
+                    }
+                }
+                if ($removedCtaCount > 0) {
+                    $rawData['cta']['links'] = $cleanCtaLinks;
+                    $rawModified = true;
+                    $this->line("Event #{$event->id} ({$event->title}): Removed {$removedCtaCount} foreign CTA link(s).");
+                }
+            }
+
             // C) Purge foreign source slugs
             if (!empty($rawData['merged_external_ids']) && is_array($rawData['merged_external_ids'])) {
                 $foreignSlugs = ['apollo-kino', 'apollokino', 'bilesu-serviss', 'bilesu-paradize', 'bezrindas'];
@@ -197,6 +235,24 @@ class RepairCrossContaminatedEventsCommand extends Command
                     $rawData['ticket_links'] = $cleanLinks;
                     $rawModified = true;
                     $this->line("Event #{$event->id} ({$event->title}): Removed {$removedCount} mismatched cinema link(s).");
+                }
+            }
+
+            if (!empty($rawData['cta']['links']) && is_array($rawData['cta']['links'])) {
+                $cleanCtaLinks = [];
+                $removedCtaCount = 0;
+                foreach ($rawData['cta']['links'] as $link) {
+                    $u = strtolower(is_array($link) ? ($link['url'] ?? '') : (string) $link);
+                    if (str_contains($u, 'apollokino.lv') || str_contains($u, 'forumcinemas.lv')) {
+                        $removedCtaCount++;
+                    } else {
+                        $cleanCtaLinks[] = $link;
+                    }
+                }
+                if ($removedCtaCount > 0) {
+                    $rawData['cta']['links'] = $cleanCtaLinks;
+                    $rawModified = true;
+                    $this->line("Event #{$event->id} ({$event->title}): Removed {$removedCtaCount} mismatched cinema CTA link(s).");
                 }
             }
         }
