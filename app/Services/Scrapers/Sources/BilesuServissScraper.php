@@ -108,9 +108,39 @@ class BilesuServissScraper extends BaseScraper
 
         // Venue & Location
         $venueName = $this->cleanText($venueData['name'] ?? $venueData['nameOverride'] ?? null);
-        $city = $this->cleanText($venueData['city'] ?? 'Rīga');
-        if (empty($city)) {
-            $city = 'Rīga';
+        $city = $this->cleanText($venueData['city'] ?? null);
+        if (empty($city) && !empty($venueName)) {
+            $lowerVenue = mb_strtolower($venueName, 'UTF-8');
+            $knownCities = [
+                'sigulda' => 'Sigulda',
+                'cēsis' => 'Cēsis',
+                'cesis' => 'Cēsis',
+                'jelgava' => 'Jelgava',
+                'liepāja' => 'Liepāja',
+                'liepaja' => 'Liepāja',
+                'valmiera' => 'Valmiera',
+                'ventspils' => 'Ventspils',
+                'daugavpils' => 'Daugavpils',
+                'jūrmala' => 'Jūrmala',
+                'jurmala' => 'Jūrmala',
+                'rēzekne' => 'Rēzekne',
+                'rezekne' => 'Rēzekne',
+                'ogre' => 'Ogre',
+                'tukums' => 'Tukums',
+                'bauska' => 'Bauska',
+                'kuldīga' => 'Kuldīga',
+                'kuldiga' => 'Kuldīga',
+                'saldus' => 'Saldus',
+                'talsi' => 'Talsi',
+                'rīga' => 'Rīga',
+                'riga' => 'Rīga',
+            ];
+            foreach ($knownCities as $needle => $name) {
+                if (str_contains($lowerVenue, $needle)) {
+                    $city = $name;
+                    break;
+                }
+            }
         }
 
         // Categories

@@ -211,6 +211,7 @@ class VisitTukumsScraperTest extends TestCase
 
     public function test_scrape_mock_html(): void
     {
+        Carbon::setTestNow('2026-11-20 12:00:00');
         $mockHtml = <<<'HTML'
 <!doctype html>
 <html>

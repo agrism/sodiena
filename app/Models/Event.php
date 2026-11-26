@@ -408,6 +408,40 @@ class Event extends Model
             }
         }
 
+        // 1.5. Check raw_data ticket_links
+        if (!empty($this->raw_data['ticket_links']) && is_array($this->raw_data['ticket_links'])) {
+            foreach ($this->raw_data['ticket_links'] as $item) {
+                $rawUrl = is_array($item) ? ($item['url'] ?? null) : (is_string($item) ? $item : null);
+                if (!$rawUrl || !is_string($rawUrl)) continue;
+
+                $cleanUrl = preg_replace('/(\?|\&)utm_[a-zA-Z0-9_]+=[^&]*/', '', $rawUrl);
+                $cleanUrl = rtrim($cleanUrl, '?&.,;:\'\"');
+
+                if (str_contains($cleanUrl, 'afiro.lv') || str_contains($cleanUrl, 'imagekit.io')) {
+                    continue;
+                }
+
+                $normalized = strtolower($cleanUrl);
+                if (isset($seenUrls[$normalized])) continue;
+                $seenUrls[$normalized] = true;
+
+                $matchedPlatform = null;
+                foreach ($platformNames as $domain => $info) {
+                    if (str_contains($normalized, $domain)) {
+                        $matchedPlatform = $info;
+                        break;
+                    }
+                }
+
+                $links[] = [
+                    'url' => $cleanUrl,
+                    'title' => $matchedPlatform ? $matchedPlatform['title'] : (is_array($item) && !empty($item['title']) ? $item['title'] : 'Biļetes'),
+                    'label' => $matchedPlatform ? $matchedPlatform['label'] : 'Pirkt biļetes',
+                    'platform' => $matchedPlatform ? $matchedPlatform['platform'] : 'tickets',
+                ];
+            }
+        }
+
         // 2. Check ticket_url column
         $directTicketUrl = $this->attributes['ticket_url'] ?? null;
         if (!empty($directTicketUrl)) {
@@ -443,8 +477,8 @@ class Event extends Model
             }
         }
 
-        // 3. Scan description / raw_data for additional ticket platform URLs
-        $text = ($this->attributes['description'] ?? '') . ' ' . json_encode($this->raw_data ?? []);
+        // 3. Scan description for additional ticket platform URLs
+        $text = (string) ($this->attributes['description'] ?? '');
         if (!empty(trim($text))) {
             preg_match_all('/https?:\/\/[^\s\)\"\'<>]+/i', $text, $matches);
             foreach ($matches[0] as $rawUrl) {
@@ -473,7 +507,34 @@ class Event extends Model
             }
         }
 
-        return $links;
+        // Venue isolation guard: Screenings of cinema chains must ONLY show tickets for that cinema chain
+        $venueName = mb_strtolower(trim($this->location?->name ?? ''), 'UTF-8');
+        $sourceSlug = mb_strtolower(trim($this->source_slug ?? ''), 'UTF-8');
+
+        $isApollo = $sourceSlug === 'apollo-kino' || str_contains($venueName, 'apollo');
+        $isForum = $sourceSlug === 'forum-cinemas' || str_contains($venueName, 'forum');
+        $isCinamon = str_contains($venueName, 'cinamon');
+
+        $filteredLinks = [];
+        foreach ($links as $link) {
+            $u = strtolower($link['url']);
+            if ($isApollo) {
+                if (!str_contains($u, 'apollokino.lv')) {
+                    continue;
+                }
+            } elseif ($isForum) {
+                if (!str_contains($u, 'forumcinemas.lv')) {
+                    continue;
+                }
+            } elseif ($isCinamon) {
+                if (!str_contains($u, 'cinamonkino.com')) {
+                    continue;
+                }
+            }
+            $filteredLinks[] = $link;
+        }
+
+        return $filteredLinks;
     }
 
     public function getDisplayVenueAttribute(): string

@@ -151,7 +151,7 @@ class UserEventCreationTest extends TestCase
             'region' => 'Rīga',
         ]);
 
-        $file = UploadedFile::fake()->image('poster.jpg', 600, 400);
+        $file = UploadedFile::fake()->create('poster.jpg', 100, 'image/jpeg');
 
         $response = $this->actingAs($user)->post('/events', [
             'title' => 'Koncerts ar plakātu',

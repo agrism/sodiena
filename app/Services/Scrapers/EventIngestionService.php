@@ -517,29 +517,56 @@ class EventIngestionService
                                     $q->orWhere('ticket_url', 'like', '%forumcinemas.lv/websales/show/' . $dtoTicketMeta['show_id'] . '%')
                                       ->orWhere('source_url', 'like', '%forumcinemas.lv/websales/show/' . $dtoTicketMeta['show_id'] . '%');
                                 }
-                            } elseif ($dtoTicketMeta && !empty($dtoTicketMeta['slug'])) {
+                            } elseif ($dtoTicketMeta && !empty($dtoTicketMeta['code'])) {
                                 if ($dtoTicketMeta['platform'] === 'bilesuserviss') {
+                                    $q->orWhere('ticket_url', 'like', '%/' . $dtoTicketMeta['code'] . '/%')
+                                      ->orWhere('ticket_url', 'like', '%/' . $dtoTicketMeta['code'])
+                                      ->orWhere('source_url', 'like', '%/' . $dtoTicketMeta['code'] . '/%')
+                                      ->orWhere('source_url', 'like', '%/' . $dtoTicketMeta['code']);
+                                }
+                            } elseif ($dtoTicketMeta && !empty($dtoTicketMeta['slug']) && $dtoTicketMeta['platform'] !== 'bilesuserviss') {
+                                if (in_array($dtoTicketMeta['platform'], ['aula', 'passportix', 'ticketbest', 'fienta'], true)) {
                                     $q->orWhere('ticket_url', 'like', '%/' . $dtoTicketMeta['slug'] . '%')
-                                      ->orWhere('description', 'like', '%/' . $dtoTicketMeta['slug'] . '%')
-                                      ->orWhere('raw_data', 'like', '%' . $dtoTicketMeta['slug'] . '%');
-                                } elseif (in_array($dtoTicketMeta['platform'], ['aula', 'passportix', 'ticketbest', 'fienta'], true)) {
-                                    $q->orWhere('ticket_url', 'like', '%/' . $dtoTicketMeta['slug'] . '%')
-                                      ->orWhere('source_url', 'like', '%/' . $dtoTicketMeta['slug'] . '%')
-                                      ->orWhere('raw_data', 'like', '%' . $dtoTicketMeta['slug'] . '%');
+                                      ->orWhere('source_url', 'like', '%/' . $dtoTicketMeta['slug'] . '%');
                                 }
                             }
                         })
                         ->get();
 
                     foreach ($ticketCandidates as $candidateByTicket) {
+                        // Venue / Location Guard for ALL events
+                        $candVenue = trim($candidateByTicket->location?->name ?? '');
+                        $dtoVenue = trim($dto->venueName ?? '');
+                        $candCity = trim($candidateByTicket->location?->city ?? '');
+                        $dtoCity = trim($dto->city ?? '');
+
+                        $candSourceType = $candidateByTicket->source?->type ?? SourceType::OTHER;
+                        $dtoSourceType = $source->type ?? SourceType::OTHER;
+                        $isAggregatorInvolved = ($dtoSourceType === SourceType::AGGREGATOR || $candSourceType === SourceType::AGGREGATOR);
+
+                        // If an aggregator is involved and its venue is generic or a city name matching candidate's city:
+                        $isGenericDtoVenue = $isAggregatorInvolved && (empty($dtoVenue) || mb_strtolower($dtoVenue, 'UTF-8') === mb_strtolower($candCity, 'UTF-8') || mb_strtolower($dtoVenue, 'UTF-8') === 'rīga' || mb_strtolower($dtoVenue, 'UTF-8') === 'riga');
+                        $isGenericCandVenue = $isAggregatorInvolved && (empty($candVenue) || mb_strtolower($candVenue, 'UTF-8') === mb_strtolower($dtoCity, 'UTF-8') || mb_strtolower($candVenue, 'UTF-8') === 'rīga' || mb_strtolower($candVenue, 'UTF-8') === 'riga');
+
+                        if (!empty($candVenue) && !empty($dtoVenue) && !$isGenericDtoVenue && !$isGenericCandVenue) {
+                            if (!self::areVenuesEquivalent($candVenue, $dtoVenue)) {
+                                continue;
+                            }
+                        }
+
+                        // City Guard for ALL events
+                        if (!empty($candCity) && !empty($dtoCity) && mb_strtolower($candCity, 'UTF-8') !== mb_strtolower($dtoCity, 'UTF-8')) {
+                            continue;
+                        }
+
+                        // Cinema Guard: Cinema screenings can ONLY merge if both are cinema and strictly at the same cinema venue
                         $candIsCinema = self::isCinemaEvent($candidateByTicket->title, $candidateByTicket->location?->name, $candidateByTicket->categories->pluck('name')->all());
                         $dtoIsCinema = self::isCinemaEvent($dto->title, $dto->venueName, $dto->categoryNames);
-                        if ($candIsCinema && $dtoIsCinema) {
-                            $candVenue = mb_strtolower(trim($candidateByTicket->location?->name ?? ''), 'UTF-8');
-                            $dtoVenue = mb_strtolower(trim($dto->venueName ?? ''), 'UTF-8');
-                            $sameCinemaVenue = (!empty($locationId) && $candidateByTicket->location_id && $locationId === $candidateByTicket->location_id)
-                                || (!empty($candVenue) && !empty($dtoVenue) && ($candVenue === $dtoVenue || str_contains($candVenue, $dtoVenue) || str_contains($dtoVenue, $candVenue)));
-                            if (!$sameCinemaVenue) {
+                        if ($candIsCinema || $dtoIsCinema) {
+                            if (!$candIsCinema || !$dtoIsCinema) {
+                                continue;
+                            }
+                            if (!$isGenericDtoVenue && !$isGenericCandVenue && !self::areCinemasStrictlyIdentical($candVenue, $dtoVenue)) {
                                 continue;
                             }
                         }
@@ -633,6 +660,15 @@ class EventIngestionService
                         }
                     }
 
+                    // 2.3. Venue / Location Guard for ALL events:
+                    $candVenue = trim($candidate->location?->name ?? '');
+                    $dtoVenue = trim($dto->venueName ?? '');
+                    if (!empty($candVenue) && !empty($dtoVenue) && !($identicalDesc ?? false)) {
+                        if (!self::areVenuesEquivalent($candVenue, $dtoVenue)) {
+                            continue;
+                        }
+                    }
+
                     // 2.5. Cinema and Category Guard:
                     // A cinema screening / movie can NEVER fuzzy-match a non-cinema event (e.g. exhibition, concert, festival, seminar)
                     $candIsCinema = self::isCinemaEvent($candidate->title, $candidate->location?->name, $candidate->categories->pluck('name')->all());
@@ -645,10 +681,8 @@ class EventIngestionService
                     // Screenings of the same movie at DIFFERENT cinema theatres
                     // (e.g. Apollo Kino Plaza vs Forum Cinemas Alfa vs Apollo Kino Akropole) can NEVER merge!
                     if ($candIsCinema && $dtoIsCinema) {
-                        $candVenue = mb_strtolower(trim($candidate->location?->name ?? ''), 'UTF-8');
-                        $dtoVenue = mb_strtolower(trim($dto->venueName ?? ''), 'UTF-8');
                         $sameCinemaVenue = (!empty($locationId) && $candidate->location_id && $locationId === $candidate->location_id)
-                            || (!empty($candVenue) && !empty($dtoVenue) && ($candVenue === $dtoVenue || str_contains($candVenue, $dtoVenue) || str_contains($dtoVenue, $candVenue)));
+                            || self::areCinemasStrictlyIdentical($candVenue, $dtoVenue);
                         if (!$sameCinemaVenue) {
                             continue;
                         }
@@ -863,11 +897,10 @@ class EventIngestionService
                     $dtoIsCinema = self::isCinemaEvent($dto->title, $dto->venueName, $dto->categoryNames);
                     $sameCinemaVenue = false;
                     if ($candIsCinema && $dtoIsCinema) {
-                        $candVenue = mb_strtolower(trim($candidate->location?->name ?? ''), 'UTF-8');
-                        $dtoVenue = mb_strtolower(trim($dto->venueName ?? ''), 'UTF-8');
-                        if (!empty($candVenue) && !empty($dtoVenue)) {
-                            $sameCinemaVenue = ($candVenue === $dtoVenue || str_contains($candVenue, $dtoVenue) || str_contains($dtoVenue, $candVenue) || (!empty($locationId) && $candidate->location_id && $locationId === $candidate->location_id));
-                        }
+                        $candVenue = trim($candidate->location?->name ?? '');
+                        $dtoVenue = trim($dto->venueName ?? '');
+                        $sameCinemaVenue = (!empty($locationId) && $candidate->location_id && $locationId === $candidate->location_id)
+                            || self::areCinemasStrictlyIdentical($candVenue, $dtoVenue);
                     }
                     if ($sameCinemaVenue && $candidate->start_at && $dto->startAt) {
                         $candMin = $candidate->start_at->hour * 60 + $candidate->start_at->minute;
@@ -2104,12 +2137,26 @@ class EventIngestionService
         if (empty($d2)) return $d1 ?: null;
         if ($d1 === $d2) return $d1;
 
+        $isContaminated = function (string $text): bool {
+            return (bool) preg_match('/(?:kino\s*lora|k\.?\s*suns|koncertzāl[eē]\s*cēs|splendid\s*palace|forum\s*cinemas|siguldas\s*novada\s*iedzīvotāj|iedzīvotāju\s*kart|uzrādot\s*siguldas)/ui', $text);
+        };
+
         if ($preferNew) {
             $baseDesc = $d2;
             $addonDesc = $d1;
         } else {
-            $baseDesc = (mb_strlen($d1, 'UTF-8') >= mb_strlen($d2, 'UTF-8')) ? $d1 : $d2;
-            $addonDesc = ($baseDesc === $d1) ? $d2 : $d1;
+            // If new description contains foreign cinema/regional card contamination, reject it from becoming base
+            if ($isContaminated($d2)) {
+                $baseDesc = $d1;
+                $addonDesc = $d2;
+            } elseif (mb_strlen($d2, 'UTF-8') > mb_strlen($d1, 'UTF-8')) {
+                // If new description is longer and uncontaminated, adopt it as base
+                $baseDesc = $d2;
+                $addonDesc = $d1;
+            } else {
+                $baseDesc = $d1;
+                $addonDesc = $d2;
+            }
         }
 
         $lines = explode("\n", $addonDesc);
@@ -2119,6 +2166,7 @@ class EventIngestionService
         foreach ($lines as $line) {
             $trimmed = trim($line);
             if (empty($trimmed)) continue;
+            if ($isContaminated($trimmed)) continue;
             $lowerLine = mb_strtolower($trimmed, 'UTF-8');
 
             if (preg_match('/(?:tiešraid|tiesraid|broadcast|stream|kanāl|kanāls|tv\d|sportacentrs|youtube)/iu', $trimmed)) {
@@ -2344,12 +2392,20 @@ class EventIngestionService
 
         return match ($metaA['platform']) {
             'bilesuparadize', 'ekase', 'ticketshop' => $metaA['event_id'] === $metaB['event_id'],
-            'apollokino' => (!empty($metaA['show_id']) && !empty($metaB['show_id']) && $metaA['show_id'] === $metaB['show_id'])
-                || (!empty($metaA['event_id']) && !empty($metaB['event_id']) && $metaA['event_id'] === $metaB['event_id']),
+            'apollokino' => (!empty($metaA['show_id']) && !empty($metaB['show_id']))
+                ? ($metaA['show_id'] === $metaB['show_id'])
+                : (empty($metaA['show_id']) && empty($metaB['show_id']) && !empty($metaA['event_id']) && $metaA['event_id'] === $metaB['event_id']),
+            'forumcinemas' => (!empty($metaA['show_id']) && !empty($metaB['show_id']))
+                ? ($metaA['show_id'] === $metaB['show_id'])
+                : (empty($metaA['show_id']) && empty($metaB['show_id']) && !empty($metaA['event_id']) && $metaA['event_id'] === $metaB['event_id']),
             'bezrindas' => $metaA['event_id'] === $metaB['event_id'] && (
-                empty($metaA['session_id']) || empty($metaB['session_id']) || $metaA['session_id'] === $metaB['session_id']
+                (!empty($metaA['session_id']) && !empty($metaB['session_id']))
+                    ? ($metaA['session_id'] === $metaB['session_id'])
+                    : true
             ),
-            'bilesuserviss' => ($metaA['code'] === $metaB['code']) || (!empty($metaA['slug']) && $metaA['slug'] === $metaB['slug']),
+            'bilesuserviss' => (!empty($metaA['code']) && !empty($metaB['code']))
+                ? ($metaA['code'] === $metaB['code'])
+                : (empty($metaA['code']) && empty($metaB['code']) && !empty($metaA['slug']) && $metaA['slug'] === $metaB['slug']),
             'aula', 'passportix', 'ticketbest', 'fienta' => !empty($metaA['slug']) && $metaA['slug'] === $metaB['slug'],
             default => false,
         };
@@ -2472,6 +2528,58 @@ class EventIngestionService
     }
 
     /**
+     * Check if two cinema venues are strictly the identical cinema location/theatre.
+     * Apollo Plaza != Apollo Domina != Forum Cinemas != Kino Lora != K.Suns != Koncertzāle Cēsis, etc.
+     */
+    public static function areCinemasStrictlyIdentical(?string $venueA, ?string $venueB): bool
+    {
+        if (empty($venueA) || empty($venueB)) {
+            return false;
+        }
+
+        $cleanA = preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower(trim($venueA), 'UTF-8'));
+        $cleanB = preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower(trim($venueB), 'UTF-8'));
+        $cleanA = preg_replace('/\s+/u', ' ', trim($cleanA));
+        $cleanB = preg_replace('/\s+/u', ' ', trim($cleanB));
+
+        if ($cleanA === $cleanB) {
+            return true;
+        }
+
+        $classifyCinema = function (string $v): ?string {
+            if (str_contains($v, 'apollo')) {
+                if (str_contains($v, 'plaza')) return 'apollo_plaza';
+                if (str_contains($v, 'domina')) return 'apollo_domina';
+                if (str_contains($v, 'alfa')) return 'apollo_alfa';
+                if (str_contains($v, 'akropole')) return 'apollo_akropole';
+                if (str_contains($v, 'onde')) return 'apollo_onde';
+                return 'apollo_generic';
+            }
+            if (str_contains($v, 'forum') || str_contains($v, 'citadele')) return 'forum_cinemas';
+            if (str_contains($v, 'bize')) return 'kino_bize';
+            if (str_contains($v, 'lora')) return 'kino_lora';
+            if (str_contains($v, 'splendid')) return 'splendid_palace';
+            if (str_contains($v, 'suns') || str_contains($v, 'k suns')) return 'k_suns';
+            if (str_contains($v, 'gaisma')) return 'kino_gaisma';
+            if (str_contains($v, 'rio')) return 'kino_rio';
+            if (str_contains($v, 'cinamon')) return 'cinamon';
+            if (str_contains($v, 'cesis') || str_contains($v, 'cēsis')) return 'cesis_kino';
+            if (str_contains($v, 'kuldiga') || str_contains($v, 'kuldīga')) return 'kuldiga_kino';
+            return null;
+        };
+
+        $catA = $classifyCinema($cleanA);
+        $catB = $classifyCinema($cleanB);
+
+        if ($catA !== null || $catB !== null) {
+            return $catA !== null && $catB !== null && $catA === $catB;
+        }
+
+        similar_text($cleanA, $cleanB, $sim);
+        return $sim >= 85;
+    }
+
+    /**
      * Check if two venue names represent the same venue.
      */
     public static function areVenuesEquivalent(?string $venueA, ?string $venueB): bool
@@ -2482,13 +2590,110 @@ class EventIngestionService
 
         $cleanA = preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower(trim($venueA), 'UTF-8'));
         $cleanB = preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower(trim($venueB), 'UTF-8'));
+        $cleanA = preg_replace('/\s+/u', ' ', trim($cleanA));
+        $cleanB = preg_replace('/\s+/u', ' ', trim($cleanB));
 
-        if ($cleanA === $cleanB || str_contains($cleanA, $cleanB) || str_contains($cleanB, $cleanA)) {
+        if ($cleanA === $cleanB) {
             return true;
         }
 
+        // Generic cities or administrative regions must NEVER match a specific venue
+        $cities = [
+            'rīga', 'riga', 'sigulda', 'cēsis', 'cesis', 'jelgava', 'liepāja', 'liepaja',
+            'valmiera', 'ventspils', 'daugavpils', 'jūrmala', 'jurmala', 'rēzekne', 'rezekne',
+            'ogre', 'tukums', 'bauska', 'kuldīga', 'kuldiga', 'saldus', 'talsi', 'madona',
+            'aizkraukle', 'alūksne', 'aluksne', 'limbaži', 'limbazi', 'līvāni', 'livani',
+            'krāslava', 'kraslava', 'latvija', 'latvia',
+        ];
+        $isGenericCityA = in_array($cleanA, $cities, true) || str_ends_with($cleanA, ' novads') || str_ends_with($cleanA, ' pilseta') || str_ends_with($cleanA, ' pilsēta');
+        $isGenericCityB = in_array($cleanB, $cities, true) || str_ends_with($cleanB, ' novads') || str_ends_with($cleanB, ' pilseta') || str_ends_with($cleanB, ' pilsēta');
+        if (($isGenericCityA && !$isGenericCityB) || ($isGenericCityB && !$isGenericCityA)) {
+            return false;
+        }
+
+        // 1. Cinema clusters check
+        $classifyCinema = function (string $v): ?string {
+            if (str_contains($v, 'apollo')) {
+                if (str_contains($v, 'plaza')) return 'apollo_plaza';
+                if (str_contains($v, 'domina')) return 'apollo_domina';
+                if (str_contains($v, 'alfa')) return 'apollo_alfa';
+                if (str_contains($v, 'akropole')) return 'apollo_akropole';
+                if (str_contains($v, 'onde')) return 'apollo_onde';
+                return 'apollo_generic';
+            }
+            if (str_contains($v, 'forum') || str_contains($v, 'citadele')) return 'forum_cinemas';
+            if (str_contains($v, 'bize')) return 'kino_bize';
+            if (str_contains($v, 'lora')) return 'kino_lora';
+            if (str_contains($v, 'splendid')) return 'splendid_palace';
+            if (str_contains($v, 'suns') || str_contains($v, 'k suns')) return 'k_suns';
+            if (str_contains($v, 'gaisma')) return 'kino_gaisma';
+            if (str_contains($v, 'rio')) return 'kino_rio';
+            if (str_contains($v, 'cinamon')) return 'cinamon';
+            if (str_contains($v, 'cesis') || str_contains($v, 'cēsis')) return 'cesis_kino';
+            return null;
+        };
+        $cinA = $classifyCinema($cleanA);
+        $cinB = $classifyCinema($cleanB);
+        if ($cinA !== null || $cinB !== null) {
+            return $cinA !== null && $cinB !== null && $cinA === $cinB;
+        }
+
+        // 2. Theater clusters check
+        $classifyTheater = function (string $v): ?string {
+            if (str_contains($v, 'daile') || str_contains($v, 'dailes')) return 'dailes_teatris';
+            if (str_contains($v, 'nacionalais') || str_contains($v, 'nacionālais')) return 'nacionalais_teatris';
+            if (str_contains($v, 'jaunais rigas') || str_contains($v, 'jaunais rīgas') || $v === 'jrt' || str_contains($v, ' jrt')) return 'jrt';
+            if (str_contains($v, 'cehov') || str_contains($v, 'čehov')) return 'cehova_teatris';
+            if (str_contains($v, 'lellu') || str_contains($v, 'leļļu')) return 'lellu_teatris';
+            if (str_contains($v, 'dirty deal')) return 'dirty_deal';
+            if (str_contains($v, 'gertrudes') || str_contains($v, 'ģertrūdes')) return 'gertrudes_teatris';
+            if (str_contains($v, 'valmieras')) return 'valmieras_teatris';
+            if (str_contains($v, 'liepajas teatr') || str_contains($v, 'liepājas teātr')) return 'liepajas_teatris';
+            if (str_contains($v, 'daugavpils teatr') || str_contains($v, 'daugavpils teātr')) return 'daugavpils_teatris';
+            return null;
+        };
+        $thA = $classifyTheater($cleanA);
+        $thB = $classifyTheater($cleanB);
+        if ($thA !== null || $thB !== null) {
+            return $thA !== null && $thB !== null && $thA === $thB;
+        }
+
+        // 3. Concert hall / Arena clusters check
+        $classifyHall = function (string $v): ?string {
+            if (str_contains($v, 'arena riga') || str_contains($v, 'arēna rīga') || str_contains($v, 'xiaomi arena')) return 'arena_riga';
+            if (str_contains($v, 'hanzas perons')) return 'hanzas_perons';
+            if (str_contains($v, 'palladium')) return 'palladium';
+            if (str_contains($v, 'melngalvju')) return 'melngalvju_nams';
+            if (str_contains($v, 'lielais dzintars')) return 'lielais_dzintars';
+            if (str_contains($v, 'koncertzale cesis') || str_contains($v, 'koncertzāle cēsis')) return 'koncertzale_cesis';
+            if (str_contains($v, 'gors') || str_contains($v, 'latgales vestnieciba') || str_contains($v, 'latgales vēstniecība')) return 'gors';
+            if (str_contains($v, 'dzintaru koncertzale') || str_contains($v, 'dzintaru koncertzāle')) return 'dzintaru_koncertzale';
+            if (str_contains($v, 'vef')) return 'vef_pils';
+            return null;
+        };
+        $hallA = $classifyHall($cleanA);
+        $hallB = $classifyHall($cleanB);
+        if ($hallA !== null || $hallB !== null) {
+            return $hallA !== null && $hallB !== null && $hallA === $hallB;
+        }
+
+        // 4. Substring & similarity check
+        $genericStopWords = [
+            'kino', 'kinoteatris', 'kinoteātris', 'teatris', 'teātris', 'zale', 'zāle',
+            'centrs', 'klubs', 'arena', 'arēna', 'nams', 'pils', 'parks', 'estrade', 'estrāde',
+            'kulturas nams', 'kultūras nams', 'kulturas centrs', 'kultūras centrs',
+            'liela zale', 'lielā zāle', 'maza zale', 'mazā zāle',
+        ];
+
+        if (str_contains($cleanA, $cleanB) || str_contains($cleanB, $cleanA)) {
+            $shorter = mb_strlen($cleanA, 'UTF-8') <= mb_strlen($cleanB, 'UTF-8') ? $cleanA : $cleanB;
+            if (!in_array($shorter, $genericStopWords, true) && mb_strlen($shorter, 'UTF-8') >= 6) {
+                return true;
+            }
+        }
+
         similar_text($cleanA, $cleanB, $sim);
-        return $sim >= 70;
+        return $sim >= 80;
     }
 }
 

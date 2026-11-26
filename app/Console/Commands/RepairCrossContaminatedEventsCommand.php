@@ -1,0 +1,306 @@
+<?php
+
+namespace App\Console\Commands;
+
+use App\Models\Event;
+use App\Models\EventTranslation;
+use Carbon\Carbon;
+use Illuminate\Console\Command;
+use Illuminate\Support\Str;
+
+class RepairCrossContaminatedEventsCommand extends Command
+{
+    protected $signature = 'events:repair-cross-contamination {--dry-run : Only show what would be repaired without applying changes}';
+    protected $description = 'Repairs ticket links, descriptions, and merged_external_ids contaminated across cinema venues and locations for current and upcoming events';
+
+    public function handle(): int
+    {
+        $dryRun = (bool) $this->option('dry-run');
+        if ($dryRun) {
+            $this->warn('Running in DRY-RUN mode. No changes will be written to the database.');
+        }
+
+        $today = Carbon::today('Europe/Riga');
+        $this->info("Starting repair for current and upcoming events (start_at or end_at >= {$today->toDateString()})...");
+
+        // Per AGENTS.md rule: No Past Events Modification!
+        $query = Event::whereNull('deleted_at')
+            ->where(function ($q) use ($today) {
+                $q->where('start_at', '>=', $today)
+                  ->orWhere('end_at', '>=', $today)
+                  ->orWhereNull('start_at');
+            })
+            ->with(['location', 'translations']);
+
+        $totalChecked = 0;
+        $totalRepaired = 0;
+
+        $query->chunk(100, function ($events) use ($dryRun, &$totalChecked, &$totalRepaired) {
+            foreach ($events as $event) {
+                $totalChecked++;
+                $repaired = $this->repairEvent($event, $dryRun);
+                if ($repaired) {
+                    $totalRepaired++;
+                }
+            }
+        });
+
+        $this->info("Completed. Checked {$totalChecked} current/upcoming events. Repaired {$totalRepaired} contaminated events.");
+
+        return Command::SUCCESS;
+    }
+
+    protected function repairEvent(Event $event, bool $dryRun): bool
+    {
+        $updates = [];
+        $rawData = $event->raw_data ?? [];
+        $rawModified = false;
+
+        $venueName = mb_strtolower(trim($event->location?->name ?? ''), 'UTF-8');
+        $sourceSlug = mb_strtolower(trim($event->source_slug ?? ''), 'UTF-8');
+
+        $isApollo = $sourceSlug === 'apollo-kino' || str_contains($venueName, 'apollo');
+        $isForum = $sourceSlug === 'forum-cinemas' || str_contains($venueName, 'forum');
+        $isCinamon = str_contains($venueName, 'cinamon');
+
+        // 1. Repair Apollo Kino events
+        if ($isApollo) {
+            // A) ticket_url must be on apollokino.lv
+            if (!empty($event->ticket_url) && !str_contains(strtolower($event->ticket_url), 'apollokino.lv')) {
+                $realApolloUrl = $this->findOriginalApolloUrl($event);
+                if ($realApolloUrl && $realApolloUrl !== $event->ticket_url) {
+                    $updates['ticket_url'] = $realApolloUrl;
+                    $this->line("Event #{$event->id} ({$event->title}) Apollo ticket_url: {$event->ticket_url} -> {$realApolloUrl}");
+                }
+            }
+
+            // B) Clean ticket_links in raw_data (remove foreign platforms like Bilesu Paradize, Bilesu Serviss, BezRindas)
+            if (!empty($rawData['ticket_links']) && is_array($rawData['ticket_links'])) {
+                $cleanLinks = [];
+                $removedCount = 0;
+                foreach ($rawData['ticket_links'] as $link) {
+                    $u = strtolower(is_array($link) ? ($link['url'] ?? '') : (string) $link);
+                    if (str_contains($u, 'apollokino.lv')) {
+                        $cleanLinks[] = $link;
+                    } else {
+                        $removedCount++;
+                    }
+                }
+                if ($removedCount > 0) {
+                    $rawData['ticket_links'] = $cleanLinks;
+                    $rawModified = true;
+                    $this->line("Event #{$event->id} ({$event->title}): Removed {$removedCount} foreign ticket link(s).");
+                }
+            }
+
+            // C) Purge foreign source slugs from merged_external_ids
+            if (!empty($rawData['merged_external_ids']) && is_array($rawData['merged_external_ids'])) {
+                $foreignSlugs = [
+                    'bilesu-serviss', 'bilesuserviss', 'bilesu-paradize', 'bilesuparadize',
+                    'bezrindas', 'forum-cinemas', 'forumcinemas', 'kuldigas-novads',
+                    'kultura-jelgava', 'jelgavas-valstspilseta', 'sigulda-tourism', 'sigulda-novads',
+                ];
+                $cleanedIds = [];
+                $purgedSlugs = [];
+                foreach ($rawData['merged_external_ids'] as $slug => $extId) {
+                    if (in_array(strtolower($slug), $foreignSlugs, true)) {
+                        $purgedSlugs[] = $slug;
+                    } else {
+                        $cleanedIds[$slug] = $extId;
+                    }
+                }
+                if (!empty($purgedSlugs)) {
+                    $rawData['merged_external_ids'] = $cleanedIds;
+                    $rawModified = true;
+                    $this->line("Event #{$event->id} ({$event->title}): Purged foreign merged source IDs: " . implode(', ', $purgedSlugs));
+                }
+            }
+
+            // D) Clean contaminated description (e.g. mentions of Kino Lora, K.Suns, Sigulda card, Cēsis hall)
+            if (!empty($event->description)) {
+                $contaminationRegex = '/(?:kino\s*lora|k\.?\s*suns|koncertzāl[eē]\s*cēs|forum\s*cinemas|siguldas\s*novada\s*iedzīvotāj|iedzīvotāju\s*kart|uzrādot\s*siguldas)/ui';
+                if (preg_match($contaminationRegex, $event->description)) {
+                    $cleanDesc = $this->cleanApolloDescription($event);
+                    if ($cleanDesc && $cleanDesc !== $event->description) {
+                        $updates['description'] = $cleanDesc;
+                        $this->line("Event #{$event->id} ({$event->title}): Cleaned contaminated Apollo description.");
+                    }
+                }
+            }
+        }
+
+        // 2. Repair Forum Cinemas events
+        if ($isForum) {
+            // A) ticket_url must be on forumcinemas.lv
+            if (!empty($event->ticket_url) && !str_contains(strtolower($event->ticket_url), 'forumcinemas.lv')) {
+                $realForumUrl = $this->findOriginalForumUrl($event);
+                if ($realForumUrl && $realForumUrl !== $event->ticket_url) {
+                    $updates['ticket_url'] = $realForumUrl;
+                    $this->line("Event #{$event->id} ({$event->title}) Forum Cinemas ticket_url: {$event->ticket_url} -> {$realForumUrl}");
+                }
+            }
+
+            // B) Clean ticket_links
+            if (!empty($rawData['ticket_links']) && is_array($rawData['ticket_links'])) {
+                $cleanLinks = [];
+                $removedCount = 0;
+                foreach ($rawData['ticket_links'] as $link) {
+                    $u = strtolower(is_array($link) ? ($link['url'] ?? '') : (string) $link);
+                    if (str_contains($u, 'forumcinemas.lv')) {
+                        $cleanLinks[] = $link;
+                    } else {
+                        $removedCount++;
+                    }
+                }
+                if ($removedCount > 0) {
+                    $rawData['ticket_links'] = $cleanLinks;
+                    $rawModified = true;
+                    $this->line("Event #{$event->id} ({$event->title}): Removed {$removedCount} foreign ticket link(s).");
+                }
+            }
+
+            // C) Purge foreign source slugs
+            if (!empty($rawData['merged_external_ids']) && is_array($rawData['merged_external_ids'])) {
+                $foreignSlugs = ['apollo-kino', 'apollokino', 'bilesu-serviss', 'bilesu-paradize', 'bezrindas'];
+                $cleanedIds = [];
+                $purgedSlugs = [];
+                foreach ($rawData['merged_external_ids'] as $slug => $extId) {
+                    if (in_array(strtolower($slug), $foreignSlugs, true)) {
+                        $purgedSlugs[] = $slug;
+                    } else {
+                        $cleanedIds[$slug] = $extId;
+                    }
+                }
+                if (!empty($purgedSlugs)) {
+                    $rawData['merged_external_ids'] = $cleanedIds;
+                    $rawModified = true;
+                    $this->line("Event #{$event->id} ({$event->title}): Purged foreign merged source IDs: " . implode(', ', $purgedSlugs));
+                }
+            }
+        }
+
+        // 3. Other events: filter out mismatched cinema chain links from regional events
+        if (!$isApollo && !$isForum && !$isCinamon) {
+            if (!empty($rawData['ticket_links']) && is_array($rawData['ticket_links'])) {
+                $cleanLinks = [];
+                $removedCount = 0;
+                foreach ($rawData['ticket_links'] as $link) {
+                    $u = strtolower(is_array($link) ? ($link['url'] ?? '') : (string) $link);
+                    if (str_contains($u, 'apollokino.lv') || str_contains($u, 'forumcinemas.lv')) {
+                        // Regional hall / theater event had an Apollo or Forum link cross-contaminated into it
+                        $removedCount++;
+                    } else {
+                        $cleanLinks[] = $link;
+                    }
+                }
+                if ($removedCount > 0) {
+                    $rawData['ticket_links'] = $cleanLinks;
+                    $rawModified = true;
+                    $this->line("Event #{$event->id} ({$event->title}): Removed {$removedCount} mismatched cinema link(s).");
+                }
+            }
+        }
+
+        if ($rawModified) {
+            $updates['raw_data'] = $rawData;
+        }
+
+        if (empty($updates)) {
+            return false;
+        }
+
+        if (!$dryRun) {
+            $event->update($updates);
+
+            // Sync Latvian translation if description changed
+            if (isset($updates['description'])) {
+                EventTranslation::updateOrCreate(
+                    [
+                        'event_id' => $event->id,
+                        'locale' => 'lv',
+                    ],
+                    [
+                        'title' => $event->title,
+                        'slug' => Str::slug($event->title) . '-' . substr(md5($event->id . 'lv'), 0, 6),
+                        'description' => $updates['description'],
+                        'short_description' => $event->short_description ?: Str::limit(strip_tags($updates['description']), 160),
+                    ]
+                );
+            }
+        }
+
+        return true;
+    }
+
+    protected function findOriginalApolloUrl(Event $event): ?string
+    {
+        $rawData = $event->raw_data ?? [];
+
+        if (!empty($rawData['source_url']) && str_contains(strtolower($rawData['source_url']), 'apollokino.lv')) {
+            return $rawData['source_url'];
+        }
+
+        if (!empty($event->source_url) && str_contains(strtolower($event->source_url), 'apollokino.lv')) {
+            return $event->source_url;
+        }
+
+        if (!empty($rawData['merged_external_ids']['apollo-kino'])) {
+            $extId = $rawData['merged_external_ids']['apollo-kino'];
+            if (is_numeric($extId)) {
+                return "https://www.apollokino.lv/websales/show/{$extId}";
+            }
+        }
+
+        // Try finding Apollo show ID in raw_data JSON or ticket_links
+        $json = json_encode($rawData);
+        if (preg_match('/apollokino\.lv\/websales\/show\/(\d+)/i', $json, $m)) {
+            return "https://www.apollokino.lv/websales/show/{$m[1]}";
+        }
+
+        return $event->source_url ?: "https://www.apollokino.lv";
+    }
+
+    protected function findOriginalForumUrl(Event $event): ?string
+    {
+        $rawData = $event->raw_data ?? [];
+
+        if (!empty($rawData['source_url']) && str_contains(strtolower($rawData['source_url']), 'forumcinemas.lv')) {
+            return $rawData['source_url'];
+        }
+
+        if (!empty($event->source_url) && str_contains(strtolower($event->source_url), 'forumcinemas.lv')) {
+            return $event->source_url;
+        }
+
+        $json = json_encode($rawData);
+        if (preg_match('/forumcinemas\.lv\/websales\/show\/(\d+)/i', $json, $m)) {
+            return "https://www.forumcinemas.lv/websales/show/{$m[1]}";
+        }
+
+        return $event->source_url ?: "https://www.forumcinemas.lv";
+    }
+
+    protected function cleanApolloDescription(Event $event): ?string
+    {
+        // 1. If short_description does not have foreign notes, use it or expand it
+        $short = trim((string) $event->short_description);
+        $contaminationRegex = '/(?:kino\s*lora|k\.?\s*suns|koncertzāl[eē]\s*cēs|forum\s*cinemas|siguldas\s*novada\s*iedzīvotāj|iedzīvotāju\s*kart|uzrādot\s*siguldas)/ui';
+
+        if (!empty($short) && !preg_match($contaminationRegex, $short) && mb_strlen($short, 'UTF-8') >= 20) {
+            return $short;
+        }
+
+        // 2. Strip contaminated paragraphs / lines from description
+        $paragraphs = preg_split('/\n{2,}|\r\n\r\n/u', $event->description);
+        $cleanParagraphs = [];
+        foreach ($paragraphs as $p) {
+            if (!preg_match($contaminationRegex, $p)) {
+                $cleanParagraphs[] = trim($p);
+            }
+        }
+
+        $result = implode("\n\n", array_filter($cleanParagraphs));
+
+        return !empty($result) ? $result : ($event->short_description ?: $event->title);
+    }
+}

@@ -293,6 +293,7 @@ class MadonaScraperTest extends TestCase
 
     public function test_mock_scrape_returns_dtos(): void
     {
+        Carbon::setTestNow('2026-11-20 12:00:00');
         $futureDateStr = Carbon::tomorrow('Europe/Riga')->format('d.m.Y');
 
         $htmlKalendars = <<<HTML
@@ -378,6 +379,7 @@ HTML;
 
     public function test_ingest_into_database_with_event_ingestion_service(): void
     {
+        Carbon::setTestNow('2026-11-20 12:00:00');
         $htmlKalendars = <<<HTML
 <!DOCTYPE html>
 <html>

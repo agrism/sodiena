@@ -186,6 +186,7 @@ class KuldigasNovadsScraperTest extends TestCase
 
     public function test_scrape_with_mocked_http(): void
     {
+        Carbon::setTestNow('2026-11-20 12:00:00');
         $archiveHtml = <<<'HTML'
 <!DOCTYPE html>
 <html>

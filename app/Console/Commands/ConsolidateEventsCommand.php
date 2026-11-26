@@ -103,7 +103,7 @@ class ConsolidateEventsCommand extends Command
     /**
      * Determine if two events on the same date represent the same real-world event.
      */
-    protected function shouldMerge(Event $a, Event $b): bool
+    public function shouldMerge(Event $a, Event $b): bool
     {
         // 1. Same source with different external IDs are never duplicates
         if ($a->source_id && $b->source_id && $a->source_id === $b->source_id && $a->source_external_id && $b->source_external_id && $a->source_external_id !== $b->source_external_id) {
@@ -166,12 +166,37 @@ class ConsolidateEventsCommand extends Command
         $sameLocation = $a->location_id && $b->location_id && $a->location_id === $b->location_id;
         $venueA = trim($a->location?->name ?? '');
         $venueB = trim($b->location?->name ?? '');
-        $venuesEquivalent = empty($venueA) || empty($venueB) || $sameLocation || EventIngestionService::areVenuesEquivalent($venueA, $venueB);
 
-        $ticketingEquivalent = (!empty($a->ticket_url) && !empty($b->ticket_url) && EventIngestionService::areTicketingUrlsEquivalent($a->ticket_url, $b->ticket_url));
+        // 2.2. Cinema Guard: Screenings of movies can ONLY merge if both are cinema and strictly at the same cinema venue
+        $aIsCinema = EventIngestionService::isCinemaEvent($a->title, $a->location?->name, $a->categories->pluck('name')->all());
+        $bIsCinema = EventIngestionService::isCinemaEvent($b->title, $b->location?->name, $b->categories->pluck('name')->all());
+        if ($aIsCinema || $bIsCinema) {
+            if (!$aIsCinema || !$bIsCinema) {
+                return false; // Cinema can never merge with non-cinema
+            }
+            $sameCinema = ($sameLocation && !empty($a->location_id)) || EventIngestionService::areCinemasStrictlyIdentical($venueA, $venueB);
+            if (!$sameCinema) {
+                return false; // Different cinema venues can NEVER merge!
+            }
+            // Cinema screenings must also be within 15 minutes of each other
+            if ($a->start_at && $b->start_at) {
+                $tA = $a->start_at->format('H:i');
+                $tB = $b->start_at->format('H:i');
+                if ($tA !== '00:00' && $tB !== '00:00') {
+                    $minA = $a->start_at->hour * 60 + $a->start_at->minute;
+                    $minB = $b->start_at->hour * 60 + $b->start_at->minute;
+                    if (abs($minA - $minB) > 15) {
+                        return false;
+                    }
+                }
+            }
+        }
 
-        if (!$sameLocation && !$venuesEquivalent && !$ticketingEquivalent) {
-            return false;
+        // 2.3. Venue / Location Guard for ALL events: If both have known venue names, they MUST be equivalent
+        if (!empty($venueA) && !empty($venueB) && !$sameLocation) {
+            if (!EventIngestionService::areVenuesEquivalent($venueA, $venueB)) {
+                return false; // Conflicting venues NEVER merge!
+            }
         }
 
         // 3. Start time check: if both have specific non-00:00 times, difference must be <= 45 minutes (allow 75m for same location with >= 90% title similarity)
@@ -202,13 +227,8 @@ class ConsolidateEventsCommand extends Command
         }
 
         // 5. Cinema session equivalence check (same cinema venue within 15 min)
-        $aIsCinema = EventIngestionService::isCinemaEvent($a->title, $a->location?->name, $a->categories->pluck('name')->all());
-        $bIsCinema = EventIngestionService::isCinemaEvent($b->title, $b->location?->name, $b->categories->pluck('name')->all());
         if ($aIsCinema && $bIsCinema) {
-            $aVenue = mb_strtolower(trim($a->location?->name ?? ''), 'UTF-8');
-            $bVenue = mb_strtolower(trim($b->location?->name ?? ''), 'UTF-8');
-            $sameVenue = ($sameLocation || (!empty($aVenue) && !empty($bVenue) && ($aVenue === $bVenue || str_contains($aVenue, $bVenue) || str_contains($bVenue, $aVenue))));
-            if ($sameVenue && $a->start_at && $b->start_at) {
+            if ($a->start_at && $b->start_at) {
                 $minA = $a->start_at->hour * 60 + $a->start_at->minute;
                 $minB = $b->start_at->hour * 60 + $b->start_at->minute;
                 if (abs($minA - $minB) <= 15) {
@@ -451,7 +471,11 @@ class ConsolidateEventsCommand extends Command
             $dupTicketPri = $dupSourceType?->ticketPriority() ?? 20;
             $canonTicketPri = $canonSourceType?->ticketPriority() ?? 20;
 
-            if ((empty($canonical->ticket_url) || $dupTicketPri > $canonTicketPri || ($dupIsTicketing && !$canonIsTicketing)) && !empty($duplicate->ticket_url)) {
+            $canonIsDirectCinema = in_array($canonical->source_slug, ['apollo-kino', 'forum-cinemas', 'cinamon'], true) || str_contains(mb_strtolower($canonical->location?->name ?? ''), 'apollo');
+
+            if ($canonIsDirectCinema && !empty($canonical->ticket_url)) {
+                // Keep canonical direct cinema ticket URL
+            } elseif ((empty($canonical->ticket_url) || $dupTicketPri > $canonTicketPri || ($dupIsTicketing && !$canonIsTicketing)) && !empty($duplicate->ticket_url)) {
                 $update['ticket_url'] = EventIngestionService::canonicalizeTicketUrl($duplicate->ticket_url) ?: $duplicate->ticket_url;
                 if ($duplicate->price_min !== null) {
                     $update['price_min'] = $duplicate->price_min;
@@ -516,14 +540,20 @@ class ConsolidateEventsCommand extends Command
             // Track merged external IDs so future scraper runs update canonical rather than recreating duplicate
             $mergedIds = $mergedRaw['merged_external_ids'] ?? [];
             if ($duplicate->source_slug && $duplicate->source_external_id) {
-                $mergedIds[$duplicate->source_slug] = $duplicate->source_external_id;
+                if (!($canonIsDirectCinema && in_array($duplicate->source_slug, ['bilesu-serviss', 'bilesu-paradize', 'bezrindas', 'forum-cinemas'], true))) {
+                    $mergedIds[$duplicate->source_slug] = $duplicate->source_external_id;
+                }
             }
             if (!empty($duplicate->raw_data['merged_external_ids']) && is_array($duplicate->raw_data['merged_external_ids'])) {
-                $mergedIds = array_merge($duplicate->raw_data['merged_external_ids'], $mergedIds);
+                foreach ($duplicate->raw_data['merged_external_ids'] as $slug => $extId) {
+                    if (!($canonIsDirectCinema && in_array($slug, ['bilesu-serviss', 'bilesu-paradize', 'bezrindas', 'forum-cinemas'], true))) {
+                        $mergedIds[$slug] = $extId;
+                    }
+                }
             }
             $mergedRaw['merged_external_ids'] = $mergedIds;
 
-            // Merge ticket links without duplicate URLs
+            // Merge ticket links without duplicate URLs, strictly isolating cinema venues
             if (!empty($duplicate->raw_data['ticket_links']) && is_array($duplicate->raw_data['ticket_links'])) {
                 $existingLinks = $mergedRaw['ticket_links'] ?? [];
                 $allLinks = array_merge(
@@ -533,6 +563,15 @@ class ConsolidateEventsCommand extends Command
                 $uniqueLinks = [];
                 foreach ($allLinks as $tl) {
                     if (!empty($tl['url'])) {
+                        $url = strtolower($tl['url']);
+                        if ($canonIsDirectCinema) {
+                            if (str_contains(mb_strtolower($canonical->location?->name ?? ''), 'apollo') && !str_contains($url, 'apollokino.lv')) {
+                                continue;
+                            }
+                            if (str_contains(mb_strtolower($canonical->location?->name ?? ''), 'forum') && !str_contains($url, 'forumcinemas.lv')) {
+                                continue;
+                            }
+                        }
                         $uniqueLinks[$tl['url']] = $tl;
                     }
                 }
