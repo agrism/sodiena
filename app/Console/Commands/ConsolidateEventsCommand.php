@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\Event;
 use App\Models\EventTranslation;
+use App\Services\EventLanguageService;
 use App\Services\Scrapers\EventIngestionService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -665,7 +666,10 @@ class ConsolidateEventsCommand extends Command
                 }
             }
 
-            // 11. Soft delete duplicate
+            // 11. Merge language data from duplicate using Data Fusion priority
+            EventLanguageService::mergeFromDuplicate($canonical, $duplicate);
+
+            // 12. Soft delete duplicate
             $duplicate->delete();
         });
     }

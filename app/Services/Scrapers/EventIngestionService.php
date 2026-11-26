@@ -3,6 +3,7 @@
 namespace App\Services\Scrapers;
 
 use App\Console\Commands\ConsolidateCategoriesCommand;
+use App\DTO\EventLanguageData;
 use App\Enums\SourceType;
 use App\Models\Category;
 use App\Models\CategoryTranslation;
@@ -12,6 +13,7 @@ use App\Models\Location;
 use App\Models\LocationTranslation;
 use App\Models\ScrapeLog;
 use App\Models\Source;
+use App\Services\EventLanguageService;
 use App\Services\Scrapers\Contracts\EventScraperInterface;
 use App\Services\Scrapers\DTO\ScrapedEventDTO;
 use Illuminate\Support\Facades\DB;
@@ -1349,6 +1351,14 @@ class EventIngestionService
 
                 $existingEvent->update($updateData);
 
+                // Apply optional language data from scraper DTO
+                if (!empty($dto->rawData['language']) && is_array($dto->rawData['language'])) {
+                    $langData = EventLanguageData::fromScraperArray($dto->rawData['language']);
+                    if ($langData) {
+                        EventLanguageService::applyToEvent($existingEvent, $langData);
+                    }
+                }
+
                 // Save or update translation in event_translations table
                 EventTranslation::updateOrCreate(
                     [
@@ -1439,6 +1449,14 @@ class EventIngestionService
                 'description' => $dto->description,
                 'short_description' => $dto->shortDescription ?: (mb_strlen($dto->description ?? '') <= 220 ? $dto->description : Str::limit(strip_tags($dto->description ?? ''), 160)),
             ]);
+
+            // Apply optional language data from scraper DTO
+            if (!empty($dto->rawData['language']) && is_array($dto->rawData['language'])) {
+                $langData = EventLanguageData::fromScraperArray($dto->rawData['language']);
+                if ($langData) {
+                    EventLanguageService::applyToEvent($event, $langData);
+                }
+            }
 
             if (!empty($categoryIds)) {
                 $event->categories()->sync($categoryIds);

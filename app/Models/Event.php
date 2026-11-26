@@ -2,7 +2,10 @@
 
 namespace App\Models;
 
+use App\Enums\EventLanguageMode;
+use App\Enums\EventLanguageSource;
 use App\Enums\SourceType;
+use App\Services\EventLanguageService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -47,6 +50,10 @@ class Event extends Model
         'is_promoted',
         'views_count',
         'raw_data',
+        'language_mode',
+        'spoken_languages',
+        'subtitle_languages',
+        'language_source',
     ];
 
     protected $casts = [
@@ -61,6 +68,10 @@ class Event extends Model
         'is_promoted' => 'boolean',
         'views_count' => 'integer',
         'raw_data' => 'array',
+        'language_mode' => EventLanguageMode::class,
+        'language_source' => EventLanguageSource::class,
+        'spoken_languages' => 'array',
+        'subtitle_languages' => 'array',
     ];
 
     protected $attributes = [
@@ -70,6 +81,10 @@ class Event extends Model
         'is_free' => false,
         'currency' => 'EUR',
         'is_promoted' => false,
+        'language_mode' => 'unknown',
+        'spoken_languages' => '[]',
+        'subtitle_languages' => '[]',
+        'language_source' => 'unknown',
     ];
 
     protected static function booted(): void
@@ -1309,5 +1324,34 @@ class Event extends Model
         }
 
         return preg_replace('/^www\./i', '', $host);
+    }
+
+    /**
+     * Scope query to events accessible in a given language:
+     * - language_free events (no language barrier)
+     * - events where spoken_languages contains the code
+     * - events where subtitle_languages contains the code
+     */
+    public function scopeAccessibleInLanguage(Builder $query, string $languageCode): Builder
+    {
+        $normalized = EventLanguageService::normalizeCodes([$languageCode]);
+        if (empty($normalized)) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        $code = $normalized[0];
+        $isMysql = \Illuminate\Support\Facades\DB::getDriverName() === 'mysql';
+
+        return $query->where(function (Builder $q) use ($code, $isMysql) {
+            $q->where('language_mode', EventLanguageMode::LanguageFree);
+
+            if ($isMysql) {
+                $q->orWhereRaw('JSON_CONTAINS(spoken_languages, ?)', [json_encode($code)])
+                  ->orWhereRaw('JSON_CONTAINS(subtitle_languages, ?)', [json_encode($code)]);
+            } else {
+                $q->orWhereJsonContains('spoken_languages', $code)
+                  ->orWhereJsonContains('subtitle_languages', $code);
+            }
+        });
     }
 }
