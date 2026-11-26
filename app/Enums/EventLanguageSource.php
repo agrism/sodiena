@@ -29,6 +29,11 @@ enum EventLanguageSource: string
         return $this->priority() >= $other->priority();
     }
 
+    public function isLowerThan(self $other): bool
+    {
+        return $this->priority() < $other->priority();
+    }
+
     public function label(): string
     {
         return match ($this) {

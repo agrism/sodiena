@@ -719,6 +719,15 @@ Pasākuma valoda tiek noteikta pilnībā deterministiski (bez ārējiem LLM izsa
 
 ## 5. Datu Uzturēšanas un Administrācijas Komandas
 
+* `php artisan events:backfill-languages` – Vienreizēja un periodiska pasākumu valodu aizpildīšana, izmantojot 3 līmeņu deterministisko dzinēju un Data Fusion prioritātes:
+  * `--execute` – Faktiski saglabāt izmaiņas datubāzē (bez šī karodziņa darbojas drošā `dry-run` simulācijas režīmā).
+  * `--all` – Apstrādāt visus publicētos pasākumus, ieskaitot pagātnes arhīvu (noklusējumā tikai šodienas un gaidāmos pasākumus).
+  * `--force` – Pārvērtēt arī jau `inferred` pasākumus ar jaunākajiem noteikumiem (nekad nepārraksta `manual` un nepazemina `explicit`).
+  * `--no-touch` – Nemainīt `events.updated_at` (paredzēts vēsturisko datu aizpildīšanai, lai neizraisītu lieku *Piedzivo.lv* delta sinhronizāciju).
+  * `--source=<slug>` – Filtrēt konkrētu datu avotu (piem., `apollo-kino`, `bilesu-paradize`).
+  * `--category=<slug>` – Filtrēt konkrētu kategoriju (piem., `teatris`, `kino`, `sports`).
+  * `--chunk=500` – Apstrādes pakešu izmērs (droša `chunkById` iterācija bez atmiņas noplūdēm un bez ierakstu izlaišanas).
+  * `--show-samples=10` – Konsolē izvadīt neidentificēto (`unknown` vai `spoken: []`) pasākumu paraugus noteikumu analīzei.
 * `php artisan events:consolidate` – Automātiska dublikātu atrašana un sapludināšana pēc stingrajiem drošības filtriem.
 * `php artisan events:repair-cross-contamination` – Datu attīrīšanas komanda, kas novērš biļešu saišu, aprakstu un kategoriju savstarpējo sajaukšanos starp atšķirīgām norises vietām un sporta/teātra pasākumiem.
 * `php artisan events:sync-translations` – Sinhronizē tulkojumus no saistītajiem brāļu/māsu seansiem.

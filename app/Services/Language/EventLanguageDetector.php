@@ -56,6 +56,21 @@ class EventLanguageDetector
         );
 
         if ($textResult !== null) {
+            // Guard against historical cinema events with ambiguous dubbing descriptions (e.g. "Filma dublēta latviešu un krievu valodā")
+            $isCinemaEvent = in_array($event->source_slug, ['apollo-kino', 'forum-cinemas'], true)
+                || $event->entertainment_type === 'kino'
+                || (is_array($rawData) && isset($rawData['cinema']))
+                || ($event->relationLoaded('categories') ? $event->categories->pluck('slug')->contains('kino') : false);
+
+            if ($isCinemaEvent && EventLanguageTextAnalyzer::hasAmbiguousDubbingSignal($event->title . ' ' . (string) $event->short_description . ' ' . (string) $event->description)) {
+                $textResult = new EventLanguageData(
+                    mode: EventLanguageMode::Spoken,
+                    spokenLanguages: [],
+                    subtitleLanguages: $textResult->subtitleLanguages ?? [],
+                    source: EventLanguageSource::Inferred,
+                );
+            }
+
             return $textResult;
         }
 

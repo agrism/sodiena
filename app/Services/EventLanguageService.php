@@ -131,7 +131,7 @@ class EventLanguageService
      *
      * Returns true only if at least one of the 4 columns was meaningfully modified.
      */
-    public static function applyToEvent(Event $event, EventLanguageData $incoming): bool
+    public static function applyToEvent(Event $event, EventLanguageData $incoming, bool $persist = true, bool $force = false): bool
     {
         $incoming = self::normalizePayload($incoming);
 
@@ -187,22 +187,30 @@ class EventLanguageService
                 $targetSubtitles = $incoming->subtitleLanguages ?? [];
                 $targetSource = $incoming->source;
             } elseif ($incoming->source === EventLanguageSource::Inferred) {
-                // Enrich-only: fill missing fields without overwriting existing non-empty values
-                $targetMode = ($currentMode === EventLanguageMode::Unknown && $incoming->mode !== EventLanguageMode::Unknown)
-                    ? ($incoming->mode ?? EventLanguageMode::Unknown)
-                    : $currentMode;
+                if ($force) {
+                    // Force mode: allow full re-calculation for inferred events
+                    $targetMode = $incoming->mode ?? EventLanguageMode::Unknown;
+                    $targetSpoken = $incoming->spokenLanguages ?? [];
+                    $targetSubtitles = $incoming->subtitleLanguages ?? [];
+                    $targetSource = EventLanguageSource::Inferred;
+                } else {
+                    // Enrich-only: fill missing fields without overwriting existing non-empty values
+                    $targetMode = ($currentMode === EventLanguageMode::Unknown && $incoming->mode !== EventLanguageMode::Unknown)
+                        ? ($incoming->mode ?? EventLanguageMode::Unknown)
+                        : $currentMode;
 
-                $targetSpoken = empty($currentSpoken)
-                    ? ($incoming->spokenLanguages ?? [])
-                    : $currentSpoken;
+                    $targetSpoken = empty($currentSpoken)
+                        ? ($incoming->spokenLanguages ?? [])
+                        : $currentSpoken;
 
-                $targetSubtitles = empty($currentSubtitles)
-                    ? ($incoming->subtitleLanguages ?? [])
-                    : $currentSubtitles;
+                    $targetSubtitles = empty($currentSubtitles)
+                        ? ($incoming->subtitleLanguages ?? [])
+                        : $currentSubtitles;
 
-                $targetSource = EventLanguageSource::Inferred;
+                    $targetSource = EventLanguageSource::Inferred;
+                }
 
-                // Re-enforce semantic consistency on enriched values
+                // Re-enforce semantic consistency on values
                 if ($targetMode === EventLanguageMode::LanguageFree) {
                     $targetSpoken = [];
                     $targetSubtitles = [];
@@ -235,7 +243,7 @@ class EventLanguageService
         $event->subtitle_languages = $targetSubtitles;
         $event->language_source = $targetSource;
 
-        if ($event->exists) {
+        if ($event->exists && $persist) {
             $event->save();
         }
 
