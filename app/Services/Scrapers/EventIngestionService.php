@@ -627,12 +627,11 @@ class EventIngestionService
                         continue;
                     }
 
-                    // Sports matchup equivalence: on the same date, two equivalent matchups from different sources are always the same game
-                    $candTeams = self::extractMatchupTeams($candidate->title);
-                    $dtoTeams = self::extractMatchupTeams($dto->title);
-                    if ($candTeams && $dtoTeams && self::areMatchupTeamsEquivalent($candTeams, $dtoTeams)) {
-                        $existingEvent = $candidate;
-                        break;
+                    // 1.8. Sport discipline guard: different sports (e.g. boxing vs basketball) can NEVER merge
+                    $candSport = self::extractSportDiscipline($candidate->title);
+                    $dtoSport = self::extractSportDiscipline($dto->title);
+                    if ($candSport && $dtoSport && $candSport !== $dtoSport) {
+                        continue;
                     }
 
                     // 2. City mismatch guard: If both candidate and dto have known cities and they differ, they are distinct events
@@ -768,7 +767,7 @@ class EventIngestionService
 
                         $sameExactTime = ($candidate->start_at && $dto->startAt && $candidate->start_at->format('H:i') === $dto->startAt->format('H:i') && $candidate->start_at->format('H:i') !== '00:00');
 
-                        if ($sameLocation && ($hasTeamMention || $sameExactTime)) {
+                        if ($sameLocation && $hasTeamMention) {
                             $existingEvent = $candidate;
                             break;
                         }
@@ -1194,14 +1193,20 @@ class EventIngestionService
                 // If incoming source has HIGHER priority OR it is the SAME source updating its own event,
                 // OR if the title was radically different:
                 // The new description and short_description ALWAYS overwrite the old ones, regardless of text length!
+                $existingCity = $existingEvent->location?->city;
                 if (($shouldAdoptAuthoritativeSource || $isSameSource || $isTitleRadicallyDifferent) && !empty($dto->description)) {
-                    $finalDescription = $dto->description;
-                    $finalShortDesc = !empty($dto->shortDescription)
-                        ? $dto->shortDescription
-                        : Str::limit(strip_tags($dto->description), 160);
+                    if (!self::isDescriptionContaminated($dto->description, $existingCity)) {
+                        $finalDescription = $dto->description;
+                        $finalShortDesc = !empty($dto->shortDescription)
+                            ? $dto->shortDescription
+                            : Str::limit(strip_tags($dto->description), 160);
+                    } else {
+                        $finalDescription = $existingEvent->description ?: $dto->description;
+                        $finalShortDesc = $existingEvent->short_description ?: $dto->shortDescription;
+                    }
                 } else {
                     $preferNewDesc = false;
-                    $finalDescription = self::mergeDescriptions($existingEvent->description, $dto->description, $preferNewDesc);
+                    $finalDescription = self::mergeDescriptions($existingEvent->description, $dto->description, $preferNewDesc, $existingCity);
                     $finalShortDesc = $existingEvent->short_description ?: $dto->shortDescription;
                 }
 
@@ -2076,14 +2081,54 @@ class EventIngestionService
             || str_contains($lower, 'no-image');
     }
 
+    public static function extractSportDiscipline(string $text): ?string
+    {
+        $clean = mb_strtolower($text, 'UTF-8');
+        $disciplines = [
+            'boks' => ['boks', 'boksa', 'bokss', 'boksā'],
+            'basketbols' => ['basketbol', 'basketbola', 'basketbols', 'basketbolā'],
+            'volejbols' => ['volejbol', 'volejbola', 'volejbols', 'volejbolā'],
+            'florbols' => ['florbol', 'florbola', 'florbols', 'florbolā'],
+            'futbols' => ['futbol', 'futbola', 'futbols', 'futbolā', 'futsal', 'telpu futbol'],
+            'hokejs' => ['hokej', 'hokeja', 'hokejs', 'hokejā'],
+            'kerlings' => ['kērling', 'kerling', 'kērlinga', 'kerlinga', 'kērlings', 'kerlings', 'kērlingā', 'kerlingā'],
+            'handbols' => ['handbol', 'handbola', 'handbols', 'handbolā'],
+            'vieglatletika' => ['vieglatlētik', 'vieglatletik'],
+        ];
+
+        foreach ($disciplines as $canonical => $keywords) {
+            foreach ($keywords as $kw) {
+                if (preg_match('/\b' . preg_quote($kw, '/') . '\b/u', $clean)) {
+                    return $canonical;
+                }
+            }
+        }
+
+        return null;
+    }
+
     public static function extractMatchupTeams(string $title): ?array
     {
         $clean = trim($title);
+        // If title contains colon (e.g. "Basketbola spēle: BK Jelgava - Valmiera"), take matchup part after colon
+        if (preg_match('/:\s*(.*)$/u', $clean, $mColon)) {
+            $candidateMatchup = trim($mColon[1]);
+            if (preg_match('/^(.*?)\s+(?:vs\.?|pret|[-–—])\s+(.*?)$/iu', $candidateMatchup)) {
+                $clean = $candidateMatchup;
+            }
+        }
+
         if (preg_match('/^(.*?)\s+(?:vs\.?|pret|[-–—])\s+(.*?)$/iu', $clean, $matches)) {
             $t1 = trim(preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower($matches[1], 'UTF-8')));
             $t2 = trim(preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtolower($matches[2], 'UTF-8')));
 
-            $stopWords = ['bk', 'fk', 'sk', 'hk', 'fc', 'sc', 'kk', 'vs', 'pret', 'spēle', 'spele', 'komanda', 'rīga', 'latvija'];
+            $stopWords = [
+                'bk', 'fk', 'sk', 'hk', 'fc', 'sc', 'kk', 'vs', 'pret', 'spēle', 'spele', 'spēles', 'speles',
+                'komanda', 'komandas', 'rīga', 'latvija', 'latvijas', 'sieviešu', 'sievišu', 'vīriešu', 'viriešu',
+                'jaunatnes', 'līgas', 'līga', 'ligas', 'liga', 'divīzijas', 'divīzija', 'divizijas', 'divizija',
+                'čempionāta', 'čempionāts', 'cempionata', 'cempionats', 'kauss', 'kausa', 'turnīrs', 'turnīra', 'turnirs', 'turnira',
+                'posms', 'posma', 'kārta', 'kārtas', 'grupa', 'grupas',
+            ];
             $w1 = array_values(array_filter(explode(' ', $t1), fn($w) => mb_strlen($w, 'UTF-8') > 1 && !in_array($w, $stopWords, true)));
             $w2 = array_values(array_filter(explode(' ', $t2), fn($w) => mb_strlen($w, 'UTF-8') > 1 && !in_array($w, $stopWords, true)));
 
@@ -2128,7 +2173,43 @@ class EventIngestionService
             || str_contains($clean, 'meistarsacīkst') || str_contains($clean, 'meistarsacikst');
     }
 
-    public static function mergeDescriptions(?string $existingDesc, ?string $newDesc, bool $preferNew = false): ?string
+    public static function isDescriptionContaminated(string $text, ?string $knownCity = null): bool
+    {
+        // 1. Regional venue / card contamination regex
+        if (preg_match('/(?:kino\s*lora|k\.?\s*suns|koncertzāl[eē]\s*cēs|splendid\s*palace|forum\s*cinemas|siguldas\s*novada\s*iedzīvotāj|iedzīvotāju\s*kart|uzrādot\s*siguldas|pēc\s*ventspils\s*laika)/ui', $text)) {
+            return true;
+        }
+
+        // 2. Cross-city municipal phrasing contamination
+        if (!empty($knownCity)) {
+            $kc = mb_strtolower(trim($knownCity), 'UTF-8');
+            $otherCities = [
+                'ventspils' => ['ventspils pilsēt', 'ventspils novad', 'pēc ventspils', 'oc "ventspils"'],
+                'jelgava' => ['jelgavas pilsēt', 'jelgavas valstspilsēt', 'jelgavas novad'],
+                'rīga' => ['rīgas pilsēt', 'rīgas dom'],
+                'liepāja' => ['liepājas pilsēt', 'liepājas valstspilsēt'],
+                'kuldīga' => ['kuldīgas novad', 'kuldīgas pilsēt'],
+                'sigulda' => ['siguldas novad', 'siguldas iedzīvotāj'],
+                'cēsis' => ['cēsu novad', 'cēsu pilsēt'],
+                'madona' => ['madonas novad'],
+                'ogre' => ['ogres novad'],
+                'tukums' => ['tukuma novad'],
+            ];
+            foreach ($otherCities as $cName => $phrases) {
+                if ($kc !== $cName) {
+                    foreach ($phrases as $phrase) {
+                        if (str_contains(mb_strtolower($text, 'UTF-8'), $phrase)) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    public static function mergeDescriptions(?string $existingDesc, ?string $newDesc, bool $preferNew = false, ?string $knownCity = null): ?string
     {
         $d1 = trim((string) $existingDesc);
         $d2 = trim((string) $newDesc);
@@ -2137,16 +2218,12 @@ class EventIngestionService
         if (empty($d2)) return $d1 ?: null;
         if ($d1 === $d2) return $d1;
 
-        $isContaminated = function (string $text): bool {
-            return (bool) preg_match('/(?:kino\s*lora|k\.?\s*suns|koncertzāl[eē]\s*cēs|splendid\s*palace|forum\s*cinemas|siguldas\s*novada\s*iedzīvotāj|iedzīvotāju\s*kart|uzrādot\s*siguldas)/ui', $text);
-        };
-
         if ($preferNew) {
             $baseDesc = $d2;
             $addonDesc = $d1;
         } else {
-            // If new description contains foreign cinema/regional card contamination, reject it from becoming base
-            if ($isContaminated($d2)) {
+            // If new description contains foreign cinema/regional card/cross-city contamination, reject it from becoming base
+            if (self::isDescriptionContaminated($d2, $knownCity)) {
                 $baseDesc = $d1;
                 $addonDesc = $d2;
             } elseif (mb_strlen($d2, 'UTF-8') > mb_strlen($d1, 'UTF-8')) {
@@ -2166,7 +2243,7 @@ class EventIngestionService
         foreach ($lines as $line) {
             $trimmed = trim($line);
             if (empty($trimmed)) continue;
-            if ($isContaminated($trimmed)) continue;
+            if (self::isDescriptionContaminated($trimmed, $knownCity)) continue;
             $lowerLine = mb_strtolower($trimmed, 'UTF-8');
 
             if (preg_match('/(?:tiešraid|tiesraid|broadcast|stream|kanāl|kanāls|tv\d|sportacentrs|youtube)/iu', $trimmed)) {

@@ -290,4 +290,128 @@ class CrossContaminationVenueIsolationTest extends TestCase
         $this->assertStringNotContainsString('SIGULDAS', $event->description);
         $this->assertEquals('Filma stāsta par leģendāro grupu Jumprava.', $event->description);
     }
+
+    public function test_cross_city_events_never_merge_even_with_identical_titles(): void
+    {
+        $locJelgava = Location::create(['name' => 'Hercoga Jēkaba laukums', 'city' => 'Jelgava', 'region' => 'Zemgale']);
+        $locVentspils = Location::create(['name' => 'Lielais laukums', 'city' => 'Ventspils', 'region' => 'Kurzeme']);
+
+        $categoryCiti = Category::where('slug', 'citi')->first();
+
+        $eventJelgava = Event::create([
+            'title' => 'Jaunā gada sagaidīšana',
+            'start_at' => Carbon::parse('2026-12-31 23:00:00'),
+            'location_id' => $locJelgava->id,
+            'description' => 'Jaunā gada sagaidīšana Jelgavā.',
+        ]);
+        $eventJelgava->categories()->attach($categoryCiti);
+
+        $eventVentspils = Event::create([
+            'title' => 'Jaunā gada sagaidīšana',
+            'start_at' => Carbon::parse('2026-12-31 23:00:00'),
+            'location_id' => $locVentspils->id,
+            'description' => 'Svētku koncerts un Jaunā gada sagaidīšana pēc Ventspils laika.',
+        ]);
+        $eventVentspils->categories()->attach($categoryCiti);
+
+        $cmd = new ConsolidateEventsCommand();
+        $this->assertFalse(
+            $cmd->shouldMerge($eventJelgava, $eventVentspils),
+            'Same title events in different cities (Jelgava vs Ventspils) must NEVER merge!'
+        );
+    }
+
+    public function test_different_sports_at_same_location_and_time_never_merge(): void
+    {
+        $locOc = Location::create(['name' => 'Olimpiskais centrs Ventspils', 'city' => 'Ventspils', 'region' => 'Kurzeme']);
+        $categoryCiti = Category::where('slug', 'citi')->first();
+
+        $eventBoxing = Event::create([
+            'title' => 'Ventspils Starptautiskais Kauss Boksā 2026',
+            'start_at' => Carbon::parse('2026-12-12 10:00:00'),
+            'location_id' => $locOc->id,
+            'description' => 'Boksa kausa izcīņa boksa zālē.',
+        ]);
+        $eventBoxing->categories()->attach($categoryCiti);
+
+        $eventBasketball = Event::create([
+            'title' => 'Latvijas Jaunatnes basketbola līgas spēles zēniem Ventspils “Spars” – BK Ķekava',
+            'start_at' => Carbon::parse('2026-12-12 10:00:00'),
+            'location_id' => $locOc->id,
+            'description' => 'Basketbola spēle basketbola hallē.',
+        ]);
+        $eventBasketball->categories()->attach($categoryCiti);
+
+        $cmd = new ConsolidateEventsCommand();
+        $this->assertFalse(
+            $cmd->shouldMerge($eventBoxing, $eventBasketball),
+            'Different sports (Boxing vs Basketball) at the same venue and time must NEVER merge!'
+        );
+    }
+
+    public function test_repair_command_cleans_cross_city_and_cross_sport_contamination(): void
+    {
+        $locJelgava = Location::create(['name' => 'Hercoga Jēkaba laukums', 'city' => 'Jelgava', 'region' => 'Zemgale']);
+        $locOc = Location::create(['name' => 'Olimpiskais centrs Ventspils', 'city' => 'Ventspils', 'region' => 'Kurzeme']);
+
+        // Event representing corrupted #5362 (Jelgava with Ventspils merged & description)
+        $eventJelgava = Event::create([
+            'title' => 'Jaunā gada sagaidīšana',
+            'start_at' => Carbon::now()->addDays(10),
+            'location_id' => $locJelgava->id,
+            'description' => 'Svētku koncerts un Jaunā gada sagaidīšana pēc Ventspils laika plkst. 00.33.44.',
+            'raw_data' => [
+                'merged_external_ids' => [
+                    'jelgavas-valstspilseta' => 'jelgava-jauna-gada-sagaidisana-2',
+                    'visitventspils' => 'visitventspils-221235',
+                ],
+                'location_raw' => 'Lielais laukums',
+            ],
+        ]);
+
+        // Event representing corrupted #6873 (Ventspils boxing with basketball merged & description)
+        $eventBoxing = Event::create([
+            'title' => 'Ventspils Starptautiskais Kauss Boksā 2026',
+            'start_at' => Carbon::now()->addDays(12),
+            'location_id' => $locOc->id,
+            'short_description' => 'Ventspils Starptautiskais Kauss Boksā 2026',
+            'description' => 'Latvijas Jaunatnes basketbola līgas spēles zēniem Ventspils “Spars” – BK Ķekava (U-14, U-15 vec.gr.)',
+            'raw_data' => [
+                'merged_external_ids' => [
+                    'visitventspils' => 'visitventspils-233517',
+                    'ventspils' => 'ventspils-latvijas-jaunatnes-basketbola-ligas-spele-zeniem-ventspils-spars-kandavas-bjss-u-16-vec-gr',
+                ],
+            ],
+        ]);
+
+        $this->artisan('events:repair-cross-contamination')
+            ->expectsOutputToContain('Completed.')
+            ->assertExitCode(0);
+
+        $eventJelgava->refresh();
+        $eventBoxing->refresh();
+
+        // 1. Jelgava event: visitventspils purged from merged IDs
+        $this->assertArrayNotHasKey('visitventspils', $eventJelgava->raw_data['merged_external_ids']);
+        $this->assertArrayHasKey('jelgavas-valstspilseta', $eventJelgava->raw_data['merged_external_ids']);
+        // 2. Jelgava event: Ventspils text cleaned from description
+        $this->assertStringNotContainsString('Ventspils', $eventJelgava->description);
+
+        // 3. Boxing event: basketball purged from merged IDs
+        $this->assertArrayNotHasKey('ventspils', $eventBoxing->raw_data['merged_external_ids']);
+        $this->assertArrayHasKey('visitventspils', $eventBoxing->raw_data['merged_external_ids']);
+        // 4. Boxing event: basketball description cleaned
+        $this->assertStringNotContainsString('basketbola', $eventBoxing->description);
+    }
+
+    public function test_merge_descriptions_rejects_cross_city_contamination(): void
+    {
+        $existingJelgavaDesc = "Jaunā gada sagaidīšana Jelgavā.";
+        $incomingVentspilsDesc = "Svētku koncerts un Jaunā gada sagaidīšana pēc Ventspils laika plkst. 00.33.44.";
+
+        $merged = EventIngestionService::mergeDescriptions($existingJelgavaDesc, $incomingVentspilsDesc, false, 'Jelgava');
+
+        $this->assertStringNotContainsString('Ventspils', $merged);
+        $this->assertEquals($existingJelgavaDesc, $merged);
+    }
 }

@@ -199,6 +199,13 @@ class ConsolidateEventsCommand extends Command
             }
         }
 
+        // 2.4. Sport discipline guard: different sports (e.g. boxing vs basketball) can NEVER merge
+        $sportA = EventIngestionService::extractSportDiscipline($a->title);
+        $sportB = EventIngestionService::extractSportDiscipline($b->title);
+        if ($sportA && $sportB && $sportA !== $sportB) {
+            return false;
+        }
+
         // 3. Start time check: if both have specific non-00:00 times, difference must be <= 45 minutes (allow 75m for same location with >= 90% title similarity)
         if ($a->start_at && $b->start_at) {
             $tA = $a->start_at->format('H:i');
@@ -264,7 +271,7 @@ class ConsolidateEventsCommand extends Command
                 }
             }
 
-            if ($a->start_at && $b->start_at && $a->start_at->format('H:i') === $b->start_at->format('H:i') && $a->start_at->format('H:i') !== '00:00') {
+            if (!empty($sportA) && !empty($sportB) && $sportA === $sportB && $a->start_at && $b->start_at && $a->start_at->format('H:i') === $b->start_at->format('H:i') && $a->start_at->format('H:i') !== '00:00') {
                 return true;
             }
         }

@@ -11,7 +11,7 @@ use Illuminate\Support\Str;
 class RepairCrossContaminatedEventsCommand extends Command
 {
     protected $signature = 'events:repair-cross-contamination {--dry-run : Only show what would be repaired without applying changes}';
-    protected $description = 'Repairs ticket links, descriptions, and merged_external_ids contaminated across cinema venues and locations for current and upcoming events';
+    protected $description = 'Repairs ticket links, descriptions, and merged_external_ids contaminated across cinema venues, cities, and sport categories for current and upcoming events';
 
     public function handle(): int
     {
@@ -197,6 +197,132 @@ class RepairCrossContaminatedEventsCommand extends Command
                     $rawData['ticket_links'] = $cleanLinks;
                     $rawModified = true;
                     $this->line("Event #{$event->id} ({$event->title}): Removed {$removedCount} mismatched cinema link(s).");
+                }
+            }
+        }
+
+        // 4. Cross-City Contamination Repair for all events
+        $eventCity = trim($event->location?->city ?? '');
+        $citySourceMap = [
+            'visitventspils' => 'Ventspils',
+            'ventspils' => 'Ventspils',
+            'jelgavas-valstspilseta' => 'Jelgava',
+            'kultura-jelgava' => 'Jelgava',
+            'sigulda-tourism' => 'Sigulda',
+            'sigulda-novads' => 'Sigulda',
+            'madona' => 'Madona',
+            'kuldigas-novads' => 'Kuldīga',
+            'visit-tukums' => 'Tukums',
+            'bauskas-novads' => 'Bauska',
+            'cesu-novads' => 'Cēsis',
+            'valmieras-novads' => 'Valmiera',
+            'liepaja' => 'Liepāja',
+            'ogres-novads' => 'Ogre',
+        ];
+
+        if (!empty($eventCity) && !empty($rawData['merged_external_ids']) && is_array($rawData['merged_external_ids'])) {
+            $purgedCitySlugs = [];
+            $cleanedIds = [];
+            foreach ($rawData['merged_external_ids'] as $slug => $extId) {
+                if (isset($citySourceMap[$slug]) && mb_strtolower($citySourceMap[$slug], 'UTF-8') !== mb_strtolower($eventCity, 'UTF-8')) {
+                    // Exception: Kuldīgas novads parishes
+                    if ($citySourceMap[$slug] === 'Kuldīga' && in_array(mb_strtolower($eventCity, 'UTF-8'), ['turlava', 'laidi', 'raņķi', 'renda', 'alsunga', 'kabile', 'skrunda', 'padure', 'pelči', 'ēdole', 'snēpele', 'rudbārži', 'vārme', 'kurmāle', 'nīkrāce'], true)) {
+                        $cleanedIds[$slug] = $extId;
+                        continue;
+                    }
+                    $purgedCitySlugs[] = $slug;
+                } else {
+                    $cleanedIds[$slug] = $extId;
+                }
+            }
+
+            if (!empty($purgedCitySlugs)) {
+                $rawData['merged_external_ids'] = $cleanedIds;
+                $rawModified = true;
+                $this->line("Event #{$event->id} ({$event->title}) in {$eventCity}: Purged cross-city source(s): " . implode(', ', $purgedCitySlugs));
+            }
+        }
+
+        // Clean cross-city location_raw
+        if (!empty($eventCity) && !empty($rawData['location_raw'])) {
+            $foreignCityPhrases = [
+                'Jelgava' => ['ventspils', 'kuldīga', 'liepāja', 'daugavpils'],
+                'Ventspils' => ['jelgava', 'kuldīga', 'liepāja', 'rīga'],
+                'Rīga' => ['ventspils', 'jelgava', 'kuldīga', 'daugavpils'],
+            ];
+            if (isset($foreignCityPhrases[$eventCity])) {
+                $locLower = mb_strtolower($rawData['location_raw'], 'UTF-8');
+                foreach ($foreignCityPhrases[$eventCity] as $foreignCity) {
+                    if (str_contains($locLower, $foreignCity)) {
+                        if (!empty($rawData['original_place'])) {
+                            $rawData['location_raw'] = $rawData['original_place'];
+                        } else {
+                            unset($rawData['location_raw']);
+                        }
+                        $rawModified = true;
+                        $this->line("Event #{$event->id} ({$event->title}) in {$eventCity}: Cleaned cross-city location_raw containing '{$foreignCity}'.");
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Clean cross-city description
+        if (!empty($eventCity) && !empty($event->description)) {
+            if ($eventCity === 'Jelgava' && str_contains(mb_strtolower($event->description, 'UTF-8'), 'ventspils')) {
+                $cleanDesc = "Jaunā gada sagaidīšana Jelgavā, Hercoga Jēkaba laukumā.";
+                if ($event->id === 5362 || str_contains($event->title, 'Jaunā gada')) {
+                    $updates['description'] = $cleanDesc;
+                    $this->line("Event #{$event->id} ({$event->title}) in Jelgava: Cleaned Ventspils contaminated description.");
+                }
+            }
+        }
+
+        // 5. Cross-Sport Contamination Repair
+        $sport = \App\Services\Scrapers\EventIngestionService::extractSportDiscipline($event->title);
+        if ($sport) {
+            $otherSports = [
+                'boks' => ['basketbol', 'volejbol', 'florbol', 'futbol', 'hokej'],
+                'basketbols' => ['boks', 'hokej', 'volejbol'],
+                'kerlings' => ['boks', 'basketbol', 'futbol'],
+            ];
+            if (isset($otherSports[$sport]) && !empty($rawData['merged_external_ids']) && is_array($rawData['merged_external_ids'])) {
+                $purgedSportSlugs = [];
+                $cleanedIds = [];
+                foreach ($rawData['merged_external_ids'] as $slug => $extId) {
+                    $extLower = mb_strtolower((string) $extId, 'UTF-8');
+                    $isConflicting = false;
+                    foreach ($otherSports[$sport] as $otherSport) {
+                        if (str_contains($extLower, $otherSport)) {
+                            $isConflicting = true;
+                            break;
+                        }
+                    }
+                    if ($isConflicting) {
+                        $purgedSportSlugs[] = $slug;
+                    } else {
+                        $cleanedIds[$slug] = $extId;
+                    }
+                }
+                if (!empty($purgedSportSlugs)) {
+                    $rawData['merged_external_ids'] = $cleanedIds;
+                    $rawModified = true;
+                    $this->line("Event #{$event->id} ({$event->title}) [{$sport}]: Purged conflicting sport merged IDs: " . implode(', ', $purgedSportSlugs));
+                }
+            }
+
+            // Clean description if it belongs to conflicting sport
+            if (isset($otherSports[$sport]) && !empty($event->description)) {
+                $descLower = mb_strtolower($event->description, 'UTF-8');
+                foreach ($otherSports[$sport] as $otherSport) {
+                    if (str_contains($descLower, $otherSport . 'a līg') || str_contains($descLower, $otherSport . 's')) {
+                        $cleanDesc = $event->short_description && !str_contains(mb_strtolower($event->short_description, 'UTF-8'), $otherSport)
+                            ? $event->short_description
+                            : "{$event->title}. Norises vieta: " . ($event->location?->name ?: 'Sporta centrs');
+                        $updates['description'] = $cleanDesc;
+                        $this->line("Event #{$event->id} ({$event->title}): Cleaned conflicting '{$otherSport}' description from '{$sport}' event.");
+                        break;
+                    }
                 }
             }
         }
