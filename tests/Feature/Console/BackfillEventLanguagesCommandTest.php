@@ -363,4 +363,61 @@ class BackfillEventLanguagesCommandTest extends TestCase
             ->assertExitCode(1)
             ->expectsOutputToContain('The --chunk option must be between 1 and 5000.');
     }
+
+    /**
+     * 10. Show-mode option filters samples and does not mutate database.
+     */
+    public function test_show_mode_filters_samples_and_does_not_mutate_db(): void
+    {
+        $theatreLoc = Location::create([
+            'name' => 'Dailes teātris Lielā zāle',
+            'city' => 'Rīga',
+            'region' => 'Rīga un Pierīga',
+            'place_type' => 'theatre',
+        ]);
+
+        $theatre = $this->createEvent([
+            'title' => 'Dailes teātra izrāde',
+            'location_id' => $theatreLoc->id,
+        ], ['teatris']);
+
+        $sports = $this->createEvent([
+            'title' => 'Futbola spēle',
+        ], ['sports']);
+
+        $unknownEvent = $this->createEvent([
+            'title' => 'Nenosakāms pasākums bez konteksta',
+        ], ['citi']);
+
+        // Run dry-run with show-mode=language_free
+        $this->artisan('events:backfill-languages', [
+            '--category' => 'sports',
+            '--show-mode' => 'language_free',
+            '--show-samples' => 5,
+        ])
+            ->assertExitCode(0)
+            ->expectsOutputToContain('SHOW MODE:   language_free')
+            ->expectsOutputToContain('Language-Free Event Samples')
+            ->expectsOutputToContain('DRY-RUN');
+
+        // Check DB was not modified
+        $sports->refresh();
+        $this->assertSame(EventLanguageMode::Unknown, $sports->language_mode);
+
+        // Run dry-run with show-mode=unknown
+        $this->artisan('events:backfill-languages', [
+            '--show-mode' => 'unknown',
+            '--show-samples' => 5,
+        ])
+            ->assertExitCode(0)
+            ->expectsOutputToContain('SHOW MODE:   unknown')
+            ->expectsOutputToContain('Unknown Event Samples');
+
+        // Invalid show-mode should fail
+        $this->artisan('events:backfill-languages', [
+            '--show-mode' => 'invalid_mode',
+        ])
+            ->assertExitCode(1)
+            ->expectsOutputToContain('The --show-mode option must be one of:');
+    }
 }

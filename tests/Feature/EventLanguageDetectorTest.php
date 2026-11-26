@@ -392,4 +392,207 @@ class EventLanguageDetectorTest extends TestCase
         $this->assertFalse($appliedAgain);
         $this->assertEquals($tBefore, $event->fresh()->updated_at);
     }
+
+    /**
+     * 9. Step 4.1 Regression: Exhibitions with misleading words in description (IDs 15, 190)
+     * - Only title is checked for exclusions, not description.
+     */
+    public function test_exhibitions_with_talks_in_description_are_language_free_but_guided_tour_in_title_is_not(): void
+    {
+        // ID 15: Jaņa Rozentāla 160 gadu jubilejas izstāde no LNMM kolekcijas
+        $event15 = $this->createEvent([
+            'title' => 'Jaņa Rozentāla 160 gadu jubilejas izstāde no LNMM kolekcijas',
+            'description' => 'Izstādes ietvaros plānotas tikšanās, ekskursijas un sarunas ar kuratoriem.',
+        ], ['izstades']);
+
+        $detected15 = $this->detector->detectForEvent($event15);
+        $this->assertNotNull($detected15);
+        $this->assertSame(EventLanguageMode::LanguageFree, $detected15->mode);
+        $this->assertSame([], $detected15->spokenLanguages);
+
+        // ID 190: Izstāde "Māra Vaičunas. Ārpus"
+        $event190 = $this->createEvent([
+            'title' => 'Izstāde "Māra Vaičunas. Ārpus"',
+            'description' => 'Izstādes gaitā notiks sarunas un diskusijas ar autori.',
+        ], ['izstades']);
+
+        $detected190 = $this->detector->detectForEvent($event190);
+        $this->assertNotNull($detected190);
+        $this->assertSame(EventLanguageMode::LanguageFree, $detected190->mode);
+
+        // Tour in title -> NOT language_free
+        $tourEvent = $this->createEvent([
+            'title' => 'Izstādes ekskursija gida pavadībā',
+            'description' => 'Apskate gida vadībā.',
+        ], ['izstades']);
+
+        $detectedTour = $this->detector->detectForEvent($tourEvent);
+        if ($detectedTour !== null) {
+            $this->assertNotSame(EventLanguageMode::LanguageFree, $detectedTour->mode);
+        } else {
+            $this->assertNull($detectedTour);
+        }
+    }
+
+    /**
+     * 10. Step 4.1 Regression: Dramatic theatre with movement/choreography in description
+     * - Hamlet with movement coach in description -> NOT language_free (mode: spoken)
+     * - Ballet in theatre -> language_free
+     */
+    public function test_dramatic_theatre_with_movement_in_description_is_spoken_but_ballet_is_language_free(): void
+    {
+        $hamlet = $this->createEvent([
+            'title' => 'Hamlets',
+            'description' => 'Kustību režisors Jānis Bērziņš. Horeogrāfija un dejas elementi.',
+        ], ['teatris']);
+
+        $detectedHamlet = $this->detector->detectForEvent($hamlet);
+        $this->assertNotNull($detectedHamlet);
+        $this->assertSame(EventLanguageMode::Spoken, $detectedHamlet->mode);
+
+        $ballet = $this->createEvent([
+            'title' => 'Balets Gulbju ezers',
+            'description' => 'Pasaulslavenais P. Čaikovska balets.',
+        ], ['teatris']);
+
+        $detectedBallet = $this->detector->detectForEvent($ballet);
+        $this->assertNotNull($detectedBallet);
+        $this->assertSame(EventLanguageMode::LanguageFree, $detectedBallet->mode);
+    }
+
+    /**
+     * 11. Step 4.1 Regression: Multi-category conflicts arbitration
+     * - Skroderdienas (teatris + muzika) @ Dailes teātris -> spoken: ['lv']
+     * - Jumprava (kino + muzika) @ cinema venue -> spoken: []
+     * - Simfoniskā orķestra koncerts (teatris + muzika) -> language_free
+     * - Piga Gastrobārs (teatris + svetki, unclear conflict) -> spoken: [] (never language_free)
+     * - Bērnu radošā darbnīca (berniem + svetki) -> NOT language_free (mode: spoken, spoken: [])
+     */
+    public function test_multi_category_conflicts_arbitration(): void
+    {
+        $theatreLocation = Location::create([
+            'name' => 'Dailes teātris Lielā zāle',
+            'city' => 'Rīga',
+            'region' => 'Rīga un Pierīga',
+            'place_type' => 'theatre',
+        ]);
+
+        $cinemaLocation = Location::create([
+            'name' => 'Apollo Kino Plaza',
+            'city' => 'Rīga',
+            'region' => 'Rīga un Pierīga',
+            'place_type' => 'cinema',
+        ]);
+
+        // Skroderdienas (teatris + muzika @ Dailes teātris) -> spoken: ['lv']
+        $skroderdienas = $this->createEvent([
+            'title' => 'Muzikāla izrāde "Skroderdienas"',
+            'location_id' => $theatreLocation->id,
+        ], ['teatris', 'muzika']);
+
+        $detectedSkroderdienas = $this->detector->detectForEvent($skroderdienas);
+        $this->assertNotNull($detectedSkroderdienas);
+        $this->assertSame(EventLanguageMode::Spoken, $detectedSkroderdienas->mode);
+        $this->assertSame(['lv'], $detectedSkroderdienas->spokenLanguages);
+
+        // Jumprava (kino + muzika @ cinema venue) -> spoken: []
+        $jumprava = $this->createEvent([
+            'title' => 'Jumprava - Lielais notikums',
+            'location_id' => $cinemaLocation->id,
+        ], ['kino', 'muzika']);
+
+        $detectedJumprava = $this->detector->detectForEvent($jumprava);
+        $this->assertNotNull($detectedJumprava);
+        $this->assertSame(EventLanguageMode::Spoken, $detectedJumprava->mode);
+        $this->assertSame([], $detectedJumprava->spokenLanguages);
+
+        // Simfoniskā orķestra koncerts (teatris + muzika) -> language_free
+        $symphony = $this->createEvent([
+            'title' => 'Simfoniskā orķestra koncerts',
+        ], ['teatris', 'muzika']);
+
+        $detectedSymphony = $this->detector->detectForEvent($symphony);
+        $this->assertNotNull($detectedSymphony);
+        $this->assertSame(EventLanguageMode::LanguageFree, $detectedSymphony->mode);
+
+        // Piga Gastrobārs (teatris + svetki, unclear conflict) -> spoken: [] (never language_free)
+        $piga = $this->createEvent([
+            'title' => 'Piga Gastrobārs. Pasākumi.',
+        ], ['teatris', 'svetki']);
+
+        $detectedPiga = $this->detector->detectForEvent($piga);
+        $this->assertNotNull($detectedPiga);
+        $this->assertSame(EventLanguageMode::Spoken, $detectedPiga->mode);
+        $this->assertSame([], $detectedPiga->spokenLanguages);
+
+        // Bērnu radošā darbnīca un pasaku lasījums (berniem + svetki) -> spoken: [] (never language_free)
+        $kidsWorkshop = $this->createEvent([
+            'title' => 'Bērnu radošā darbnīca un pasaku lasījums',
+        ], ['berniem', 'svetki']);
+
+        $detectedKids = $this->detector->detectForEvent($kidsWorkshop);
+        $this->assertNotNull($detectedKids);
+        $this->assertSame(EventLanguageMode::Spoken, $detectedKids->mode);
+        $this->assertSame([], $detectedKids->spokenLanguages);
+    }
+
+    /**
+     * 12. Step 4.1 Regression: Sub-halls and independent theatres recognition (IDs 627, 655)
+     * - Dailes teātris Lielā zāle -> spoken: ['lv']
+     * - Austrumu Robeža teātra klubs -> spoken: ['lv']
+     * - Teātris "Joriks" -> spoken: [] (multilingual, does not guess 'lv')
+     */
+    public function test_repertoire_theatre_sub_halls_and_independent_theatres(): void
+    {
+        // ID 627: Dailes teātris Lielā zāle
+        $dailesLielaZale = Location::create([
+            'name' => 'Dailes teātris Lielā zāle',
+            'city' => 'Rīga',
+            'region' => 'Rīga un Pierīga',
+            'place_type' => 'theatre',
+        ]);
+        $event627 = $this->createEvent([
+            'title' => 'PIRMAVOTS',
+            'location_id' => $dailesLielaZale->id,
+        ], ['teatris']);
+
+        $detected627 = $this->detector->detectForEvent($event627);
+        $this->assertNotNull($detected627);
+        $this->assertSame(EventLanguageMode::Spoken, $detected627->mode);
+        $this->assertSame(['lv'], $detected627->spokenLanguages);
+
+        // ID 655: Austrumu Robeža teātra klubs
+        $austrumuRobeza = Location::create([
+            'name' => 'Austrumu Robeža teātra klubs',
+            'city' => 'Rīga',
+            'region' => 'Rīga un Pierīga',
+            'place_type' => 'theatre',
+        ]);
+        $event655 = $this->createEvent([
+            'title' => 'Vilciens',
+            'location_id' => $austrumuRobeza->id,
+        ], ['teatris']);
+
+        $detected655 = $this->detector->detectForEvent($event655);
+        $this->assertNotNull($detected655);
+        $this->assertSame(EventLanguageMode::Spoken, $detected655->mode);
+        $this->assertSame(['lv'], $detected655->spokenLanguages);
+
+        // Teātris "Joriks" (multilingual theatre in Rēzekne) -> spoken: [] (never guess 'lv')
+        $joriks = Location::create([
+            'name' => 'Teātris "Joriks"',
+            'city' => 'Rēzekne',
+            'region' => 'Latgale',
+            'place_type' => 'theatre',
+        ]);
+        $eventJoriks = $this->createEvent([
+            'title' => 'Izrāde',
+            'location_id' => $joriks->id,
+        ], ['teatris']);
+
+        $detectedJoriks = $this->detector->detectForEvent($eventJoriks);
+        $this->assertNotNull($detectedJoriks);
+        $this->assertSame(EventLanguageMode::Spoken, $detectedJoriks->mode);
+        $this->assertSame([], $detectedJoriks->spokenLanguages);
+    }
 }

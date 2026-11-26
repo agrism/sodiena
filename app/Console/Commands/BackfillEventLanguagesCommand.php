@@ -25,7 +25,8 @@ class BackfillEventLanguagesCommand extends Command
         {--chunk=500 : Pakešu izmērs chunkById() iterācijai}
         {--limit= : Maksimālais apstrādājamo pasākumu skaits (noder ātrai pārbaudei)}
         {--no-touch : Nemainīt events.updated_at (paredzēts pagātnes datu backfill, lai neizraisītu Piedzivo.lv delta sync)}
-        {--show-samples=10 : Cik neidentificēto (\'unknown\' vai \'spoken\' bez valodām) paraugu izvadīt tabulā (0 = slēpt)}';
+        {--show-samples=10 : Cik paraugu izvadīt tabulā pēc --show-mode filtra (0 = slēpt)}
+        {--show-mode= : Filtrēt paraugu tabulu pēc konkrēta rezultāta režīma: unresolved (noklusējums), language_free, spoken_with_lang, spoken_empty, unknown}';
 
     protected $description = 'Backfills language data (mode, spoken, subtitles, source) for existing events using 3-level deterministic rules';
 
@@ -39,6 +40,14 @@ class BackfillEventLanguagesCommand extends Command
         'seminari',
         'berniem',
         'citi',
+    ];
+
+    public const ALLOWED_SHOW_MODES = [
+        'unresolved',
+        'language_free',
+        'spoken_with_lang',
+        'spoken_empty',
+        'unknown',
     ];
 
     private EventLanguageDetector $detector;
@@ -76,6 +85,12 @@ class BackfillEventLanguagesCommand extends Command
         $limit = $this->option('limit') !== null ? (int) $this->option('limit') : null;
         $noTouch = (bool) $this->option('no-touch');
         $showSamples = (int) $this->option('show-samples');
+        $showMode = $this->option('show-mode') ? trim((string) $this->option('show-mode')) : 'unresolved';
+
+        if (!in_array($showMode, self::ALLOWED_SHOW_MODES, true)) {
+            $this->error("The --show-mode option must be one of: " . implode(', ', self::ALLOWED_SHOW_MODES) . ".");
+            return self::FAILURE;
+        }
 
         $todayStart = Carbon::now('Europe/Riga')->startOfDay();
 
@@ -106,6 +121,7 @@ class BackfillEventLanguagesCommand extends Command
         if ($limit !== null) {
             $this->line('LIMIT:       ' . $limit);
         }
+        $this->line('SHOW MODE:   ' . $showMode);
         $this->line('CHUNK SIZE:  ' . $chunkSize);
         $this->newLine();
 
@@ -196,7 +212,7 @@ class BackfillEventLanguagesCommand extends Command
         $query->chunkById($chunkSize, function ($events) use (
             &$scannedCount, &$updatedCount, &$unchangedCount, &$protectedCount,
             &$modeStats, &$sourceStats, &$categoryStats, &$sourceUnresolvedStats,
-            &$samples, $isDryRun, $force, $noTouch, $limit, $showSamples, $progressBar
+            &$samples, $isDryRun, $force, $noTouch, $limit, $showSamples, $showMode, $progressBar
         ) {
             foreach ($events as $event) {
                 if ($limit !== null && $scannedCount >= $limit) {
@@ -210,7 +226,7 @@ class BackfillEventLanguagesCommand extends Command
                 if ($event->language_source === EventLanguageSource::Manual) {
                     $protectedCount++;
                     $unchangedCount++;
-                    $this->accumulateStats($event, $modeStats, $sourceStats, $categoryStats, $sourceUnresolvedStats, $samples, $showSamples);
+                    $this->accumulateStats($event, $modeStats, $sourceStats, $categoryStats, $sourceUnresolvedStats, $samples, $showSamples, $showMode);
                     continue;
                 }
 
@@ -230,7 +246,7 @@ class BackfillEventLanguagesCommand extends Command
                 if ($event->language_source === EventLanguageSource::Explicit && $detected->source->isLowerThan(EventLanguageSource::Explicit)) {
                     $protectedCount++;
                     $unchangedCount++;
-                    $this->accumulateStats($event, $modeStats, $sourceStats, $categoryStats, $sourceUnresolvedStats, $samples, $showSamples);
+                    $this->accumulateStats($event, $modeStats, $sourceStats, $categoryStats, $sourceUnresolvedStats, $samples, $showSamples, $showMode);
                     continue;
                 }
 
@@ -253,7 +269,7 @@ class BackfillEventLanguagesCommand extends Command
                 }
 
                 // Accumulate statistics based on the resulting event state
-                $this->accumulateStats($event, $modeStats, $sourceStats, $categoryStats, $sourceUnresolvedStats, $samples, $showSamples);
+                $this->accumulateStats($event, $modeStats, $sourceStats, $categoryStats, $sourceUnresolvedStats, $samples, $showSamples, $showMode);
             }
         });
 
@@ -346,10 +362,18 @@ class BackfillEventLanguagesCommand extends Command
         }
 
         // -------------------------------------------------------------
-        // 8. Sample Unresolved Events Table
+        // 8. Sample Events Table
         // -------------------------------------------------------------
         if ($showSamples > 0 && !empty($samples)) {
-            $this->info("--- Unresolved Event Samples (First {$showSamples}) ---");
+            $modeLabel = match ($showMode) {
+                'unresolved' => 'Unresolved',
+                'language_free' => 'Language-Free',
+                'spoken_with_lang' => 'Spoken (with language)',
+                'spoken_empty' => 'Spoken (empty)',
+                'unknown' => 'Unknown',
+                default => ucfirst($showMode),
+            };
+            $this->info("--- {$modeLabel} Event Samples (First " . count($samples) . ") ---");
             $sampleRows = [];
             foreach ($samples as $s) {
                 $sampleRows[] = [
@@ -380,7 +404,8 @@ class BackfillEventLanguagesCommand extends Command
         array &$categoryStats,
         array &$sourceUnresolvedStats,
         array &$samples,
-        int $showSamples
+        int $showSamples,
+        string $showMode = 'unresolved'
     ): void {
         $mode = $event->language_mode instanceof EventLanguageMode
             ? $event->language_mode
@@ -434,8 +459,17 @@ class BackfillEventLanguagesCommand extends Command
             $sourceUnresolvedStats[$srcSlug]['unresolved']++;
         }
 
-        // Collect sample if unresolved
-        if (($modeBucket === 'unknown' || $modeBucket === 'spoken_empty') && count($samples) < $showSamples) {
+        // Collect sample if matching requested show-mode
+        $matchesShowMode = match ($showMode) {
+            'unresolved' => ($modeBucket === 'unknown' || $modeBucket === 'spoken_empty'),
+            'language_free' => ($modeBucket === 'language_free'),
+            'spoken_with_lang' => ($modeBucket === 'spoken_with_lang'),
+            'spoken_empty' => ($modeBucket === 'spoken_empty'),
+            'unknown' => ($modeBucket === 'unknown'),
+            default => false,
+        };
+
+        if ($matchesShowMode && count($samples) < $showSamples) {
             $venueName = $event->relationLoaded('location') ? ($event->location?->name ?: '') : '';
             $samples[] = [
                 'id' => $event->id,
