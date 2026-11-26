@@ -327,6 +327,100 @@ class RepairCrossContaminatedEventsCommand extends Command
             }
         }
 
+        // 6. Repair Sports Events Contaminated with Theatre/Culture Data (e.g. Daugavpils basketball with Hermanis Paukšs play)
+        $isSportsEvent = $event->source_slug === 'basket-lv'
+            || $event->source_slug === 'lff-virsliga'
+            || $event->source_slug === 'lhf-hokejs'
+            || \App\Services\Scrapers\EventIngestionService::extractMatchupTeams($event->title) !== null;
+
+        if ($isSportsEvent) {
+            $theatreContaminationRegex = '/(?:luga|izrāde|drāma|paukšs|vampilovs|priede|šapošņikovs|režis|scenogrāf|kostīmi|aktieri|lomās:|dramaturģ|iestudējum|daugavpils\s*teātr|valmieras\s*teātr|bilesuparadize\.lv)/ui';
+
+            $descContaminated = !empty($event->description) && preg_match($theatreContaminationRegex, $event->description);
+            $ticketContaminated = !empty($event->ticket_url) && str_contains(strtolower($event->ticket_url), 'bilesuparadize.lv');
+            $imageContaminated = !empty($event->image_url) && (str_contains($event->image_url, 'meli-bez-noteikumiem') || str_contains($event->image_url, 'bilesuparadize') || str_contains($event->image_url, 'daugavpils.lv/assets/upload/events'));
+
+            if ($descContaminated || $ticketContaminated || $imageContaminated) {
+                // A) Clean description
+                if ($descContaminated) {
+                    $cleanSportsDesc = !empty($event->short_description) && !preg_match($theatreContaminationRegex, $event->short_description)
+                        ? $event->short_description
+                        : "{$event->title}. Norises vieta: " . ($event->location?->name ?: 'Sporta zāle');
+                    $updates['description'] = $cleanSportsDesc;
+                    $this->line("Event #{$event->id} ({$event->title}): Cleaned theatre play description from sports event.");
+                }
+
+                // B) Remove theatre ticket_url & ticket_links
+                if ($ticketContaminated) {
+                    $updates['ticket_url'] = null;
+                    $this->line("Event #{$event->id} ({$event->title}): Removed theatre ticket_url from sports event.");
+                }
+                if (!empty($rawData['ticket_links']) && is_array($rawData['ticket_links'])) {
+                    $cleanLinks = [];
+                    foreach ($rawData['ticket_links'] as $link) {
+                        $u = strtolower(is_array($link) ? ($link['url'] ?? '') : (string) $link);
+                        if (!str_contains($u, 'bilesuparadize.lv')) {
+                            $cleanLinks[] = $link;
+                        }
+                    }
+                    $rawData['ticket_links'] = $cleanLinks;
+                    $rawModified = true;
+                }
+
+                // C) Purge theatre merged IDs and CTA links
+                if (!empty($rawData['merged_external_ids']) && is_array($rawData['merged_external_ids'])) {
+                    $cleanedIds = [];
+                    foreach ($rawData['merged_external_ids'] as $slug => $extId) {
+                        if (in_array($slug, ['basket-lv', 'lff-virsliga', 'lhf-hokejs'], true)) {
+                            $cleanedIds[$slug] = $extId;
+                        }
+                    }
+                    $rawData['merged_external_ids'] = $cleanedIds;
+                    $rawModified = true;
+                }
+                if (!empty($rawData['cta']['links'])) {
+                    $cleanCtaLinks = [];
+                    foreach ($rawData['cta']['links'] as $link) {
+                        $u = strtolower($link['url'] ?? '');
+                        if (!str_contains($u, 'bilesuparadize.lv')) {
+                            $cleanCtaLinks[] = $link;
+                        }
+                    }
+                    $rawData['cta']['links'] = $cleanCtaLinks;
+                    $rawModified = true;
+                }
+
+                // D) Reset organizer if it was a theatre
+                if (!empty($rawData['organizer'])) {
+                    $orgName = is_array($rawData['organizer']) ? ($rawData['organizer']['name'] ?? '') : (string) $rawData['organizer'];
+                    if (str_contains(mb_strtolower($orgName, 'UTF-8'), 'teātr')) {
+                        unset($rawData['organizer']);
+                        $rawModified = true;
+                    }
+                }
+
+                // E) Remove theatre category from event & fix foreign translations
+                if (!$dryRun) {
+                    $theatreCategory = \App\Models\Category::where('slug', 'teatris')->first();
+                    if ($theatreCategory) {
+                        $event->categories()->detach($theatreCategory->id);
+                    }
+
+                    $rawTitle = $event->getRawOriginal('title') ?: $event->title;
+                    $foreignTitlesRegex = '/(?:lies without rules|охота на уток|meli bez noteikumiem|pīļu medības|zilā)/ui';
+                    foreach ($event->translations as $trans) {
+                        if (preg_match($foreignTitlesRegex, $trans->title) || preg_match($theatreContaminationRegex, $trans->description ?? '')) {
+                            $trans->update([
+                                'title' => $rawTitle,
+                                'description' => $updates['description'] ?? $event->getRawOriginal('short_description') ?? $rawTitle,
+                                'short_description' => $event->getRawOriginal('short_description') ?: $rawTitle,
+                            ]);
+                        }
+                    }
+                }
+            }
+        }
+
         if ($rawModified) {
             $updates['raw_data'] = $rawData;
         }

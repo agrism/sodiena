@@ -206,6 +206,29 @@ class ConsolidateEventsCommand extends Command
             return false;
         }
 
+        // 2.4.5. Category Incompatibility Guard: Sports events can NEVER merge with Theatre, Cinema, Concerts, or Exhibitions
+        $aIsSports = $a->source_slug === 'basket-lv'
+            || $a->source_slug === 'lff-virsliga'
+            || $a->source_slug === 'lhf-hokejs'
+            || EventIngestionService::extractMatchupTeams($a->title) !== null
+            || $a->categories->contains(fn($c) => $c->slug === 'sports');
+
+        $bIsSports = $b->source_slug === 'basket-lv'
+            || $b->source_slug === 'lff-virsliga'
+            || $b->source_slug === 'lhf-hokejs'
+            || EventIngestionService::extractMatchupTeams($b->title) !== null
+            || $b->categories->contains(fn($c) => $c->slug === 'sports');
+
+        $aIsCulture = $a->categories->contains(fn($c) => in_array($c->slug, ['teatris', 'kino', 'izstades'], true))
+            || preg_match('/(?:izrāde|luga|iestudējums|režis|kinoseanss|spēlfilma)/ui', $a->title . ' ' . $a->description);
+
+        $bIsCulture = $b->categories->contains(fn($c) => in_array($c->slug, ['teatris', 'kino', 'izstades'], true))
+            || preg_match('/(?:izrāde|luga|iestudējums|režis|kinoseanss|spēlfilma)/ui', $b->title . ' ' . $b->description);
+
+        if (($aIsSports && $bIsCulture) || ($bIsSports && $aIsCulture)) {
+            return false;
+        }
+
         // 3. Start time check: if both have specific non-00:00 times, difference must be <= 45 minutes (allow 75m for same location with >= 90% title similarity)
         if ($a->start_at && $b->start_at) {
             $tA = $a->start_at->format('H:i');

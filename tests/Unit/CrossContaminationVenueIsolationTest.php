@@ -414,4 +414,129 @@ class CrossContaminationVenueIsolationTest extends TestCase
         $this->assertStringNotContainsString('Ventspils', $merged);
         $this->assertEquals($existingJelgavaDesc, $merged);
     }
+
+    public function test_sports_and_theatre_events_at_same_venue_and_time_never_merge(): void
+    {
+        $locDaugavpils = Location::create([
+            'name' => 'Daugavpils Kultūras Pils',
+            'city' => 'Daugavpils',
+            'region' => 'Latgale',
+        ]);
+
+        $categorySports = Category::firstOrCreate(['slug' => 'sports'], ['name' => 'Sports']);
+        $categoryTeatris = Category::firstOrCreate(['slug' => 'teatris'], ['name' => 'Teātris']);
+
+        $eventBasketball = Event::create([
+            'title' => 'Daugavpils Universitāte vs TTT Rīga Kadetes',
+            'start_at' => Carbon::parse('2026-11-26 18:30:00'),
+            'location_id' => $locDaugavpils->id,
+            'source_slug' => 'basket-lv',
+            'description' => 'BioSil SBBL basketbola spēle sporta zālē.',
+        ]);
+        $eventBasketball->categories()->attach($categorySports);
+
+        $eventPlay = Event::create([
+            'title' => 'MELI BEZ NOTEIKUMIEM',
+            'start_at' => Carbon::parse('2026-11-26 18:30:00'),
+            'location_id' => $locDaugavpils->id,
+            'source_slug' => 'bilesu-paradize',
+            'ticket_url' => 'https://www.bilesuparadize.lv/lv/event/178466',
+            'description' => 'Hermanis Paukšs. Meli bez noteikumiem. Psiholoģiska drāma. Režisors Oļegs Šapošņikovs.',
+        ]);
+        $eventPlay->categories()->attach($categoryTeatris);
+
+        $cmd = new ConsolidateEventsCommand();
+        $this->assertFalse(
+            $cmd->shouldMerge($eventBasketball, $eventPlay),
+            'Basketball match and Theatre play at the exact same location and time must NEVER merge!'
+        );
+    }
+
+    public function test_repair_command_cleans_sports_event_contaminated_with_theatre_data(): void
+    {
+        $locDaugavpils = Location::create([
+            'name' => 'Daugavpils Kultūras Pils',
+            'city' => 'Daugavpils',
+            'region' => 'Latgale',
+        ]);
+
+        $categorySports = Category::firstOrCreate(['slug' => 'sports'], ['name' => 'Sports']);
+        $categoryTeatris = Category::firstOrCreate(['slug' => 'teatris'], ['name' => 'Teātris']);
+
+        // Representation of contaminated Event #2337 (Gp2oGo)
+        $event = Event::create([
+            'title' => 'Daugavpils Universitāte vs TTT Rīga Kadetes',
+            'slug' => 'daugavpils-universitate-vs-ttt-riga-kadetes-Gp2oGo',
+            'start_at' => Carbon::now()->addDays(3),
+            'location_id' => $locDaugavpils->id,
+            'source_slug' => 'basket-lv',
+            'ticket_url' => 'https://www.bilesuparadize.lv/lv/event/178466',
+            'short_description' => 'BioSil SBBL: Daugavpils Universitāte pret TTT Rīga Kadetes (Daugavpils kultūras pils sporta zāle).',
+            'description' => "Hermanis Paukšs\nMeli bez noteikumiem\nPsiholoģiska drāma\n\nIzrāde piedāvās iespēju aplūkot noziedzīgu incidentu...\nRežija - Oļegs Šapošņikovs\nLomās: Svens – Aleksandrs Komarovs",
+            'raw_data' => [
+                'merged_external_ids' => [
+                    'afiro-api' => 'e9itht981iaks51mkdo365tt',
+                    'basket-lv' => 'e9itht981iaks51mkdo365tt',
+                    'daugavpils-dome' => 'daugavpils-sieviesu-baltijas-basketbola-liga-du-pret-ttt-riga-kadetes',
+                ],
+                'ticket_links' => [
+                    ['url' => 'https://www.bilesuparadize.lv/lv/event/178466', 'title' => 'bilesuparadize.lv'],
+                ],
+                'organizer' => [
+                    'name' => 'DAUGAVPILS TEĀTRIS VSIA',
+                ],
+            ],
+        ]);
+
+        $event->categories()->attach([$categorySports->id, $categoryTeatris->id]);
+
+        EventTranslation::create([
+            'event_id' => $event->id,
+            'locale' => 'en',
+            'title' => 'Lies Without Rules',
+            'slug' => 'lies-without-rules-en',
+            'description' => 'Hermanis Paukšs. Lies Without Rules. Psychological drama.',
+            'short_description' => 'BioSil SBBL: Daugavpils Universitāte pret TTT Rīga Kadetes',
+        ]);
+
+        EventTranslation::create([
+            'event_id' => $event->id,
+            'locale' => 'ru',
+            'title' => 'Охота на уток',
+            'slug' => 'ohota-na-utok-ru',
+            'description' => 'Александр Вампилов. Охота на уток. Экзистенциальная драма.',
+            'short_description' => 'BioSil SBBL: Daugavpils Universitāte pret TTT Rīga Kadetes',
+        ]);
+
+        $this->artisan('events:repair-cross-contamination')
+            ->expectsOutputToContain('Completed.')
+            ->assertExitCode(0);
+
+        $event->refresh();
+
+        // 1. Description cleaned of Hermanis Paukšs and drāma
+        $this->assertStringNotContainsString('Paukšs', $event->description);
+        $this->assertStringNotContainsString('drāma', $event->description);
+        $this->assertStringContainsString('BioSil SBBL', $event->description);
+
+        // 2. Theatre ticket_url removed
+        $this->assertNull($event->ticket_url);
+
+        // 3. Foreign ticket_links purged
+        $this->assertEmpty($event->raw_data['ticket_links']);
+
+        // 4. Foreign merged IDs purged
+        $this->assertArrayNotHasKey('afiro-api', $event->raw_data['merged_external_ids']);
+        $this->assertArrayNotHasKey('daugavpils-dome', $event->raw_data['merged_external_ids']);
+
+        // 5. Theatre category removed, only sports remains
+        $this->assertFalse($event->categories->contains('slug', 'teatris'));
+        $this->assertTrue($event->categories->contains('slug', 'sports'));
+
+        // 6. Foreign translations cleaned (no longer "Lies Without Rules" or "Охота на уток")
+        $enTrans = $event->translations()->where('locale', 'en')->first();
+        $ruTrans = $event->translations()->where('locale', 'ru')->first();
+        $this->assertEquals('Daugavpils Universitāte vs TTT Rīga Kadetes', $enTrans->title);
+        $this->assertEquals('Daugavpils Universitāte vs TTT Rīga Kadetes', $ruTrans->title);
+    }
 }

@@ -571,6 +571,31 @@ class EventIngestionService
                             }
                         }
 
+                        // Category Incompatibility Guard: Sports vs Culture/Theatre/Concert/Exhibition
+                        $candIsSports = $candidateByTicket->source_slug === 'basket-lv'
+                            || $candidateByTicket->source_slug === 'lff-virsliga'
+                            || $candidateByTicket->source_slug === 'lhf-hokejs'
+                            || self::extractMatchupTeams($candidateByTicket->title) !== null
+                            || $candidateByTicket->categories->contains(fn($c) => $c->slug === 'sports');
+
+                        $dtoIsSports = $source->slug === 'basket-lv'
+                            || $source->slug === 'lff-virsliga'
+                            || $source->slug === 'lhf-hokejs'
+                            || self::extractMatchupTeams($dto->title) !== null
+                            || in_array('sports', array_map('mb_strtolower', $dto->categoryNames), true);
+
+                        $candIsCulture = $candidateByTicket->categories->contains(fn($c) => in_array($c->slug, ['teatris', 'kino', 'izstades'], true))
+                            || preg_match('/(?:izrāde|luga|iestudējums|režis|kinoseanss|spēlfilma)/ui', $candidateByTicket->title . ' ' . $candidateByTicket->description);
+
+                        $dtoIsCulture = in_array('teatris', array_map('mb_strtolower', $dto->categoryNames), true)
+                            || in_array('kino', array_map('mb_strtolower', $dto->categoryNames), true)
+                            || in_array('izstades', array_map('mb_strtolower', $dto->categoryNames), true)
+                            || preg_match('/(?:izrāde|luga|iestudējums|režis|kinoseanss|spēlfilma)/ui', $dto->title . ' ' . $dto->description);
+
+                        if (($candIsSports && $dtoIsCulture) || ($dtoIsSports && $candIsCulture)) {
+                            continue;
+                        }
+
                         $isDifferentSessionSameDay = false;
                         if ($candidateByTicket->start_at && $dto->startAt) {
                             if ($candidateByTicket->start_at->toDateString() === $dto->startAt->toDateString()) {
@@ -685,6 +710,31 @@ class EventIngestionService
                         if (!$sameCinemaVenue) {
                             continue;
                         }
+                    }
+
+                    // Category Incompatibility Guard: Sports vs Culture/Theatre/Concert/Exhibition
+                    $candIsSports = $candidate->source_slug === 'basket-lv'
+                        || $candidate->source_slug === 'lff-virsliga'
+                        || $candidate->source_slug === 'lhf-hokejs'
+                        || self::extractMatchupTeams($candidate->title) !== null
+                        || $candidate->categories->contains(fn($c) => $c->slug === 'sports');
+
+                    $dtoIsSports = $source->slug === 'basket-lv'
+                        || $source->slug === 'lff-virsliga'
+                        || $source->slug === 'lhf-hokejs'
+                        || self::extractMatchupTeams($dto->title) !== null
+                        || in_array('sports', array_map('mb_strtolower', $dto->categoryNames), true);
+
+                    $candIsCulture = $candidate->categories->contains(fn($c) => in_array($c->slug, ['teatris', 'kino', 'izstades'], true))
+                        || preg_match('/(?:izrāde|luga|iestudējums|režis|kinoseanss|spēlfilma)/ui', $candidate->title . ' ' . $candidate->description);
+
+                    $dtoIsCulture = in_array('teatris', array_map('mb_strtolower', $dto->categoryNames), true)
+                        || in_array('kino', array_map('mb_strtolower', $dto->categoryNames), true)
+                        || in_array('izstades', array_map('mb_strtolower', $dto->categoryNames), true)
+                        || preg_match('/(?:izrāde|luga|iestudējums|režis|kinoseanss|spēlfilma)/ui', $dto->title . ' ' . $dto->description);
+
+                    if (($candIsSports && $dtoIsCulture) || ($dtoIsSports && $candIsCulture)) {
+                        continue;
                     }
 
                     $isCandidateMultiDay = $candidate->end_at && $candidate->start_at && $candidate->start_at->toDateString() !== $candidate->end_at->toDateString();
@@ -2116,6 +2166,15 @@ class EventIngestionService
             if (preg_match('/^(.*?)\s+(?:vs\.?|pret|[-–—])\s+(.*?)$/iu', $candidateMatchup)) {
                 $clean = $candidateMatchup;
             }
+        }
+
+        $isVs = (bool) preg_match('/\b(?:vs\.?|pret)\b/iu', $clean);
+        $hasClub = (bool) preg_match('/\b(?:bk|fk|sk|hk|fc|sc|bjss|fs|jss|bs|universitāte|universitate|kadetes|juniori|komanda)\b/iu', $clean);
+        $hasSport = (bool) preg_match('/\b(?:spēle|spele|līga|liga|čempionāt|cempionat|kauss|turnīr|basketbol|futbol|volejbol|florbol|hokej)\b/iu', $clean);
+
+        // If delimiter is a dash without vs/pret, require sports/club indicators so general titles like "Artist – Concert" or "Movie – Subtitle" are not treated as sports
+        if (!$isVs && !($hasClub || $hasSport)) {
+            return null;
         }
 
         if (preg_match('/^(.*?)\s+(?:vs\.?|pret|[-–—])\s+(.*?)$/iu', $clean, $matches)) {
