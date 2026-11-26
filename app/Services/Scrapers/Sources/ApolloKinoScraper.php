@@ -92,10 +92,6 @@ class ApolloKinoScraper extends BaseScraper
             'verify' => false,
         ];
 
-        if ($proxy = env('SCRAPER_PROXY')) {
-            $options['proxy'] = $proxy;
-        }
-
         $this->httpClient = new \GuzzleHttp\Client($options);
     }
 

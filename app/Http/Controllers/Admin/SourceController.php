@@ -204,6 +204,10 @@ class SourceController extends Controller
     public function scrape(Source $source, EventIngestionService $service, Request $request)
     {
         @set_time_limit(300);
+        if ((int) ini_get('memory_limit') < 512 && ini_get('memory_limit') !== '-1') {
+            @ini_set('memory_limit', '512M');
+        }
+        \Illuminate\Support\Facades\DB::disableQueryLog();
 
         $log = $service->ingest($source);
 

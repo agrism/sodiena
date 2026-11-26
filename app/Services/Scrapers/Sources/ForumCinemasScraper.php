@@ -33,7 +33,7 @@ class ForumCinemasScraper extends BaseScraper
             'verify' => false,
         ];
 
-        if ($proxy = env('SCRAPER_PROXY')) {
+        if ($proxy = config('services.scraper.proxy', env('SCRAPER_PROXY'))) {
             $options['proxy'] = $proxy;
         }
 

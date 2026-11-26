@@ -47,4 +47,8 @@ return [
         'url' => env('FLARESOLVERR_URL', 'http://127.0.0.1:8191'),
     ],
 
+    'scraper' => [
+        'proxy' => env('SCRAPER_PROXY'),
+    ],
+
 ];
