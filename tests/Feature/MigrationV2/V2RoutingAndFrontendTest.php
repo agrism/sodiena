@@ -231,6 +231,12 @@ class V2RoutingAndFrontendTest extends TestCase
             'status' => 'published',
             'published_at' => now()->subDay(),
             'occurrences_count' => 3,
+            'ticket_url' => 'https://forumcinemas.lv/tickets/general',
+            'raw_data' => [
+                'ticket_links' => [
+                    ['url' => 'https://forumcinemas.lv/tickets/general', 'title' => 'Forum Cinemas', 'label' => 'Forum Cinemas seansi un biļetes', 'platform' => 'forum'],
+                ],
+            ],
         ]);
 
         // Occurrence 1: Tomorrow 15:00 IMAX
@@ -282,6 +288,33 @@ class V2RoutingAndFrontendTest extends TestCase
         $response->assertSee('data-occurrence-id="' . $occ1->id . '"', false);
         $response->assertSee('data-occurrence-id="' . $occ2->id . '"', false);
         $response->assertSee('data-occurrence-id="' . $occ3->id . '"', false);
+
+        // Sidebar must NOT show the general "<place> seansi un biļetes" buttons for multi-occurrence events
+        $response->assertDontSee('Forum Cinemas seansi un biļetes');
+        $response->assertDontSee('Seansi un biļetes kinoteātros');
+
+        // Single occurrence event must still render ticket button in sidebar
+        $singleEvent = Event::create([
+            'title' => 'Vienas norises pasākums',
+            'slug' => 'vienas-norises-pasakums',
+            'location_id' => $this->venue->id,
+            'start_at' => now()->addDays(3)->setTime(19, 0),
+            'status' => 'published',
+            'published_at' => now()->subDay(),
+            'ticket_url' => 'https://bilesuserviss.lv/tickets/single-123',
+            'occurrences_count' => 1,
+        ]);
+        EventOccurrence::create([
+            'event_id' => $singleEvent->id,
+            'start_at' => now()->addDays(3)->setTime(19, 0),
+            'status' => 'scheduled',
+            'occurrence_fingerprint' => 'fp_single',
+        ]);
+
+        $singleResponse = $this->get('/events/vienas-norises-pasakums');
+        $singleResponse->assertStatus(200);
+        $singleResponse->assertDontSee('Seansu un norišu grafiks');
+        $singleResponse->assertSee('https://bilesuserviss.lv/tickets/single-123');
     }
 
     /**
