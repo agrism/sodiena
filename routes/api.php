@@ -29,6 +29,13 @@ Route::middleware('auth.bearer')->group(function () {
         Route::patch('/events/{id}', [EventApiController::class, 'setPromoted'])->name('api.v1.events.patch');
     });
 
+    // API Version 2
+    Route::prefix('v2')->group(function () {
+        Route::get('/events/sync', [\App\Http\Controllers\Api\V2\EventV2ApiController::class, 'sync'])->name('api.v2.events.sync');
+        Route::get('/events/stats', [\App\Http\Controllers\Api\V2\EventV2ApiController::class, 'stats'])->name('api.v2.events.stats');
+        Route::get('/events/{id}', [\App\Http\Controllers\Api\V2\EventV2ApiController::class, 'show'])->name('api.v2.events.show');
+    });
+
     // Default unversioned aliases
     Route::get('/events/sync', [EventApiController::class, 'sync'])->name('api.events.sync');
     Route::get('/events', [EventApiController::class, 'index'])->name('api.events.index');
