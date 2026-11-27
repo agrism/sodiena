@@ -14,6 +14,7 @@ class EventAction extends Model
 
     protected $fillable = [
         'event_id',
+        'event_occurrence_id',
         'action_type',
         'url',
         'target_domain',
@@ -31,6 +32,11 @@ class EventAction extends Model
     public function event(): BelongsTo
     {
         return $this->belongsTo(Event::class);
+    }
+
+    public function occurrence(): BelongsTo
+    {
+        return $this->belongsTo(EventOccurrence::class, 'event_occurrence_id');
     }
 
     public function user(): BelongsTo

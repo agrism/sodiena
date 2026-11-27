@@ -54,6 +54,15 @@ class Event extends Model
         'spoken_languages',
         'subtitle_languages',
         'language_source',
+        'canonical_fingerprint',
+        'primary_content_source_id',
+        'next_start_at',
+        'last_end_at',
+        'occurrences_count',
+        'raw_categories',
+        'content_hash',
+        'merged_into_id',
+        'merged_at',
     ];
 
     protected $casts = [
@@ -72,6 +81,11 @@ class Event extends Model
         'language_source' => EventLanguageSource::class,
         'spoken_languages' => 'array',
         'subtitle_languages' => 'array',
+        'next_start_at' => 'datetime',
+        'last_end_at' => 'datetime',
+        'merged_at' => 'datetime',
+        'occurrences_count' => 'integer',
+        'raw_categories' => 'array',
     ];
 
     protected $attributes = [
@@ -104,6 +118,37 @@ class Event extends Model
                 }
             }
         });
+
+        static::saving(function (Event $event) {
+            if ($event->merged_into_id !== null && $event->id !== null && (int) $event->merged_into_id === (int) $event->id) {
+                throw new \InvalidArgumentException('An event cannot be merged into itself.');
+            }
+        });
+    }
+
+    public function occurrences(): HasMany
+    {
+        return $this->hasMany(EventOccurrence::class);
+    }
+
+    public function activeOccurrences(): HasMany
+    {
+        return $this->hasMany(EventOccurrence::class)->whereIn('status', ['scheduled', 'postponed']);
+    }
+
+    public function mergedInto(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'merged_into_id');
+    }
+
+    public function primaryContentSource(): BelongsTo
+    {
+        return $this->belongsTo(Source::class, 'primary_content_source_id');
+    }
+
+    public function redirects(): HasMany
+    {
+        return $this->hasMany(EventRedirect::class, 'target_event_id');
     }
 
     public function user(): BelongsTo

@@ -24,6 +24,9 @@ class Source extends Model
         'last_error',
         'duplicates_prevented_count',
         'settings',
+        'supports_reconciliation',
+        'reconciliation_min_ratio',
+        'reconciliation_grace_runs',
     ];
 
     protected $casts = [
@@ -31,6 +34,9 @@ class Source extends Model
         'last_scraped_at' => 'datetime',
         'duplicates_prevented_count' => 'integer',
         'settings' => 'array',
+        'supports_reconciliation' => 'boolean',
+        'reconciliation_min_ratio' => 'decimal:2',
+        'reconciliation_grace_runs' => 'integer',
     ];
 
     protected function type(): Attribute
@@ -44,6 +50,11 @@ class Source extends Model
     public function events(): HasMany
     {
         return $this->hasMany(Event::class);
+    }
+
+    public function occurrenceSources(): HasMany
+    {
+        return $this->hasMany(OccurrenceSource::class);
     }
 
     public function scrapeLogs(): HasMany
