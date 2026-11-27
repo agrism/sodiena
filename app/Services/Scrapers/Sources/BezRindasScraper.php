@@ -435,7 +435,7 @@ class BezRindasScraper extends BaseScraper
         $cleanedLines = [];
 
         foreach ($lines as $line) {
-            $line = trim($line, " \t\n\r\0\x0B\xC2\xA0");
+            $line = preg_replace('/^[\s\x{00A0}]+|[\s\x{00A0}]+$/u', '', $line);
             if ($line === '' || $line === '•' || $line === '.' || $line === '-') {
                 continue;
             }

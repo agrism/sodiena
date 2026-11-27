@@ -292,7 +292,7 @@ class EventIngestionV2Service
 
             if (!$event) {
                 $event = Event::create([
-                    'title' => $canonicalTitle,
+                    'title' => mb_substr(trim($canonicalTitle), 0, 255, 'UTF-8'),
                     'slug' => Str::slug($canonicalTitle) . '-' . substr(md5(uniqid('', true)), 0, 6),
                     'location_id' => $locationId,
                     'canonical_fingerprint' => $canonicalFp,
@@ -305,7 +305,7 @@ class EventIngestionV2Service
                 EventTranslation::create([
                     'event_id' => $event->id,
                     'locale' => 'lv',
-                    'title' => $event->title,
+                    'title' => mb_substr(trim((string) $event->title), 0, 255, 'UTF-8'),
                     'slug' => Str::slug($event->title) . '-' . substr(md5($event->id . 'lv'), 0, 6),
                     'description' => $dto->description,
                     'short_description' => Str::limit(strip_tags((string) $dto->description), 160),
@@ -862,7 +862,7 @@ class EventIngestionV2Service
         sort($cats, SORT_STRING);
 
         $payload = [
-            'title' => trim((string) $dto->title),
+            'title' => mb_substr(trim((string) $dto->title), 0, 255, 'UTF-8'),
             'description' => trim((string) $dto->description),
             'start_at' => $dto->startAt ? $dto->startAt->format('Y-m-d H:i:s') : null,
             'end_at' => $dto->endAt ? $dto->endAt->format('Y-m-d H:i:s') : null,
@@ -917,12 +917,12 @@ class EventIngestionV2Service
     {
         $clean = html_entity_decode($name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $clean = str_replace(['“', '”', '«', '»', '"', '’', '`'], '', $clean);
-        return trim(preg_replace('/\s+/', ' ', $clean));
+        return trim(preg_replace('/\s+/u', ' ', $clean));
     }
 
     protected function getBaseVenueName(string $name): string
     {
-        $name = preg_replace('/\s*\([^)]*\)/', '', $name);
+        $name = preg_replace('/\s*\([^)]*\)/u', '', $name);
         $name = preg_replace('/,?\s*(?:Lielā zāle|Mazā zāle|Jaunā zāle|Kamerzāle|Kora zāle|Koncertzāle|Eksperimentālā skatuve|MAZĀ ZĀLE|LIELĀ ZĀLE|1\.\s*stāvs|2\.\s*stāvs)$/iu', '', $name);
         return trim($name);
     }

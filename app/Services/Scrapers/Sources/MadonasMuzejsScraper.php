@@ -177,7 +177,7 @@ class MadonasMuzejsScraper extends BaseScraper
     private function formatTitle(string $title): string
     {
         $title = $this->cleanText($title) ?? '';
-        $title = trim($title, " \t\n\r\0\x0B\xC2\xA0-–—");
+        $title = preg_replace('/^[\s\-–—:;,.|«»„“”•]+|[\s\-–—:;,.|«»„“”•]+$/u', '', $title);
 
         if (empty($title)) {
             return '';
@@ -193,7 +193,8 @@ class MadonasMuzejsScraper extends BaseScraper
             $casedWords = [];
             $minorWords = ['un', 'ar', 'par', 'pie', 'uz', 'no', 'vai', 'kā', 'pret', 'līdz', 'pa', 'pēc', 'zem', 'virs', 'pretī', 'š.g.'];
             foreach ($words as $i => $word) {
-                if ($i === 0 || !in_array(trim($word, " \t\n\r\0\x0B\xC2\xA0-–—.,!?:;\"'«»“”"), $minorWords)) {
+                $strippedWord = preg_replace('/^[\s\-–—:;,.|«»„“”"\'•]+|[\s\-–—:;,.|«»„“”"\'•]+$/u', '', $word);
+                if ($i === 0 || !in_array($strippedWord, $minorWords, true)) {
                     $firstChar = mb_substr($word, 0, 1, 'UTF-8');
                     $rest = mb_substr($word, 1, null, 'UTF-8');
                     $casedWords[] = mb_strtoupper($firstChar, 'UTF-8') . $rest;
@@ -279,7 +280,7 @@ class MadonasMuzejsScraper extends BaseScraper
                     $rawText = preg_replace('/\n{3,}/', "\n\n", $rawText);
 
                     $lines = array_filter(array_map('trim', explode("\n", $rawText)), function ($line) {
-                        $clean = trim($line, " \t\n\r\0\x0B\xC2\xA0");
+                        $clean = preg_replace('/^[\s\x{00A0}]+|[\s\x{00A0}]+$/u', '', $line);
                         $lower = mb_strtolower($clean);
                         if (preg_match('/^\d+\s*patīk$/u', $lower) || $lower === 'padalīties' || $lower === 'iepriekšējs' || $lower === 'nākamais' || $lower === 'patīk') {
                             return false;
@@ -288,7 +289,7 @@ class MadonasMuzejsScraper extends BaseScraper
                     });
 
                     foreach ($lines as $line) {
-                        $paragraphs[] = trim($line, " \t\n\r\0\x0B\xC2\xA0");
+                        $paragraphs[] = preg_replace('/^[\s\x{00A0}]+|[\s\x{00A0}]+$/u', '', $line);
                     }
                 });
             }

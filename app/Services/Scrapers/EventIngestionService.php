@@ -1797,12 +1797,12 @@ class EventIngestionService
     {
         $clean = html_entity_decode($name, ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $clean = str_replace(['“', '”', '«', '»', '"', '’', '`'], '', $clean);
-        return trim(preg_replace('/\s+/', ' ', $clean));
+        return trim(preg_replace('/\s+/u', ' ', $clean));
     }
 
     private function getBaseVenueName(string $name): string
     {
-        $name = preg_replace('/\s*\([^)]*\)/', '', $name); // remove (address...)
+        $name = preg_replace('/\s*\([^)]*\)/u', '', $name); // remove (address...)
         // strip hall suffixes
         $name = preg_replace('/,?\s*(?:Lielā zāle|Mazā zāle|Jaunā zāle|Kamerzāle|Kora zāle|Koncertzāle|Eksperimentālā skatuve|MAZĀ ZĀLE|LIELĀ ZĀLE|1\.\s*stāvs|2\.\s*stāvs)$/iu', '', $name);
         return trim($name);

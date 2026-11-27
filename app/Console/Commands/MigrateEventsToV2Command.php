@@ -306,6 +306,7 @@ class MigrateEventsToV2Command extends Command
 
         $rawTitle = $event->translations->firstWhere('locale', 'lv')?->title ?: ($event->getRawOriginal('title') ?: $event->title);
         $canonicalTitle = $this->cleanTitleForCinema($rawTitle, EventIngestionService::isCinemaEvent($rawTitle, $event->location?->name, $event->categories->pluck('name')->all()));
+        $canonicalTitle = mb_substr(trim($canonicalTitle), 0, 255, 'UTF-8');
         $canonicalFp = hash('sha256', EventIngestionService::normalizeTitleForComparison($canonicalTitle) . '|' . ($event->location_id ?? 'null'));
 
         $event->canonical_fingerprint = $canonicalFp;
@@ -325,6 +326,7 @@ class MigrateEventsToV2Command extends Command
         $rawTitle = $winner->translations->firstWhere('locale', 'lv')?->title ?: ($winner->getRawOriginal('title') ?: $winner->title);
         $isCinema = EventIngestionService::isCinemaEvent($rawTitle, $winner->location?->name, $winner->categories->pluck('name')->all());
         $canonicalTitle = $this->cleanTitleForCinema($rawTitle, $isCinema);
+        $canonicalTitle = mb_substr(trim($canonicalTitle), 0, 255, 'UTF-8');
         $canonicalFp = hash('sha256', EventIngestionService::normalizeTitleForComparison($canonicalTitle) . '|' . $winner->location_id);
 
         // 1. Preserve missing translations on winner from other members before merging
@@ -446,6 +448,7 @@ class MigrateEventsToV2Command extends Command
                 ->update(['event_occurrence_id' => $winnerOcc->id]);
         }
 
+        $winner->title = mb_substr(trim($winner->title), 0, 255, 'UTF-8');
         $winner->canonical_fingerprint = $canonicalFp;
         $winner->save();
 
@@ -811,8 +814,8 @@ class MigrateEventsToV2Command extends Command
             // 2. Presentation formats in parentheses or standalone
             $cleaned = preg_replace('/\s*(?:\(|\s)+(?:IMAX\s*3D|IMAX\s*2D|IMAX|3D|2D|LUXE?|Dolby\s*Atmos)\)?\s*$/ui', '', $cleaned);
 
-            // 3. Trailing delimiters
-            $cleaned = trim($cleaned, " \t\n\r\0\x0B-–—|•");
+            // 3. Trailing delimiters (UTF-8 safe regex)
+            $cleaned = preg_replace('/^[\s\-–—:;,.|«»„“”•]+|[\s\-–—:;,.|«»„“”•]+$/u', '', $cleaned);
         } while ($cleaned !== $before);
 
         return !empty($cleaned) ? $cleaned : $raw;

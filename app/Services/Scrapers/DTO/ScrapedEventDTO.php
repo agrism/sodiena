@@ -136,8 +136,8 @@ class ScrapedEventDTO
             // Strip trailing formats: IMAX 2D, IMAX 3D, IMAX, 2D, 3D, LUX, LUXE, Dolby Atmos
             $cleaned = preg_replace('/\s*(?:\(|\s)+(?:IMAX\s*3D|IMAX\s*2D|IMAX|3D|2D|LUXE?|Dolby\s*Atmos)\)?\s*$/ui', '', $cleaned);
 
-            // Strip trailing delimiters
-            $cleaned = trim($cleaned, " \t\n\r\0\x0B-–—|•");
+            // Strip trailing delimiters (UTF-8 safe regex)
+            $cleaned = preg_replace('/^[\s\-–—:;,.|«»„“”•]+|[\s\-–—:;,.|«»„“”•]+$/u', '', $cleaned);
         } while ($cleaned !== $before);
 
         return !empty($cleaned) ? $cleaned : $title;

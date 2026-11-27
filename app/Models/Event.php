@@ -121,10 +121,19 @@ class Event extends Model
         });
 
         static::saving(function (Event $event) {
+            if ($event->title !== null) {
+                $event->title = mb_substr(trim($event->title), 0, 255, 'UTF-8');
+            }
+
             if ($event->merged_into_id !== null && $event->id !== null && (int) $event->merged_into_id === (int) $event->id) {
                 throw new \InvalidArgumentException('An event cannot be merged into itself.');
             }
         });
+    }
+
+    public function setTitleAttribute(?string $value): void
+    {
+        $this->attributes['title'] = $value !== null ? mb_substr(trim($value), 0, 255, 'UTF-8') : null;
     }
 
     public function occurrences(): HasMany
@@ -182,6 +191,10 @@ class Event extends Model
      */
     public function translation(?string $locale = null): ?EventTranslation
     {
+        if (!$this->exists) {
+            return null;
+        }
+
         $locale = $locale ?: app()->getLocale();
 
         // If translations are loaded in relation, search the collection
