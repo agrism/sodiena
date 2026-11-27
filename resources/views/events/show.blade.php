@@ -6,12 +6,28 @@
 @section('meta_image', $event->display_image_url)
 @section('canonical_url', \App\Services\LocaleService::url(app()->getLocale(), route('events.show', $event->slug)))
 
+@if($isCancelled ?? false)
+    @section('robots', 'noindex, follow')
+@endif
+
 @push('styles')
     <link rel="preload" as="image" href="{{ $event->display_image_url }}" fetchpriority="high">
 @endpush
 
 @section('content')
 <div class="max-w-6xl xl:max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+
+    @if($isCancelled ?? false)
+        <div class="mb-6 p-4 sm:p-5 rounded-2xl bg-red-50 border-2 border-red-200 text-red-900 flex items-center gap-3.5 shadow-xs">
+            <div class="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center shrink-0 text-red-600">
+                <i data-lucide="alert-octagon" class="w-6 h-6"></i>
+            </div>
+            <div>
+                <p class="font-extrabold text-sm uppercase tracking-wider text-red-700">{{ __('Pasākums ir atcelts') }}</p>
+                <p class="text-xs text-red-600 mt-0.5">{{ __('Šis pasākums vai seanss ir atcelts pēc organizatora vai biļešu tirgotāja datiem.') }}</p>
+            </div>
+        </div>
+    @endif
     
     <!-- Breadcrumb & Back Link -->
     <div class="mb-4 sm:mb-6 flex flex-wrap items-center justify-between gap-2.5">
@@ -116,6 +132,96 @@
                     {!! $event->formatted_description_html !!}
                 </div>
             </div>
+
+            <!-- Multi-Occurrence Schedule Block (v2) -->
+            @if(!empty($activeOccurrences) && $activeOccurrences->count() > 1)
+                <div class="bg-white rounded-3xl p-5 sm:p-8 border border-slate-200/80 shadow-xs space-y-6">
+                    <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+                        <div class="flex items-center gap-2.5">
+                            <div class="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200">
+                                <i data-lucide="calendar-days" class="w-5 h-5"></i>
+                            </div>
+                            <h2 class="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight">
+                                {{ __('Seansu un norišu grafiks') }} ({{ $activeOccurrences->count() }})
+                            </h2>
+                        </div>
+                    </div>
+
+                    @php
+                        $groupedOccurrences = $activeOccurrences->groupBy(fn($o) => $o->start_at->toDateString());
+                    @endphp
+
+                    <div class="space-y-5">
+                        @foreach($groupedOccurrences as $dateStr => $dayOccs)
+                            @php
+                                $dayCarbon = \Carbon\Carbon::parse($dateStr);
+                            @endphp
+                            <div class="rounded-2xl border border-slate-200/80 bg-slate-50/50 p-4 space-y-3">
+                                <div class="flex items-center justify-between text-xs sm:text-sm font-extrabold text-slate-800">
+                                    <span class="flex items-center gap-1.5">
+                                        <i data-lucide="calendar" class="w-4 h-4 text-emerald-600"></i>
+                                        <span>{{ $dayCarbon->translatedFormat('l, j. F') }}</span>
+                                    </span>
+                                    <span class="text-xs font-bold text-slate-500">{{ $dayOccs->count() }} {{ $dayOccs->count() === 1 ? 'seanss' : 'seansi' }}</span>
+                                </div>
+
+                                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                                    @foreach($dayOccs as $occ)
+                                        <div class="bg-white rounded-xl p-3 border border-slate-200 shadow-xs flex flex-col justify-between gap-2.5 hover:border-emerald-300 transition-colors">
+                                            <div class="flex items-center justify-between gap-1.5">
+                                                <span class="text-sm font-black text-slate-900 tracking-tight">
+                                                    {{ $occ->start_at->format('H:i') }}
+                                                    @if($occ->end_at)
+                                                        <span class="text-xs font-normal text-slate-400">– {{ $occ->end_at->format('H:i') }}</span>
+                                                    @endif
+                                                </span>
+                                                @if($occ->presentation_format)
+                                                    <span class="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-purple-50 text-purple-700 border border-purple-200">
+                                                        {{ $occ->presentation_format }}
+                                                    </span>
+                                                @endif
+                                            </div>
+
+                                            @if($occ->auditorium)
+                                                <p class="text-[11px] text-slate-500 font-medium truncate flex items-center gap-1">
+                                                    <i data-lucide="door-open" class="w-3 h-3 text-slate-400 shrink-0"></i>
+                                                    <span class="truncate">{{ $occ->auditorium }}</span>
+                                                </p>
+                                            @endif
+
+                                            <div class="flex items-center justify-between gap-2 pt-1 border-t border-slate-100">
+                                                <span class="text-xs font-bold text-slate-700">
+                                                    @if($occ->is_free)
+                                                        <span class="text-emerald-700 font-extrabold uppercase text-[10px]">{{ __('Free') }}</span>
+                                                    @elseif($occ->price_min !== null)
+                                                        {{ number_format($occ->price_min, 2) }} €
+                                                    @else
+                                                        <span class="text-slate-400">{{ __('Biļete') }}</span>
+                                                    @endif
+                                                </span>
+
+                                                @if($occ->ticket_url)
+                                                    <a 
+                                                        href="{{ $occ->ticket_url }}" 
+                                                        data-act="ticket"
+                                                        data-event-id="{{ $event->id }}"
+                                                        data-occurrence-id="{{ $occ->id }}"
+                                                        target="_blank" 
+                                                        rel="noopener noreferrer"
+                                                        class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs inline-flex items-center gap-1 shadow-xs transition-colors">
+                                                        <span>{{ __('Pirkt') }}</span>
+                                                        <i data-lucide="external-link" class="w-3 h-3"></i>
+                                                    </a>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
 
         </div>
 
@@ -262,6 +368,12 @@
 
                 <!-- Direct External Action Buttons -->
                 <div class="pt-2 flex flex-col gap-3">
+                    @if($isCancelled ?? false)
+                        <button disabled class="w-full py-3.5 px-4 rounded-xl bg-slate-200 text-slate-500 font-extrabold text-sm flex items-center justify-center gap-2 cursor-not-allowed select-none">
+                            <i data-lucide="ticket-x" class="w-4 h-4"></i>
+                            <span>{{ __('Biļešu iegāde nav pieejama (Atcelts)') }}</span>
+                        </button>
+                    @else
                     @php
                         $ticketLinks = $event->tracked_ticket_links;
                     @endphp
@@ -322,6 +434,7 @@
                             <i data-lucide="globe" class="w-4 h-4 text-slate-600"></i>
                             {{ __('Official event website') }}
                         </a>
+                    @endif
                     @endif
                 </div>
 
@@ -613,10 +726,10 @@
         ],
         'offers' => [
             '@type' => 'Offer',
-            'url' => $event->ticket_url ?: route('events.show', $event->slug),
+            'url' => ($isCancelled ?? false) ? route('events.show', $event->slug) : ($event->ticket_url ?: route('events.show', $event->slug)),
             'price' => (string) ($event->is_free ? '0' : ($event->price_min ?? '0')),
             'priceCurrency' => 'EUR',
-            'availability' => 'https://schema.org/InStock',
+            'availability' => ($isCancelled ?? false) ? 'https://schema.org/Discontinued' : 'https://schema.org/InStock',
             'validFrom' => $event->created_at ? $event->created_at->toIso8601String() : now()->toIso8601String(),
         ],
         'organizer' => [

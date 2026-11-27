@@ -96,11 +96,16 @@
                     <div class="flex flex-col gap-1">
                         <!-- Date & Time (Left) + Price (Right) in single readable row -->
                         <div class="flex items-center justify-between text-xs gap-1">
-                            <span class="font-semibold text-emerald-700 truncate">
-                                {{ $event->card_formatted_date }}
+                            <span class="font-semibold text-emerald-700 truncate flex items-center gap-1.5">
+                                <span>{{ $event->card_formatted_date }}</span>
                                 @if(!$event->all_day && $event->start_at)
                                     <span class="text-slate-400 font-normal">·</span>
                                     <span class="text-slate-600 font-medium">{{ $event->start_at->format('H:i') }}</span>
+                                @endif
+                                @if($event->occurrences_count > 1)
+                                    <span class="inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                        +{{ $event->occurrences_count - 1 }} {{ $event->categories->first()?->slug === 'kino' ? __('seansi') : __('datumi') }}
+                                    </span>
                                 @endif
                             </span>
                             @if(!$event->is_free && $event->formatted_price)

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@yield('title', 'Šodiena — ' . __('Find Events'))</title>
     <meta name="description" content="@yield('meta_description', __('Discover future events'))">
-    <meta name="robots" content="index, follow">
+    <meta name="robots" content="@yield('robots', 'index, follow')">
     <link rel="canonical" href="@yield('canonical_url', \App\Services\LocaleService::url(app()->getLocale()))">
     @foreach(\App\Services\LocaleService::hreflangUrls() as $lang => $hreflangUrl)
     <link rel="alternate" hreflang="{{ $lang }}" href="{{ $hreflangUrl }}">

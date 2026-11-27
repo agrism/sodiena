@@ -189,7 +189,7 @@ class CanonicalProjectionService
     /**
      * Deterministically recalculate an Event's canonical fields from its occurrences and active sources.
      */
-    public function projectEvent(Event $event): void
+    public function projectEvent(Event $event, bool $preserveExistingTranslations = false): void
     {
         /** @var Collection<int, EventOccurrence> $occurrences */
         $occurrences = $event->occurrences()
@@ -277,6 +277,11 @@ class CanonicalProjectionService
 
             // Sync Latvian translation in event_translations directly with new winner data
             if (!empty($newTitle)) {
+                $existingLv = EventTranslation::where('event_id', $event->id)->where('locale', 'lv')->first();
+                $slugToUse = ($preserveExistingTranslations && $existingLv?->slug)
+                    ? $existingLv->slug
+                    : ($existingLv?->slug ?: Str::slug($newTitle) . '-' . substr(md5($event->id . 'lv'), 0, 6));
+
                 EventTranslation::updateOrCreate(
                     [
                         'event_id' => $event->id,
@@ -284,7 +289,7 @@ class CanonicalProjectionService
                     ],
                     [
                         'title' => $newTitle,
-                        'slug' => Str::slug($newTitle) . '-' . substr(md5($event->id . 'lv'), 0, 6),
+                        'slug' => $slugToUse,
                         'description' => $newDescription,
                         'short_description' => $event->short_description ?: (mb_strlen((string) $newDescription) <= 220 ? $newDescription : Str::limit(strip_tags((string) $newDescription), 160)),
                     ]
@@ -409,7 +414,7 @@ class CanonicalProjectionService
                 $event->subtitle_languages = array_keys($subtitleUnion);
                 $event->language_mode = EventLanguageMode::Spoken;
                 $event->language_source = EventLanguageSource::Explicit;
-            } else {
+            } elseif (!$preserveExistingTranslations) {
                 $detected = $this->languageDetector->detectForEvent($event);
                 if ($detected) {
                     EventLanguageService::applyToEvent($event, $detected);

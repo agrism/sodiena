@@ -126,16 +126,19 @@ class ScrapedEventDTO
 
         $cleaned = $title;
 
-        // Strip trailing language notes in parentheses or standalone
-        $cleaned = preg_replace('/\s*\(\s*(?:lv|en|ru|lat|eng|rus|dub|sub)\s*\)\s*$/ui', '', $cleaned);
-        $cleaned = preg_replace('/\s*(?:latviešu|krievu|angļu)\s*valodā\s*$/ui', '', $cleaned);
-        $cleaned = preg_replace('/\s*(?:ar\s+subtitriem|ar\s+titriem|bez\s+subtitriem)\s*$/ui', '', $cleaned);
+        do {
+            $before = $cleaned;
+            // Strip trailing language notes in parentheses or standalone
+            $cleaned = preg_replace('/\s*\(\s*(?:lv|en|ru|lat|eng|rus|dub|sub)\s*\)\s*$/ui', '', $cleaned);
+            $cleaned = preg_replace('/\s*(?:\(|\s)*(?:latviešu|krievu|angļu)\s*valodā\)?\s*$/ui', '', $cleaned);
+            $cleaned = preg_replace('/\s*(?:\(|\s)*(?:ar\s+subtitriem|ar\s+titriem|bez\s+subtitriem)[^)]*\)?\s*$/ui', '', $cleaned);
 
-        // Strip trailing formats: IMAX 2D, IMAX 3D, IMAX, 2D, 3D, LUX, LUXE, Dolby Atmos
-        $cleaned = preg_replace('/\s+(?:IMAX\s*3D|IMAX\s*2D|IMAX|3D|2D|LUXE?|Dolby\s*Atmos)\s*$/ui', '', $cleaned);
+            // Strip trailing formats: IMAX 2D, IMAX 3D, IMAX, 2D, 3D, LUX, LUXE, Dolby Atmos
+            $cleaned = preg_replace('/\s*(?:\(|\s)+(?:IMAX\s*3D|IMAX\s*2D|IMAX|3D|2D|LUXE?|Dolby\s*Atmos)\)?\s*$/ui', '', $cleaned);
 
-        // Strip trailing delimiters
-        $cleaned = trim($cleaned, " \t\n\r\0\x0B-–—|•");
+            // Strip trailing delimiters
+            $cleaned = trim($cleaned, " \t\n\r\0\x0B-–—|•");
+        } while ($cleaned !== $before);
 
         return !empty($cleaned) ? $cleaned : $title;
     }

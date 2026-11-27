@@ -106,6 +106,13 @@ class ConsolidateEventsCommand extends Command
      */
     public function shouldMerge(Event $a, Event $b): bool
     {
+        if (config('sodiena.ingestion_v2_enabled', false)) {
+            // Under v2, cross-venue consolidation is strictly forbidden
+            if (!$a->location_id || !$b->location_id || $a->location_id !== $b->location_id) {
+                return false;
+            }
+        }
+
         // 1. Same source with different external IDs are never duplicates
         if ($a->source_id && $b->source_id && $a->source_id === $b->source_id && $a->source_external_id && $b->source_external_id && $a->source_external_id !== $b->source_external_id) {
             return false;
@@ -482,6 +489,11 @@ class ConsolidateEventsCommand extends Command
      */
     protected function consolidate(Event $canonical, Event $duplicate): void
     {
+        if (config('sodiena.ingestion_v2_enabled', false)) {
+            app(\App\Services\IngestionV2\EventMergeService::class)->mergeEvents($duplicate, $canonical, 'merged');
+            return;
+        }
+
         DB::transaction(function () use ($canonical, $duplicate) {
             $update = [];
 

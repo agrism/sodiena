@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class Event extends Model
@@ -756,12 +757,22 @@ class Event extends Model
         $todayStart = now()->startOfDay();
 
         return $query->published()->where(function ($q) use ($todayStart) {
-            $q->where('start_at', '>=', $todayStart)
-              ->orWhere(function ($sub) {
-                  $sub->whereNotNull('end_at')->where('end_at', '>=', now());
-              });
+            $q->where(function ($sq) use ($todayStart) {
+                $sq->whereNotNull('next_start_at')->where('next_start_at', '>=', $todayStart);
+            })->orWhere(function ($sq) {
+                $sq->whereNotNull('last_end_at')->where('last_end_at', '>=', now());
+            })->orWhere(function ($sq) use ($todayStart) {
+                // Fallback for unmigrated events
+                $sq->whereNull('next_start_at')
+                   ->where(function ($sub) use ($todayStart) {
+                       $sub->where('start_at', '>=', $todayStart)
+                           ->orWhere(function ($s2) {
+                               $s2->whereNotNull('end_at')->where('end_at', '>=', now());
+                           });
+                   });
+            });
         })->orderByRaw(
-            'is_promoted DESC, CASE WHEN start_at >= ? THEN 0 ELSE 1 END ASC, CASE WHEN start_at >= ? THEN start_at ELSE end_at END ASC, id ASC',
+            'is_promoted DESC, CASE WHEN COALESCE(next_start_at, start_at) >= ? THEN 0 ELSE 1 END ASC, CASE WHEN COALESCE(next_start_at, start_at) >= ? THEN COALESCE(next_start_at, start_at) ELSE COALESCE(last_end_at, end_at) END ASC, id ASC',
             [$todayStart, $todayStart]
         );
     }
@@ -775,28 +786,60 @@ class Event extends Model
         return $query->where('source_slug', $sourceSlug);
     }
 
+    public function scopeWhereOccursBetween(Builder $query, Carbon $rangeStart, Carbon $rangeEnd): Builder
+    {
+        $startDateStr = $rangeStart->toDateString();
+        $endDateStr = $rangeEnd->toDateString();
+
+        return $query->where(function ($q) use ($startDateStr, $endDateStr) {
+            // Check active occurrences in v2
+            $q->whereExists(function ($sub) use ($startDateStr, $endDateStr) {
+                $sub->select(DB::raw(1))
+                    ->from('event_occurrences')
+                    ->whereColumn('event_occurrences.event_id', 'events.id')
+                    ->whereIn('event_occurrences.status', ['scheduled', 'postponed'])
+                    ->whereNull('event_occurrences.deleted_at')
+                    ->whereDate('event_occurrences.start_at', '<=', $endDateStr)
+                    ->where(function ($sq) use ($startDateStr) {
+                        $sq->whereDate('event_occurrences.end_at', '>=', $startDateStr)
+                           ->orWhere(function ($s2) use ($startDateStr) {
+                               $s2->whereNull('event_occurrences.end_at')
+                                  ->whereDate('event_occurrences.start_at', '>=', $startDateStr);
+                           });
+                    });
+            })->orWhere(function ($legacyQ) use ($startDateStr, $endDateStr) {
+                // Fallback for events without occurrences
+                $legacyQ->whereDoesntHave('occurrences')
+                    ->whereDate('start_at', '<=', $endDateStr)
+                    ->where(function ($sub) use ($startDateStr) {
+                        $sub->whereDate('end_at', '>=', $startDateStr)
+                            ->orWhere(function ($s2) use ($startDateStr) {
+                                $s2->whereNull('end_at')->whereDate('start_at', '>=', $startDateStr);
+                            });
+                    });
+            });
+        });
+    }
+
     public function scopeForDateFilter(Builder $query, ?string $period, ?string $exactDate = null): Builder
     {
-        if (!empty($exactDate)) {
+        $targetDate = $exactDate;
+        if (empty($targetDate) && !empty($period) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $period)) {
+            $targetDate = $period;
+        }
+
+        if (!empty($targetDate)) {
             try {
-                $target = Carbon::parse($exactDate);
-                $targetDateStr = $target->toDateString();
+                $target = Carbon::parse($targetDate);
                 $targetStart = $target->copy()->startOfDay();
                 $targetEnd = $target->copy()->endOfDay();
 
-                return $query->published()->where(function ($q) use ($targetDateStr) {
-                    $q->whereDate('start_at', '<=', $targetDateStr)
-                      ->where(function ($sub) use ($targetDateStr) {
-                          $sub->whereDate('end_at', '>=', $targetDateStr)
-                              ->orWhere(function ($s2) use ($targetDateStr) {
-                                  $s2->whereNull('end_at')
-                                     ->whereDate('start_at', $targetDateStr);
-                              });
-                      });
-                })->orderByRaw(
-                    'is_promoted DESC, CASE WHEN start_at >= ? AND start_at <= ? THEN 0 ELSE 1 END ASC, CASE WHEN start_at >= ? THEN start_at ELSE end_at END ASC, id ASC',
-                    [$targetStart, $targetEnd, $targetStart]
-                );
+                return $query->published()
+                    ->whereOccursBetween($targetStart, $targetEnd)
+                    ->orderByRaw(
+                        'is_promoted DESC, CASE WHEN COALESCE(next_start_at, start_at) >= ? AND COALESCE(next_start_at, start_at) <= ? THEN 0 ELSE 1 END ASC, CASE WHEN COALESCE(next_start_at, start_at) >= ? THEN COALESCE(next_start_at, start_at) ELSE COALESCE(last_end_at, end_at) END ASC, id ASC',
+                        [$targetStart, $targetEnd, $targetStart]
+                    );
             } catch (\Throwable $e) {
                 // Fallback to period
             }
@@ -810,45 +853,23 @@ class Event extends Model
 
         return match ($period) {
             'today' => $query->published()
-                ->where(function ($q) use ($now) {
-                    $todayStr = $now->toDateString();
-                    $q->whereDate('start_at', $todayStr)
-                      ->orWhere(function ($sub) use ($todayStr) {
-                          $sub->whereDate('start_at', '<=', $todayStr)
-                              ->whereDate('end_at', '>=', $todayStr);
-                      });
-                })
+                ->whereOccursBetween($now->copy()->startOfDay(), $now->copy()->endOfDay())
                 ->orderByRaw(
-                    'is_promoted DESC, CASE WHEN start_at >= ? AND start_at <= ? THEN 0 ELSE 1 END ASC, CASE WHEN start_at >= ? THEN start_at ELSE end_at END ASC, id ASC',
+                    'is_promoted DESC, CASE WHEN COALESCE(next_start_at, start_at) >= ? AND COALESCE(next_start_at, start_at) <= ? THEN 0 ELSE 1 END ASC, CASE WHEN COALESCE(next_start_at, start_at) >= ? THEN COALESCE(next_start_at, start_at) ELSE COALESCE(last_end_at, end_at) END ASC, id ASC',
                     [$now->copy()->startOfDay(), $now->copy()->endOfDay(), $now->copy()->startOfDay()]
                 ),
 
             'tomorrow' => $query->published()
-                ->where(function ($q) use ($now) {
-                    $tomStr = $now->copy()->addDay()->toDateString();
-                    $q->whereDate('start_at', $tomStr)
-                      ->orWhere(function ($sub) use ($tomStr) {
-                          $sub->whereDate('start_at', '<=', $tomStr)
-                              ->whereDate('end_at', '>=', $tomStr);
-                      });
-                })
+                ->whereOccursBetween($now->copy()->addDay()->startOfDay(), $now->copy()->addDay()->endOfDay())
                 ->orderByRaw(
-                    'is_promoted DESC, CASE WHEN start_at >= ? AND start_at <= ? THEN 0 ELSE 1 END ASC, CASE WHEN start_at >= ? THEN start_at ELSE end_at END ASC, id ASC',
+                    'is_promoted DESC, CASE WHEN COALESCE(next_start_at, start_at) >= ? AND COALESCE(next_start_at, start_at) <= ? THEN 0 ELSE 1 END ASC, CASE WHEN COALESCE(next_start_at, start_at) >= ? THEN COALESCE(next_start_at, start_at) ELSE COALESCE(last_end_at, end_at) END ASC, id ASC',
                     [$now->copy()->addDay()->startOfDay(), $now->copy()->addDay()->endOfDay(), $now->copy()->addDay()->startOfDay()]
                 ),
 
             'weekend' => $query->published()
-                ->where(function ($q) use ($now) {
-                    $sat = $now->copy()->next(Carbon::SATURDAY)->startOfDay();
-                    $sun = $now->copy()->next(Carbon::SUNDAY)->endOfDay();
-                    $q->whereBetween('start_at', [$sat, $sun])
-                      ->orWhere(function ($sub) use ($sat, $sun) {
-                          $sub->where('start_at', '<=', $sun)
-                              ->where('end_at', '>=', $sat);
-                      });
-                })
+                ->whereOccursBetween($now->copy()->next(Carbon::SATURDAY)->startOfDay(), $now->copy()->next(Carbon::SUNDAY)->endOfDay())
                 ->orderByRaw(
-                    'is_promoted DESC, CASE WHEN start_at >= ? AND start_at <= ? THEN 0 ELSE 1 END ASC, CASE WHEN start_at >= ? THEN start_at ELSE end_at END ASC, id ASC',
+                    'is_promoted DESC, CASE WHEN COALESCE(next_start_at, start_at) >= ? AND COALESCE(next_start_at, start_at) <= ? THEN 0 ELSE 1 END ASC, CASE WHEN COALESCE(next_start_at, start_at) >= ? THEN COALESCE(next_start_at, start_at) ELSE COALESCE(last_end_at, end_at) END ASC, id ASC',
                     [
                         $now->copy()->next(Carbon::SATURDAY)->startOfDay(),
                         $now->copy()->next(Carbon::SUNDAY)->endOfDay(),
@@ -857,32 +878,16 @@ class Event extends Model
                 ),
 
             'this_week' => $query->published()
-                ->where(function ($q) use ($now) {
-                    $start = $now->copy()->startOfWeek();
-                    $end = $now->copy()->endOfWeek();
-                    $q->whereBetween('start_at', [$start, $end])
-                      ->orWhere(function ($sub) use ($start, $end) {
-                          $sub->where('start_at', '<=', $end)
-                              ->where('end_at', '>=', $start);
-                      });
-                })
+                ->whereOccursBetween($now->copy()->startOfWeek(), $now->copy()->endOfWeek())
                 ->orderByRaw(
-                    'is_promoted DESC, CASE WHEN start_at >= ? AND start_at <= ? THEN 0 ELSE 1 END ASC, CASE WHEN start_at >= ? THEN start_at ELSE end_at END ASC, id ASC',
+                    'is_promoted DESC, CASE WHEN COALESCE(next_start_at, start_at) >= ? AND COALESCE(next_start_at, start_at) <= ? THEN 0 ELSE 1 END ASC, CASE WHEN COALESCE(next_start_at, start_at) >= ? THEN COALESCE(next_start_at, start_at) ELSE COALESCE(last_end_at, end_at) END ASC, id ASC',
                     [$now->copy()->startOfWeek(), $now->copy()->endOfWeek(), $now->copy()->startOfWeek()]
                 ),
 
             'this_month' => $query->published()
-                ->where(function ($q) use ($now) {
-                    $start = $now->copy()->startOfMonth();
-                    $end = $now->copy()->endOfMonth();
-                    $q->whereBetween('start_at', [$start, $end])
-                      ->orWhere(function ($sub) use ($start, $end) {
-                          $sub->where('start_at', '<=', $end)
-                              ->where('end_at', '>=', $start);
-                      });
-                })
+                ->whereOccursBetween($now->copy()->startOfMonth(), $now->copy()->endOfMonth())
                 ->orderByRaw(
-                    'is_promoted DESC, CASE WHEN start_at >= ? AND start_at <= ? THEN 0 ELSE 1 END ASC, CASE WHEN start_at >= ? THEN start_at ELSE end_at END ASC, id ASC',
+                    'is_promoted DESC, CASE WHEN COALESCE(next_start_at, start_at) >= ? AND COALESCE(next_start_at, start_at) <= ? THEN 0 ELSE 1 END ASC, CASE WHEN COALESCE(next_start_at, start_at) >= ? THEN COALESCE(next_start_at, start_at) ELSE COALESCE(last_end_at, end_at) END ASC, id ASC',
                     [$now->copy()->startOfMonth(), $now->copy()->endOfMonth(), $now->copy()->startOfMonth()]
                 ),
 
@@ -1397,6 +1402,22 @@ class Event extends Model
                 $q->orWhereJsonContains('spoken_languages', $code)
                   ->orWhereJsonContains('subtitle_languages', $code);
             }
+
+            // Also check session level occurrences in v2
+            $q->orWhereHas('occurrences', function ($oq) use ($code, $isMysql) {
+                $oq->whereIn('status', ['scheduled', 'postponed']);
+                if ($isMysql) {
+                    $oq->where(function ($sub) use ($code) {
+                        $sub->whereRaw('JSON_CONTAINS(spoken_languages, ?)', [json_encode($code)])
+                            ->orWhereRaw('JSON_CONTAINS(subtitle_languages, ?)', [json_encode($code)]);
+                    });
+                } else {
+                    $oq->where(function ($sub) use ($code) {
+                        $sub->whereJsonContains('spoken_languages', $code)
+                            ->orWhereJsonContains('subtitle_languages', $code);
+                    });
+                }
+            });
         });
     }
 }

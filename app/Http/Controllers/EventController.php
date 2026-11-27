@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Enums\SourceType;
 use App\Models\Category;
 use App\Models\Event;
+use App\Models\EventOccurrence;
+use App\Models\EventRedirect;
 use App\Models\Location;
 use App\Models\ScrapeLog;
 use App\Models\Source;
@@ -104,24 +106,88 @@ class EventController extends Controller
     /**
      * Display the specified event.
      */
-    public function show(Request $request, ?string $slug = null): View
+    public function show(Request $request, ?string $slug = null)
     {
         $slug = $request->route('slug') ?? $slug;
+        $locale = app()->getLocale();
 
-        $query = Event::with(['categories.translations', 'location.translations', 'source', 'translations'])
+        // 1. Look for Event by slug in events or event_translations (including soft-deleted)
+        $event = Event::withTrashed()
+            ->with(['categories.translations', 'location.translations', 'source', 'translations'])
             ->where(function ($q) use ($slug) {
                 $q->where('slug', $slug)
                   ->orWhereHas('translations', function ($tq) use ($slug) {
                       $tq->where('slug', $slug);
                   });
-            });
+            })
+            ->first();
 
-        // Non-admins can only see published events
-        if (!auth()->check() || !auth()->user()->isAdmin()) {
-            $query->published();
+        // 2. If Event is found
+        if ($event) {
+            // A. If status is 'merged': follow chain
+            if ($event->status === 'merged') {
+                $target = $event;
+                $hops = 0;
+                while ($target->merged_into_id && $hops < 5) {
+                    $parent = Event::withTrashed()->find($target->merged_into_id);
+                    if (!$parent || $parent->id === $target->id) {
+                        break;
+                    }
+                    $target = $parent;
+                    $hops++;
+                }
+
+                if ($target && $target->id !== $event->id && $target->status !== 'deleted' && !$target->trashed()) {
+                    $targetUrl = \App\Services\LocaleService::url($locale, route('events.show', $target->slug));
+                    if ($request->getQueryString()) {
+                        $targetUrl .= (str_contains($targetUrl, '?') ? '&' : '?') . $request->getQueryString();
+                    }
+                    return redirect()->to($targetUrl, 301);
+                }
+
+                return response()->view('errors.410', [], 410);
+            }
+
+            // B. If status is 'deleted' or trashed -> 410 Gone
+            if ($event->status === 'deleted' || $event->trashed()) {
+                return response()->view('errors.410', [], 410);
+            }
+
+            // Non-admins can only see published, cancelled or archived events (drafts are 404 for guests)
+            if (!auth()->check() || !auth()->user()->isAdmin()) {
+                if ($event->status === 'draft') {
+                    abort(404);
+                }
+            }
+        } else {
+            // 3. Event not found by slug -> check EventRedirect
+            $redirect = EventRedirect::where('locale', $locale)->where('old_slug', $slug)->first()
+                ?? EventRedirect::where('locale', 'lv')->where('old_slug', $slug)->first();
+
+            if ($redirect) {
+                $target = Event::withTrashed()->find($redirect->target_event_id);
+                if ($target && $target->status !== 'deleted' && !$target->trashed()) {
+                    $targetUrl = \App\Services\LocaleService::url($locale, route('events.show', $target->slug));
+                    if ($request->getQueryString()) {
+                        $targetUrl .= (str_contains($targetUrl, '?') ? '&' : '?') . $request->getQueryString();
+                    }
+                    return redirect()->to($targetUrl, 301);
+                }
+                return response()->view('errors.410', [], 410);
+            }
+
+            abort(404);
         }
 
-        $event = $query->firstOrFail();
+        // Active occurrences for v2 view
+        $activeOccurrences = $event->occurrences()
+            ->whereIn('status', ['scheduled', 'postponed'])
+            ->where(function ($q) {
+                $q->where('start_at', '>=', now()->subHours(2))
+                  ->orWhere('end_at', '>=', now());
+            })
+            ->orderBy('start_at')
+            ->get();
 
         $event->increment('views_count');
 
@@ -143,7 +209,9 @@ class EventController extends Controller
 
         $allCategories = Category::orderBy('name')->get();
 
-        return view('events.show', compact('event', 'relatedEvents', 'allCategories'));
+        $isCancelled = $event->status === 'cancelled';
+
+        return view('events.show', compact('event', 'relatedEvents', 'allCategories', 'activeOccurrences', 'isCancelled'));
     }
 
     /**
