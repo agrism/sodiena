@@ -421,24 +421,7 @@ class Event extends Model
         $links = [];
         $seenUrls = [];
 
-        $platformNames = [
-            'apollokino.lv' => ['title' => 'Apollo Kino', 'label' => 'Apollo Kino seansi un biļetes', 'platform' => 'apollo'],
-            'forumcinemas.lv' => ['title' => 'Forum Cinemas', 'label' => 'Forum Cinemas seansi un biļetes', 'platform' => 'forum'],
-            'splendidpalace.lv' => ['title' => 'Splendid Palace', 'label' => 'Splendid Palace seansi un biļetes', 'platform' => 'splendid'],
-            'cinamonkino.com' => ['title' => 'Cinamon Kino', 'label' => 'Cinamon Kino seansi un biļetes', 'platform' => 'cinamon'],
-            'bilesuparadize.lv' => ['title' => 'Biļešu Paradīze', 'label' => 'Pirkt biļetes (Biļešu Paradīze)', 'platform' => 'bilesuparadize'],
-            'bilesuserviss.lv' => ['title' => 'Biļešu Serviss', 'label' => 'Pirkt biļetes (Biļešu Serviss)', 'platform' => 'bilesuserviss'],
-            'bezrindas.lv' => ['title' => 'BezRindas.lv', 'label' => 'Pirkt biļetes (BezRindas.lv)', 'platform' => 'bezrindas'],
-            'aula.lv' => ['title' => 'Aula.lv', 'label' => 'Pirkt biļetes (Aula.lv)', 'platform' => 'aula'],
-            'ticketshop.lv' => ['title' => 'Ticketshop.lv', 'label' => 'Pirkt biļetes (Ticketshop.lv)', 'platform' => 'ticketshop'],
-            'fienta.com' => ['title' => 'Fienta', 'label' => 'Pirkt biļetes (Fienta)', 'platform' => 'fienta'],
-            'opera.lv' => ['title' => 'LNOB', 'label' => 'Pirkt biļetes (LNOB)', 'platform' => 'opera'],
-            'passportix.eu' => ['title' => 'Passportix', 'label' => 'Pirkt biļetes (Passportix)', 'platform' => 'passportix'],
-            'ticketbest.eu' => ['title' => 'TicketBest', 'label' => 'Pirkt biļetes (TicketBest)', 'platform' => 'ticketbest'],
-            'ticketbest.lv' => ['title' => 'TicketBest', 'label' => 'Pirkt biļetes (TicketBest)', 'platform' => 'ticketbest'],
-            'ticketly.eu' => ['title' => 'Ticketly', 'label' => 'Pirkt biļetes (Ticketly)', 'platform' => 'ticketly'],
-            'ekase.lv' => ['title' => 'eKase', 'label' => 'Pirkt biļetes (eKase.lv)', 'platform' => 'ekase'],
-        ];
+        $platformNames = \App\Services\Tickets\TicketProviderResolver::getMerchants();
 
         // 1. Check raw_data cta.links
         if (!empty($this->raw_data['cta']['links']) && is_array($this->raw_data['cta']['links'])) {
@@ -457,15 +440,9 @@ class Event extends Model
                 if (isset($seenUrls[$normalized])) continue;
                 $seenUrls[$normalized] = true;
 
-                $matchedPlatform = null;
-                foreach ($platformNames as $domain => $info) {
-                    if (str_contains($normalized, $domain)) {
-                        $matchedPlatform = $info;
-                        break;
-                    }
-                }
+                $providerName = \App\Services\Tickets\TicketProviderResolver::resolve($cleanUrl, $this->source_slug, $this->source?->name);
 
-                if (!$matchedPlatform) {
+                if (!$providerName) {
                     $itemKind = is_array($item) ? strtolower($item['kind'] ?? '') : '';
                     if (!in_array($itemKind, ['ticket', 'tickets', 'buy_ticket'])) {
                         // Do not treat general website or details links as ticket purchase buttons
@@ -475,9 +452,10 @@ class Event extends Model
 
                 $links[] = [
                     'url' => $cleanUrl,
-                    'title' => $matchedPlatform ? $matchedPlatform['title'] : (is_array($item) && !empty($item['title']) ? $item['title'] : 'Biļetes'),
-                    'label' => $matchedPlatform ? $matchedPlatform['label'] : 'Pirkt biļetes',
-                    'platform' => $matchedPlatform ? $matchedPlatform['platform'] : 'tickets',
+                    'title' => $providerName ?: 'Biļetes',
+                    'provider_name' => $providerName,
+                    'label' => \App\Services\Tickets\TicketProviderResolver::getLabel($cleanUrl, $providerName),
+                    'platform' => \App\Services\Tickets\TicketProviderResolver::getPlatformSlug($cleanUrl),
                 ];
             }
         }
@@ -499,19 +477,14 @@ class Event extends Model
                 if (isset($seenUrls[$normalized])) continue;
                 $seenUrls[$normalized] = true;
 
-                $matchedPlatform = null;
-                foreach ($platformNames as $domain => $info) {
-                    if (str_contains($normalized, $domain)) {
-                        $matchedPlatform = $info;
-                        break;
-                    }
-                }
+                $providerName = \App\Services\Tickets\TicketProviderResolver::resolve($cleanUrl, $this->source_slug, $this->source?->name);
 
                 $links[] = [
                     'url' => $cleanUrl,
-                    'title' => $matchedPlatform ? $matchedPlatform['title'] : (is_array($item) && !empty($item['title']) ? $item['title'] : 'Biļetes'),
-                    'label' => $matchedPlatform ? $matchedPlatform['label'] : 'Pirkt biļetes',
-                    'platform' => $matchedPlatform ? $matchedPlatform['platform'] : 'tickets',
+                    'title' => $providerName ?: 'Biļetes',
+                    'provider_name' => $providerName,
+                    'label' => \App\Services\Tickets\TicketProviderResolver::getLabel($cleanUrl, $providerName),
+                    'platform' => \App\Services\Tickets\TicketProviderResolver::getPlatformSlug($cleanUrl),
                 ];
             }
         }
@@ -527,24 +500,19 @@ class Event extends Model
                 if (!isset($seenUrls[$normalized])) {
                     $seenUrls[$normalized] = true;
 
-                    $matchedPlatform = null;
-                    foreach ($platformNames as $domain => $info) {
-                        if (str_contains($normalized, $domain)) {
-                            $matchedPlatform = $info;
-                            break;
-                        }
-                    }
+                    $providerName = \App\Services\Tickets\TicketProviderResolver::resolve($cleanUrl, $this->source_slug, $this->source?->name);
 
                     // If direct ticket URL is identical to official source URL and not on a recognized ticket platform,
                     // it is an official website link rather than a ticket purchase link.
-                    $isDuplicateSource = !$matchedPlatform && !empty($this->attributes['source_url']) && $cleanUrl === $this->attributes['source_url'];
+                    $isDuplicateSource = !$providerName && !empty($this->attributes['source_url']) && $cleanUrl === $this->attributes['source_url'];
 
                     if (!$isDuplicateSource) {
                         $links[] = [
                             'url' => $cleanUrl,
-                            'title' => $matchedPlatform ? $matchedPlatform['title'] : 'Biļetes',
-                            'label' => $matchedPlatform ? $matchedPlatform['label'] : 'Pirkt biļetes',
-                            'platform' => $matchedPlatform ? $matchedPlatform['platform'] : 'tickets',
+                            'title' => $providerName ?: 'Biļetes',
+                            'provider_name' => $providerName,
+                            'label' => \App\Services\Tickets\TicketProviderResolver::getLabel($cleanUrl, $providerName),
+                            'platform' => \App\Services\Tickets\TicketProviderResolver::getPlatformSlug($cleanUrl),
                         ];
                     }
                 }
@@ -566,17 +534,16 @@ class Event extends Model
                 $normalized = strtolower($cleanUrl);
                 if (isset($seenUrls[$normalized])) continue;
 
-                foreach ($platformNames as $domain => $info) {
-                    if (str_contains($normalized, $domain)) {
-                        $seenUrls[$normalized] = true;
-                        $links[] = [
-                            'url' => $cleanUrl,
-                            'title' => $info['title'],
-                            'label' => $info['label'],
-                            'platform' => $info['platform'],
-                        ];
-                        break;
-                    }
+                $providerName = \App\Services\Tickets\TicketProviderResolver::resolve($cleanUrl);
+                if ($providerName) {
+                    $seenUrls[$normalized] = true;
+                    $links[] = [
+                        'url' => $cleanUrl,
+                        'title' => $providerName,
+                        'provider_name' => $providerName,
+                        'label' => \App\Services\Tickets\TicketProviderResolver::getLabel($cleanUrl, $providerName),
+                        'platform' => \App\Services\Tickets\TicketProviderResolver::getPlatformSlug($cleanUrl),
+                    ];
                 }
             }
         }

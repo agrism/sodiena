@@ -246,7 +246,7 @@ HTML;
         $ticketLinks = $saved->ticket_links;
         $this->assertNotEmpty($ticketLinks);
         $this->assertEquals('eKase', $ticketLinks[0]['title']);
-        $this->assertEquals('Pirkt biļetes (eKase.lv)', $ticketLinks[0]['label']);
+        $this->assertEquals('Pirkt biļetes (eKase)', $ticketLinks[0]['label']);
         $this->assertEquals('ekase', $ticketLinks[0]['platform']);
         $this->assertEquals('https://ekase.lv/lv/events/view/310', $ticketLinks[0]['url']);
     }

@@ -374,9 +374,15 @@ class CanonicalProjectionService
         foreach ($allActiveSources as $as) {
             $url = trim((string) $as->ticket_url);
             if (!empty($url) && !isset($activeTicketLinks[$url])) {
+                $providerName = $as->provider_name ?? \App\Services\Tickets\TicketProviderResolver::resolve(
+                    $url,
+                    $as->source?->slug,
+                    $as->source?->name
+                );
                 $activeTicketLinks[$url] = [
                     'url' => $url,
-                    'title' => $as->source?->name ?: parse_url($url, PHP_URL_HOST),
+                    'title' => $providerName ?: 'Biļetes',
+                    'provider_name' => $providerName,
                 ];
             }
         }
