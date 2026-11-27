@@ -25,6 +25,10 @@ class EventIngestionService
 {
     public function ingest(Source $source): ScrapeLog
     {
+        if (config('sodiena.ingestion_v2_enabled', false)) {
+            return app(\App\Services\IngestionV2\EventIngestionV2Service::class)->ingestSource($source);
+        }
+
         if ((int) ini_get('memory_limit') < 512 && ini_get('memory_limit') !== '-1') {
             @ini_set('memory_limit', '512M');
         }
