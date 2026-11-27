@@ -598,4 +598,92 @@ class IngestionV2PipelineTest extends TestCase
             'source_id' => $source->id,
         ]);
     }
+
+    /**
+     * Test 9: Apollo Kino DTO with explicit language metadata ingestion in V2.
+     */
+    public function test_apollo_kino_dto_with_explicit_language_ingestion_v2(): void
+    {
+        $apolloSource = $this->createTestSource('apollo-kino', 'venue', [
+            'supports_reconciliation' => true,
+        ]);
+
+        $log = $this->createTestScrapeLog($apolloSource);
+        $start = Carbon::now()->addDays(2)->setTime(19, 30);
+
+        $dto = new ScrapedEventDTO(
+            title: 'Kāpa: Otrā daļa (IMAX 2D)',
+            startAt: $start,
+            venueName: 'Apollo Kino Akropole Rīga',
+            city: 'Rīga',
+            categoryNames: ['Kino', 'Piedzīvojumu filma'],
+            sourceExternalId: 'apollo_dune_123',
+            rawData: [
+                'language' => [
+                    'mode' => 'spoken',
+                    'spoken_languages' => ['en'],
+                    'subtitle_languages' => ['lv', 'ru'],
+                    'source' => 'explicit',
+                ],
+                'presentation_method' => 'IMAX 2D',
+                'auditorium' => '1. Auditorija',
+            ]
+        );
+
+        $summary = $this->ingestionV2->ingestCollection(collect([$dto]), $apolloSource, $log, true);
+
+        $this->assertEquals(0, count($summary->errors), 'Ingestion must not throw any errors (e.g. Class EventLanguageData not found)');
+        $this->assertEquals(1, $summary->itemsCreated);
+
+        $occ = EventOccurrence::whereHas('activeSources', fn ($q) => $q->where('source_external_id', 'apollo_dune_123'))->first();
+        $this->assertNotNull($occ);
+        $this->assertEquals(['en'], $occ->spoken_languages);
+        $this->assertEquals(['lv', 'ru'], $occ->subtitle_languages);
+        $this->assertEquals('explicit', $occ->language_source);
+        $this->assertEquals('IMAX 2D', $occ->presentation_format);
+        $this->assertEquals('1. Auditorija', $occ->auditorium);
+
+        $log->refresh();
+        $this->assertEquals('completed', $log->reconciliation_status);
+    }
+
+    /**
+     * Test 10: Reconciliation status reflects failure vs disabled vs completed accurately.
+     */
+    public function test_reconciliation_status_behavior_on_failure_and_disabled(): void
+    {
+        $source = $this->createTestSource('structured-cinema', 'venue', [
+            'supports_reconciliation' => true,
+        ]);
+
+        // Scenario 1: ScrapeLog status is 'failed' -> reconciliation_status must be 'failed'
+        $failedLog = $this->createTestScrapeLog($source);
+        $failedLog->status = 'failed';
+        $failedLog->save();
+
+        $this->reconciliation->reconcile($source, $failedLog, true);
+        $failedLog->refresh();
+        $this->assertEquals('failed', $failedLog->reconciliation_status);
+
+        // Scenario 2: Source supports_reconciliation is false -> reconciliation_status must be 'disabled'
+        $disabledSource = $this->createTestSource('unsupported-source', 'organizer', [
+            'supports_reconciliation' => false,
+        ]);
+        $successLog = $this->createTestScrapeLog($disabledSource);
+        $successLog->status = 'success';
+        $successLog->save();
+
+        $this->reconciliation->reconcile($disabledSource, $successLog, true);
+        $successLog->refresh();
+        $this->assertEquals('disabled', $successLog->reconciliation_status);
+
+        // Scenario 3: Source supports_reconciliation is true and scrape succeeded -> 'completed'
+        $successLog2 = $this->createTestScrapeLog($source);
+        $successLog2->status = 'success';
+        $successLog2->save();
+
+        $this->reconciliation->reconcile($source, $successLog2, true);
+        $successLog2->refresh();
+        $this->assertEquals('completed', $successLog2->reconciliation_status);
+    }
 }

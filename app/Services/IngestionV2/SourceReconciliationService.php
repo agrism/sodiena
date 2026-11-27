@@ -21,7 +21,15 @@ class SourceReconciliationService
     public function reconcile(Source $source, ScrapeLog $scrapeLog, bool $isFullFeedRun = true): void
     {
         // 1. Preconditions check
-        if (!$source->supports_reconciliation || !$isFullFeedRun || $scrapeLog->status !== 'success') {
+        // If scraper itself failed or was not fully successful, reconciliation must not run and status is 'failed'
+        if ($scrapeLog->status !== 'success') {
+            $scrapeLog->reconciliation_status = 'failed';
+            $scrapeLog->save();
+            return;
+        }
+
+        // If source does not support reconciliation or run was only partial/targeted, reconciliation is disabled
+        if (!$source->supports_reconciliation || !$isFullFeedRun) {
             $scrapeLog->reconciliation_status = 'disabled';
             $scrapeLog->save();
             return;

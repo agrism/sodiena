@@ -14,7 +14,7 @@ use App\Models\EventTranslation;
 use App\Models\OccurrenceSource;
 use App\Models\Source;
 use App\Services\EventLanguageService;
-use App\Services\Language\EventLanguageData;
+use App\DTO\EventLanguageData;
 use App\Services\Language\EventLanguageDetector;
 use App\Services\Scrapers\EventIngestionService;
 use Carbon\Carbon;

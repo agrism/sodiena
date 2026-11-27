@@ -179,6 +179,8 @@ class EventIngestionV2Service
                 $this->reconciliationService->reconcile($source, $scrapeLog, $isFullFeedRun);
                 $summary->itemsCancelled = (int) $scrapeLog->items_cancelled;
             } catch (\Throwable $recEx) {
+                $scrapeLog->reconciliation_status = 'failed';
+                $scrapeLog->save();
                 Log::error("IngestionV2: Reconciliation failed for source {$source->slug}: " . $recEx->getMessage(), [
                     'exception' => $recEx,
                 ]);
