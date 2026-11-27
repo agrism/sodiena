@@ -108,7 +108,7 @@
                                     </span>
                                 @endif
                             </span>
-                            @if(!$event->is_free && $event->formatted_price)
+                            @if(!$event->is_free && ($event->price_min !== null || $event->price_max !== null))
                                 <span class="font-bold text-slate-800 tabular-nums shrink-0">
                                     {{ $event->formatted_price }}
                                 </span>

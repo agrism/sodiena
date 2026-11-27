@@ -265,8 +265,10 @@ class ApolloKinoScraper extends BaseScraper
                 ? trim($movie['eventUrl'])
                 : (!empty($show['EventURL']) ? trim($show['EventURL']) : sprintf('%s/event/%d', self::BASE_URL, $eventId));
 
-            // Calculate ticket price range based on cinema, hall, 2D/3D and showtime
-            [$priceMin, $priceMax] = $this->calculateShowPrices($theatreId, $auditorium, $presentationMethod, $startAt, $priceMatrix);
+            // Apollo Kino published price sheets differ from dynamic websales checkout prices.
+            // Do not emit inaccurate matrix prices until direct checkout crawling is implemented.
+            $priceMin = null;
+            $priceMax = null;
 
             $seenExternalIds[$externalId] = true;
 

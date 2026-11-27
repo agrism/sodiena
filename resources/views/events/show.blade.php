@@ -189,18 +189,8 @@
                                                 </p>
                                             @endif
 
-                                            <div class="flex items-center justify-between gap-2 pt-1 border-t border-slate-100">
-                                                <span class="text-xs font-bold text-slate-700">
-                                                    @if($occ->is_free)
-                                                        <span class="text-emerald-700 font-extrabold uppercase text-[10px]">{{ __('Free') }}</span>
-                                                    @elseif($occ->price_min !== null)
-                                                        {{ number_format($occ->price_min, 2) }} €
-                                                    @else
-                                                        <span class="text-slate-400">{{ __('Biļete') }}</span>
-                                                    @endif
-                                                </span>
-
-                                                @if($occ->ticket_url)
+                                            @if($occ->ticket_url)
+                                                <div class="pt-1 border-t border-slate-100">
                                                     <a 
                                                         href="{{ $occ->ticket_url }}" 
                                                         data-act="ticket"
@@ -208,12 +198,16 @@
                                                         data-occurrence-id="{{ $occ->id }}"
                                                         target="_blank" 
                                                         rel="noopener noreferrer"
-                                                        class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs inline-flex items-center gap-1 shadow-xs transition-colors">
-                                                        <span>{{ __('Pirkt') }}</span>
+                                                        class="w-full py-1.5 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs inline-flex items-center justify-center gap-1.5 shadow-xs transition-colors">
+                                                        <span>{{ __('Pirkt biļeti') }}</span>
                                                         <i data-lucide="external-link" class="w-3 h-3"></i>
                                                     </a>
-                                                @endif
-                                            </div>
+                                                </div>
+                                            @elseif($occ->is_free)
+                                                <div class="pt-1 border-t border-slate-100 flex items-center justify-center">
+                                                    <span class="text-emerald-700 font-extrabold uppercase text-[10px] tracking-wider">{{ __('Free') }}</span>
+                                                </div>
+                                            @endif
                                         </div>
                                     @endforeach
                                 </div>

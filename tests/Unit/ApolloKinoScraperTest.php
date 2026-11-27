@@ -299,10 +299,8 @@ class ApolloKinoScraperTest extends TestCase
         $this->assertEquals('kino', $dto->entertainmentType);
         $this->assertEquals('https://www.apollokino.lv/websales/show/534330', $dto->ticketUrl);
         $this->assertEquals('show_534330', $dto->sourceExternalId);
-        $this->assertNotNull($dto->priceMin);
-        $this->assertNotNull($dto->priceMax);
-        $this->assertGreaterThan(0, $dto->priceMin);
-        $this->assertGreaterThanOrEqual($dto->priceMin, $dto->priceMax);
+        $this->assertNull($dto->priceMin);
+        $this->assertNull($dto->priceMax);
         $this->assertEquals('https://www.youtube.com/watch?v=vwN9rfJ1Pr4', $dto->rawData['trailer_url']);
         $this->assertEquals('https://www.youtube.com/watch?v=vwN9rfJ1Pr4', $dto->rawData['youtube_url']);
         $this->assertStringContainsString('Treileris: https://www.youtube.com/watch?v=vwN9rfJ1Pr4', $dto->description);
