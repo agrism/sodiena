@@ -53,9 +53,15 @@ class OccurrenceV2Resource extends JsonResource
 
                 $source = $os->source;
                 $sourceType = $source?->type instanceof SourceType ? $source->type : SourceType::OTHER;
+                $providerName = $os->provider_name ?? \App\Services\Tickets\TicketProviderResolver::resolve(
+                    $os->ticket_url,
+                    $source?->slug,
+                    $source?->name
+                );
+
                 $ticketOffers[] = [
                     'source_slug' => $source?->slug ?: 'source',
-                    'provider_name' => $source?->name ?: 'Biļešu tirgotājs',
+                    'provider_name' => $providerName,
                     'url' => $os->ticket_url,
                     'price_min' => $os->price_min !== null ? (float) $os->price_min : null,
                     'price_max' => $os->price_max !== null ? (float) $os->price_max : null,
@@ -67,9 +73,16 @@ class OccurrenceV2Resource extends JsonResource
 
         // Fallback: If no offers from activeSources but occurrence has ticket_url
         if (empty($ticketOffers) && !empty($this->ticket_url)) {
+            $src = $this->event?->primaryContentSource ?? $this->event?->source;
+            $providerName = \App\Services\Tickets\TicketProviderResolver::resolve(
+                $this->ticket_url,
+                $src?->slug,
+                $src?->name
+            );
+
             $ticketOffers[] = [
-                'source_slug' => $this->event?->primaryContentSource?->slug ?? $this->event?->source?->slug ?? 'direct',
-                'provider_name' => $this->event?->primaryContentSource?->name ?? $this->event?->source?->name ?? 'Biļetes',
+                'source_slug' => $src?->slug ?? 'direct',
+                'provider_name' => $providerName,
                 'url' => $this->ticket_url,
                 'price_min' => $this->price_min !== null ? (float) $this->price_min : null,
                 'price_max' => $this->price_max !== null ? (float) $this->price_max : null,

@@ -834,10 +834,17 @@ class EventIngestionV2Service
         OccurrenceSource $occSource,
         ScrapedEventDTO $dto,
         ScrapeLog $scrapeLog,
-        string $contentHash
+        string $contentHash,
+        ?Source $source = null
     ): void {
+        $sourceObj = $source ?? $occSource->source;
         $occSource->source_url = $dto->sourceUrl;
         $occSource->ticket_url = $dto->ticketUrl;
+        $occSource->provider_name = \App\Services\Tickets\TicketProviderResolver::resolve(
+            $dto->ticketUrl,
+            $sourceObj?->slug,
+            $sourceObj?->name
+        );
         $occSource->price_min = $dto->priceMin;
         $occSource->price_max = $dto->priceMax;
         $occSource->currency = $dto->currency ?: 'EUR';

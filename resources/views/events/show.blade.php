@@ -135,7 +135,7 @@
 
             <!-- Multi-Occurrence Schedule Block (v2) -->
             @if(!empty($activeOccurrences) && $activeOccurrences->count() > 1)
-                <div class="bg-white rounded-3xl p-5 sm:p-8 border border-slate-200/80 shadow-xs space-y-6">
+                <div id="occurrences-schedule" class="bg-white rounded-3xl p-5 sm:p-8 border border-slate-200/80 shadow-xs space-y-6 scroll-mt-24">
                     <div class="flex items-center justify-between pb-4 border-b border-slate-100">
                         <div class="flex items-center gap-2.5">
                             <div class="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200">
@@ -370,51 +370,54 @@
                     @else
                     @php
                         $ticketLinks = $event->tracked_ticket_links;
+                        $hasMultipleOccurrences = !empty($activeOccurrences) && $activeOccurrences->count() > 1;
                     @endphp
 
-                    @if(count($ticketLinks) > 1)
-                        <div class="space-y-2">
-                            <p class="text-[11px] text-slate-500 font-extrabold uppercase tracking-wider flex items-center gap-1.5">
-                                <i data-lucide="ticket" class="w-3.5 h-3.5 text-emerald-600"></i>
-                                <span>{{ __('Seansi un biļetes kinoteātros') }}</span>
-                            </p>
-                            <div class="grid grid-cols-1 gap-2">
-                                @foreach($ticketLinks as $tLink)
-                                    <a 
-                                        href="{{ $tLink['url'] }}" 
-                                        data-act="ticket"
-                                        data-event-id="{{ $event->id }}"
-                                        target="_blank" 
-                                        rel="noopener noreferrer"
-                                        class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-extrabold text-xs sm:text-sm flex items-center justify-between gap-2 hover:from-emerald-700 hover:to-teal-700 transition-all shadow-md shadow-emerald-600/20">
-                                        <span class="truncate">{{ $tLink['label'] }}</span>
-                                        <i data-lucide="external-link" class="w-4 h-4 shrink-0"></i>
-                                    </a>
-                                @endforeach
+                    @if(!$hasMultipleOccurrences)
+                        @if(count($ticketLinks) > 1)
+                            <div class="space-y-2">
+                                <p class="text-[11px] text-slate-500 font-extrabold uppercase tracking-wider flex items-center gap-1.5">
+                                    <i data-lucide="ticket" class="w-3.5 h-3.5 text-emerald-600"></i>
+                                    <span>{{ __('Seansi un biļetes kinoteātros') }}</span>
+                                </p>
+                                <div class="grid grid-cols-1 gap-2">
+                                    @foreach($ticketLinks as $tLink)
+                                        <a 
+                                            href="{{ $tLink['url'] }}" 
+                                            data-act="ticket"
+                                            data-event-id="{{ $event->id }}"
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-extrabold text-xs sm:text-sm flex items-center justify-between gap-2 hover:from-emerald-700 hover:to-teal-700 transition-all shadow-md shadow-emerald-600/20">
+                                            <span class="truncate">{{ $tLink['label'] }}</span>
+                                            <i data-lucide="external-link" class="w-4 h-4 shrink-0"></i>
+                                        </a>
+                                    @endforeach
+                                </div>
                             </div>
-                        </div>
-                    @elseif(count($ticketLinks) === 1)
-                        <a 
-                            href="{{ $ticketLinks[0]['url'] }}" 
-                            data-act="ticket"
-                            data-event-id="{{ $event->id }}"
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            class="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-extrabold text-sm flex items-center justify-center gap-2 hover:from-emerald-700 hover:to-teal-700 transition-all shadow-md shadow-emerald-600/20">
-                            <i data-lucide="external-link" class="w-4 h-4"></i>
-                            <span>{{ $ticketLinks[0]['label'] }}</span>
-                        </a>
-                    @elseif($event->ticket_url)
-                        <a 
-                            href="{{ $event->getTrackedTicketUrl() }}" 
-                            data-act="ticket"
-                            data-event-id="{{ $event->id }}"
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            class="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-extrabold text-sm flex items-center justify-center gap-2 hover:from-emerald-700 hover:to-teal-700 transition-all shadow-md shadow-emerald-600/20">
-                            <i data-lucide="external-link" class="w-4 h-4"></i>
-                            {{ __('Buy tickets') }}
-                        </a>
+                        @elseif(count($ticketLinks) === 1)
+                            <a 
+                                href="{{ $ticketLinks[0]['url'] }}" 
+                                data-act="ticket"
+                                data-event-id="{{ $event->id }}"
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                class="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-extrabold text-sm flex items-center justify-center gap-2 hover:from-emerald-700 hover:to-teal-700 transition-all shadow-md shadow-emerald-600/20">
+                                <i data-lucide="external-link" class="w-4 h-4"></i>
+                                <span>{{ $ticketLinks[0]['label'] }}</span>
+                            </a>
+                        @elseif($event->ticket_url)
+                            <a 
+                                href="{{ $event->getTrackedTicketUrl() }}" 
+                                data-act="ticket"
+                                data-event-id="{{ $event->id }}"
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                class="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-extrabold text-sm flex items-center justify-center gap-2 hover:from-emerald-700 hover:to-teal-700 transition-all shadow-md shadow-emerald-600/20">
+                                <i data-lucide="external-link" class="w-4 h-4"></i>
+                                {{ __('Buy tickets') }}
+                            </a>
+                        @endif
                     @endif
 
                     @if($event->source_url && $event->source_url !== $event->ticket_url && !in_array($event->source_url, array_column($ticketLinks, 'original_url', 'url')))

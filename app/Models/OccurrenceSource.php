@@ -16,6 +16,7 @@ class OccurrenceSource extends Model
         'source_external_id',
         'source_url',
         'ticket_url',
+        'provider_name',
         'price_min',
         'price_max',
         'currency',

@@ -284,14 +284,17 @@ class AfiroApiScraper extends BaseScraper
             if ($matchedPlatform) {
                 $canonicalTicket = EventIngestionService::canonicalizeTicketUrl($cleanUrl) ?: $cleanUrl;
                 if (!in_array($canonicalTicket, array_column($allTicketUrls, 'url'), true)) {
+                    $providerName = \App\Services\Tickets\TicketProviderResolver::resolve($canonicalTicket, 'afiro-api');
                     $allTicketUrls[] = [
                         'url' => $canonicalTicket,
                         'platform' => $matchedPlatform,
-                        'title' => $candidate['title'],
+                        'title' => $providerName ?: 'Biļetes',
+                        'provider_name' => $providerName,
                     ];
                     $ticketLinks[] = [
                         'url' => $canonicalTicket,
-                        'title' => $candidate['title'] ?? $matchedPlatform,
+                        'title' => $providerName ?: 'Biļetes',
+                        'provider_name' => $providerName,
                     ];
                 }
             } else {

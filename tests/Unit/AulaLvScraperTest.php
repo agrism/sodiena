@@ -286,8 +286,8 @@ HTML;
         // Verify ticket links recognize Aula platform and label
         $ticketLinks = $saved->ticket_links;
         $this->assertNotEmpty($ticketLinks);
-        $this->assertEquals('Aula.lv', $ticketLinks[0]['title']);
-        $this->assertEquals('Pirkt biļetes (Aula.lv)', $ticketLinks[0]['label']);
+        $this->assertEquals('Aula', $ticketLinks[0]['title']);
+        $this->assertEquals('Pirkt biļetes (Aula)', $ticketLinks[0]['label']);
         $this->assertEquals('aula', $ticketLinks[0]['platform']);
         $this->assertEquals('https://www.aula.lv/pasakumi/koru-koncerts-ar-latviju-sirdi?event=2497', $ticketLinks[0]['url']);
     }
